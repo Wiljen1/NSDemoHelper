@@ -668,6 +668,7 @@ function slugify(value) {
 function defaultScInstructions() {
   return [
     "Lead with the audience's business problem and desired outcome before showing screens.",
+    "Start with a short general or executive NetSuite overview, then move from the highest-value proof moments to supporting detail.",
     "Open with the biggest business hitters first: executive visibility, trusted numbers, cash control, close speed, auditability, and fewer spreadsheets.",
     "Use a crisp tell-show-tell rhythm: frame the point, show the shortest proof path, then land why it matters in plain language.",
     "Use NetSuite global search and the navigation bar as the primary way to move through the product.",
@@ -695,7 +696,9 @@ async function readScGuide() {
 
 async function readOrGenerateScGuide(manifest) {
   const existing = await readScGuide();
-  if (existing.includes("## Personalized Demo Story And Runbook") && existing.includes("## Demo Asset Generation Prompt")) {
+  if (existing.includes("## Personalized Demo Story And Runbook")
+    && existing.includes("## Demo Asset Generation Prompt")
+    && existing.includes("Narrative asset brief")) {
     return existing;
   }
 
@@ -920,12 +923,16 @@ function applyLearningRequest(manifest, body, company) {
   const inputMode = normalizeInputMode(body.inputMode);
   const valueIntensity = ["light", "balanced", "heavy"].includes(body.valueIntensity) ? body.valueIntensity : "balanced";
   const instructions = String(body.instructions || "").trim() || defaultScInstructions();
+  const demoScope = String(body.demoScope || "").trim();
   const rawPreDemoNotes = String(body.preDemoNotes || "").trim();
   const preDemoNotes = inputMode === "request-only" ? "" : rawPreDemoNotes;
   const rawTopic = String(body.topic || "").trim();
-  const topic = inputMode === "notes-only"
+  const inferredOrRequestedTopic = inputMode === "notes-only"
     ? inferDemoRequestFromNotes(preDemoNotes, company)
     : rawTopic || inferDemoRequestFromNotes(preDemoNotes, company);
+  const topic = demoScope && !inferredOrRequestedTopic.toLowerCase().includes(demoScope.toLowerCase())
+    ? `${inferredOrRequestedTopic} Demo scope: ${demoScope}.`
+    : inferredOrRequestedTopic;
   const voice = String(body.voice || "Moira").trim();
   const voiceProvider = normalizeVoiceProvider(body.voiceProvider);
   const audience = normalizeAudience(body.audience);
@@ -934,6 +941,7 @@ function applyLearningRequest(manifest, body, company) {
   const manifestDemoMode = normalizeManifestDemoMode(body.manifestDemoMode || body.demoMode);
   const demoStrategy = normalizeDemoStrategy(body.demoStrategy || body.strategy);
   const industry = normalizeIndustry(body.industry);
+  const flowPrinciples = demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry });
 
   const next = structuredClone(manifest);
   next.audience = `${audience.label} - ${marketSegment.label}`;
@@ -949,20 +957,23 @@ function applyLearningRequest(manifest, body, company) {
   next.context = next.context || {};
   next.context.company = company;
   next.context.preDemoNotes = preDemoNotes;
+  next.context.demoScope = demoScope;
   next.context.audience = audience;
   next.context.marketSegment = marketSegment;
   next.context.targetAudience = marketSegment;
   next.context.manifestDemoMode = manifestDemoMode;
   next.context.demoStrategy = demoStrategy;
   next.context.industry = industry;
+  next.context.demoPrep = flowPrinciples;
   next.context.outputLanguage = {
     ...outputLanguage,
     instruction: outputLanguageInstruction(outputLanguage)
   };
   next.context.audiencePlaybook = buildAudiencePlaybook(audience, marketSegment);
-  next.context.setupPlan = inferSetupPlan({ topic, preDemoNotes, instructions }, company, audience, marketSegment);
+  next.context.setupPlan = inferSetupPlan({ topic, preDemoNotes, instructions, demoScope }, company, audience, marketSegment);
   next.context.demoRequest = {
     topic,
+    demoScope,
     audience: audience.value,
     marketSegment: marketSegment.value,
     targetAudience: marketSegment.value,
@@ -982,7 +993,7 @@ function applyLearningRequest(manifest, body, company) {
     source: inputModeSource(inputMode),
     instructions,
     learnedAt: new Date().toISOString(),
-    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. ${audienceExecutionInstruction(audience, marketSegment)} ${demoStrategyInstruction(demoStrategy, industry)}`
+    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. Start with a short general or executive NetSuite overview, then order the demo from highest-value proof moments to supporting detail. Demo scope: ${demoScope || "Use the generated request and notes as scope."} ${audienceExecutionInstruction(audience, marketSegment)} ${demoStrategyInstruction(demoStrategy, industry)}`
   };
   next.context.navigationPolicy = {
     preferred: ["NetSuite global search", "NetSuite navigation bar"],
@@ -990,7 +1001,7 @@ function applyLearningRequest(manifest, body, company) {
     reportPolicy: "Use standard NetSuite reports for prospect-facing demos unless the user explicitly asks for a custom report."
   };
 
-  next.segments = next.segments.map((segment) => {
+  const mappedSegments = next.segments.map((segment) => {
     if (segment.id === "open-pl") {
       return {
         ...segment,
@@ -1080,8 +1091,103 @@ function applyLearningRequest(manifest, body, company) {
       narration: manifestDemoMode.id === "plain_demo" ? plainDemoNarration(segment) : prospectTone(segment.narration)
     };
   });
+  next.segments = prioritizeDemoSegments(ensureOpeningOverviewSegment(mappedSegments, {
+    company,
+    audience,
+    marketSegment,
+    demoScope,
+    manifestDemoMode,
+    demoStrategy,
+    industry,
+    flowPrinciples
+  }));
 
   return next;
+}
+
+function demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry }) {
+  const strategy = normalizeDemoStrategy(demoStrategy?.id || demoStrategy);
+  const industryPlaybook = normalizeIndustry(industry?.id || industry);
+  const scope = String(demoScope || "").trim();
+  const scopeLine = scope
+    ? `Stay inside this demo scope unless the SC deliberately branches: ${scope}.`
+    : "Use the demo request and discovery notes as scope; avoid adding modules or setup that were not requested.";
+
+  return {
+    scope: scope || "",
+    opening: "Start with a short general or executive NetSuite overview before the first detailed workflow.",
+    ordering: "Order the demo from strongest business impact to supporting detail: executive overview, trusted reporting, filters, drilldown, export, cash visibility, forecast controls, then close.",
+    scopeInstruction: scopeLine,
+    audienceInstruction: audienceExecutionInstruction(audience, marketSegment),
+    strategyInstruction: demoStrategyInstruction(strategy, industryPlaybook),
+    principles: [
+      "Start with the general NetSuite story and why the platform matters to leadership.",
+      "Show the highest-value proof moments before lower-level configuration or optional detail.",
+      "Use the stated demo scope as a hard planning input even when the notes do not mention it.",
+      "Keep standard NetSuite reports and navigation in the main path.",
+      "Defer lower-value or out-of-scope topics to Q&A or appendix."
+    ]
+  };
+}
+
+function ensureOpeningOverviewSegment(segments, context) {
+  const overview = executiveOverviewSegment(context);
+  const remaining = (segments || []).filter((segment) => segment.id !== overview.id);
+  return [overview, ...remaining];
+}
+
+function executiveOverviewSegment({ company, audience, marketSegment, demoScope, manifestDemoMode, demoStrategy, industry, flowPrinciples }) {
+  const companyName = company?.companyName || "the prospect";
+  const mode = normalizeManifestDemoMode(manifestDemoMode?.id || manifestDemoMode);
+  const strategy = normalizeDemoStrategy(demoStrategy?.id || demoStrategy);
+  const industryPlaybook = normalizeIndustry(industry?.id || industry);
+  const scopeLine = demoScope
+    ? ` Keep the live path inside this scope: ${demoScope}.`
+    : " Keep the live path focused on the generated request and the discovery-backed priorities.";
+  const narration = mode.id === "plain_demo"
+    ? `Before we open the first report, start with the executive view of NetSuite: one platform for finance visibility, operational control, and decisions. We will begin with the highest-value proof points, then move into the detail only where it helps the audience trust the flow.${scopeLine}`
+    : `Before we open the first report, frame the executive view for ${companyName}: NetSuite is the operating system where finance can see performance, prove the detail, and understand cash from one controlled place. We will start with the highest-value proof moments, then move into supporting detail.${scopeLine}`;
+
+  return {
+    id: "executive-overview",
+    title: "Frame The Executive NetSuite Overview",
+    objective: "Set up the general NetSuite platform story before opening detailed finance workflows.",
+    valueStatement: `${companyName} first sees why NetSuite matters at the executive level: visibility, control, trusted numbers, and a clear path from performance to cash decisions.`,
+    narration,
+    actions: [
+      {
+        type: "note",
+        text: `Executive overview. Audience: ${audience.label}. Target: ${marketSegment.label}. Strategy: ${strategy.label}. Industry: ${industryPlaybook.label}. ${flowPrinciples?.scopeInstruction || ""}`
+      },
+      { type: "wait", ms: 400 }
+    ],
+    verifications: []
+  };
+}
+
+function prioritizeDemoSegments(segments) {
+  const preferredOrder = new Map([
+    ["executive-overview", 0],
+    ["open-pl", 10],
+    ["pl-executive-readout", 20],
+    ["pl-filters", 30],
+    ["pl-drilldown", 40],
+    ["pl-export-options", 50],
+    ["open-cash360-dashboard", 60],
+    ["cash360-actions", 70],
+    ["cash360-forecast", 80],
+    ["cash360-preferences", 90],
+    ["close", 100]
+  ]);
+
+  return (segments || [])
+    .map((segment, index) => ({ segment, index }))
+    .sort((left, right) => {
+      const leftRank = preferredOrder.get(left.segment.id) ?? 500 + left.index;
+      const rightRank = preferredOrder.get(right.segment.id) ?? 500 + right.index;
+      return leftRank === rightRank ? left.index - right.index : leftRank - rightRank;
+    })
+    .map((item) => item.segment);
 }
 
 function normalizeInputMode(value) {
@@ -1354,7 +1460,7 @@ function uniqueItems(items) {
 }
 
 function inferSetupPlan(source, company, audience, marketSegment) {
-  const combined = `${source.topic || ""}\n${source.preDemoNotes || ""}\n${source.instructions || ""}`.toLowerCase();
+  const combined = `${source.topic || ""}\n${source.preDemoNotes || ""}\n${source.instructions || ""}\n${source.demoScope || ""}`.toLowerCase();
   const requestedCreate = /(create|setup|set up|configure|build|prepare|seed|sample|demo data|test data|record|transaction|import|upload)/.test(combined);
   const excludesPurchaseOrders = /(don['’]?t operate with po|do not operate with po|no po['’]?s|no purchase orders|without purchase orders|not using purchase orders)/.test(combined);
   const items = [];
@@ -1374,6 +1480,9 @@ function inferSetupPlan(source, company, audience, marketSegment) {
   if (/(subsidiary|entity|consolidat|multi.?entity)/.test(combined)) add("configuration", "subsidiary or entity demo context", "needed to demonstrate multi-entity filtering or consolidation");
   if (/(saved search|dashboard|kpi|portlet|report customization)/.test(combined)) add("configuration", "demo dashboard/search/report view", "needed if the demo requires a prepared view beyond standard reports");
   if (/(role|permission|approval|workflow|segregation)/.test(combined)) add("configuration", "role/permission or approval setup", "needed if the story requires controls, approvals, or role-based access", "high");
+  if (/(fixed asset|fixed assets|asset management|depreciation|intangible asset)/.test(combined)) add("configuration", "fixed assets demo context", "needed if fixed assets are in scope for the personalized story or setup prompt");
+  if (/(fp&a|fpa|planning|budget|budgeting|forecast planning)/.test(combined)) add("configuration", "planning and budgeting demo context", "needed if FP&A, budgets, or planning are in scope for the demo");
+  if (/(service sku|services sku|services first|financials first|service item|project profitability)/.test(combined)) add("item", "services SKU or project demo context", "needed if the scoped demo should show services-led financials or project profitability");
 
   const needsSetup = requestedCreate || items.length > 0;
   return {
@@ -1570,7 +1679,8 @@ function setupPromptPayload(manifest) {
   const setupPlan = manifest.context?.setupPlan || inferSetupPlan({
     topic: manifest.context?.demoRequest?.topic,
     preDemoNotes: manifest.context?.preDemoNotes,
-    instructions: manifest.context?.demoRequest?.instructions
+    instructions: manifest.context?.demoRequest?.instructions,
+    demoScope: manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope
   }, manifest.context?.company || {}, normalizeAudience(manifest.context?.audience?.value), normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value));
   const prompt = generateSetupPrompt(manifest, account, setupPlan);
 
@@ -1590,6 +1700,8 @@ function generateSetupPrompt(manifest, account, setupPlan) {
   const outputLanguage = normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
   const demoStrategy = normalizeDemoStrategy(manifest.context?.demoStrategy?.id || manifest.context?.demoRequest?.demoStrategy || manifest.defaults?.demoStrategy);
   const industry = normalizeIndustry(manifest.context?.industry?.id || manifest.context?.demoRequest?.industry || manifest.defaults?.industry);
+  const demoScope = String(manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || "").trim();
+  const flowPrinciples = manifest.context?.demoPrep || demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry });
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   const items = setupPlan.items?.length
     ? setupPlan.items.map((item, index) => `${index + 1}. ${item.label} (${item.type}, ${item.risk} risk): ${item.reason}`).join("\n")
@@ -1623,6 +1735,9 @@ DEMO CONTEXT
 - Industry playbook: ${industry.label}
 - Industry instruction: ${industryInstruction(industry)}
 - Output language: ${outputLanguage.label}
+- Demo scope: ${demoScope || "Not specified"}
+- Demo prep order: ${flowPrinciples.ordering}
+- Scope rule: ${flowPrinciples.scopeInstruction}
 - Audience interests: ${playbook.interests?.join(", ") || "trusted reporting and cash visibility"}
 - Include in demo: ${playbook.includeInDemo?.join(", ") || "strong proof points"}
 - Avoid in demo: ${playbook.avoidInDemo?.join(", ") || "low-value distractions"}
@@ -1640,11 +1755,13 @@ TASK
 2. Confirm the visible account, role, and logged-in state.
 3. Inspect whether the setup items already exist.
 4. Produce a short gap list: existing, missing, risky, and not required.
-5. Ask for confirmation before creating anything.
-6. After confirmation, create only the approved demo data/configuration.
-7. Prefer standard NetSuite objects and standard reports.
-8. Avoid custom reports unless explicitly required by the approved setup.
-9. When finished, summarize exactly what was created, where it can be found, and what demo segment uses it.
+5. Treat the demo scope as a planning rule even if it is not repeated in the notes.
+6. Ask for confirmation before creating anything.
+7. After confirmation, create only the approved demo data/configuration.
+8. Prefer standard NetSuite objects and standard reports.
+9. Keep setup aligned to the value-first demo order: executive overview, standard reporting, proof detail, cash visibility, then lower-value supporting controls.
+10. Avoid custom reports unless explicitly required by the approved setup.
+11. When finished, summarize exactly what was created, where it can be found, and what demo segment uses it.
 `;
 }
 
@@ -1662,6 +1779,7 @@ async function writeScGuide(manifest, body, company) {
 function generateScGuide(manifest, body, company) {
   const instructions = String(body.instructions || "").trim() || defaultScInstructions();
   const notes = String(body.preDemoNotes || "").trim() || "No additional pre-demo notes were provided.";
+  const demoScope = String(body.demoScope || manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || "").trim();
   const companyName = company.companyName || "The prospect";
   const audience = normalizeAudience(body.audience || manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
   const marketSegment = normalizeMarketSegment(body.marketSegment || manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
@@ -1670,10 +1788,12 @@ function generateScGuide(manifest, body, company) {
   const demoStrategy = normalizeDemoStrategy(body.demoStrategy || manifest.context?.demoStrategy?.id || manifest.context?.demoRequest?.demoStrategy || manifest.defaults?.demoStrategy);
   const industry = normalizeIndustry(body.industry || manifest.context?.industry?.id || manifest.context?.demoRequest?.industry || manifest.defaults?.industry);
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
+  const flowPrinciples = manifest.context?.demoPrep || demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry });
   const setupPlan = manifest.context?.setupPlan || inferSetupPlan({
     topic: manifest.context?.demoRequest?.topic,
     preDemoNotes: manifest.context?.preDemoNotes,
-    instructions
+    instructions,
+    demoScope
   }, company, audience, marketSegment);
   const account = accountContext(manifest);
   const inputModeLabels = {
@@ -1695,7 +1815,9 @@ function generateScGuide(manifest, body, company) {
     outputLanguage,
     manifestDemoMode,
     demoStrategy,
-    industry
+    industry,
+    demoScope,
+    flowPrinciples
   });
   const assetPrompt = demoAssetPromptText({
     companyName,
@@ -1710,7 +1832,9 @@ function generateScGuide(manifest, body, company) {
     manifestDemoMode,
     demoStrategy,
     industry,
-    demoRequest: manifest.context?.demoRequest?.topic || "Not provided"
+    demoRequest: manifest.context?.demoRequest?.topic || "Not provided",
+    demoScope,
+    flowPrinciples
   });
 
   return `# SC Demo Guide: ${companyName}
@@ -1733,6 +1857,9 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 - Output language: ${outputLanguage.label}
 - Language guidance: ${outputLanguageInstruction(outputLanguage)}
 - Demo input: ${inputMode}
+- Demo scope: ${demoScope || "Not specified. Keep the scope to the generated manifest and the SC's live judgement."}
+- Demo prep order: ${flowPrinciples.ordering}
+- Scope rule: ${flowPrinciples.scopeInstruction}
 - Demo angle: ${playbook.demoBias}
 - Likely interests: ${playbook.interests.join(", ")}
 - Include in demo: ${playbook.includeInDemo.join(", ")}
@@ -1762,6 +1889,7 @@ ${storyRunbook}
 
 - Website: ${company.url || "Not provided"}
 - Website signal: ${company.description || company.title || "No website summary available"}
+- Demo scope: ${demoScope || "Not specified"}
 - Likely priorities: ${priorities.join(", ") || "trusted reporting, cash visibility, drilldown"}
 - Industry signals: ${signals.join(", ") || "financial visibility and operational control"}
 
@@ -1824,7 +1952,9 @@ function guideContextFromManifest(manifest) {
   const manifestDemoMode = normalizeManifestDemoMode(manifest.context?.manifestDemoMode?.id || manifest.context?.demoRequest?.manifestDemoMode || manifest.defaults?.manifestDemoMode);
   const demoStrategy = normalizeDemoStrategy(manifest.context?.demoStrategy?.id || manifest.context?.demoRequest?.demoStrategy || manifest.defaults?.demoStrategy);
   const industry = normalizeIndustry(manifest.context?.industry?.id || manifest.context?.demoRequest?.industry || manifest.defaults?.industry);
+  const demoScope = String(manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || "").trim();
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
+  const flowPrinciples = manifest.context?.demoPrep || demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry });
   return {
     companyName: company.companyName || "The prospect",
     audience,
@@ -1834,6 +1964,8 @@ function guideContextFromManifest(manifest) {
     industry,
     outputLanguage,
     playbook,
+    demoScope,
+    flowPrinciples,
     priorities: company.likelyPriorities || [],
     signals: company.industrySignals || [],
     notes: manifest.context?.preDemoNotes || "No additional pre-demo notes were provided.",
@@ -1871,10 +2003,11 @@ function normalDemoFlowText(segments) {
     .join("\n\n");
 }
 
-function scStoryRunbookText({ companyName, audience, marketSegment, playbook, priorities, segments, outputLanguage, manifestDemoMode, demoStrategy, industry }) {
+function scStoryRunbookText({ companyName, audience, marketSegment, playbook, priorities, segments, outputLanguage, manifestDemoMode, demoStrategy, industry, demoScope, flowPrinciples }) {
   const mode = normalizeManifestDemoMode(manifestDemoMode?.id || manifestDemoMode);
   const strategy = normalizeDemoStrategy(demoStrategy?.id || demoStrategy);
   const industryPlaybook = normalizeIndustry(industry?.id || industry);
+  const prepPrinciples = flowPrinciples || demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy: strategy, industry: industryPlaybook });
   const story = mode.id === "plain_demo"
     ? plainDemoFlowText({ companyName, audience, marketSegment, playbook, priorities })
     : personalizedStoryFlowText({ companyName, audience, marketSegment, playbook, priorities, segments });
@@ -1901,6 +2034,12 @@ function scStoryRunbookText({ companyName, audience, marketSegment, playbook, pr
 ${story}
 
 Exact runbook:
+
+Demo prep rules:
+
+- ${prepPrinciples.opening}
+- ${prepPrinciples.ordering}
+- ${prepPrinciples.scopeInstruction}
 
 ${runbook}
 
@@ -1933,63 +2072,55 @@ function plainDemoFlowText({ audience, marketSegment, playbook, priorities }) {
 The audience is still ${audience.label.toLowerCase()} in a ${marketSegment.label.toLowerCase()} context, so emphasize ${joinHuman(playbook.interests.slice(0, 4)) || joinHuman((priorities || []).slice(0, 4)) || "trusted reporting, usable workflows, and cash visibility"}. Keep persona references light. The aim is a clean, reusable demo path an SC can run for many customers without rewriting the manifest.`;
 }
 
-function demoAssetPromptText({ companyName, audience, marketSegment, playbook, priorities, signals, segments, outputLanguage, notes, manifestDemoMode, demoStrategy, industry, demoRequest }) {
+function demoAssetPromptText({ companyName, audience, marketSegment, playbook, priorities, signals, segments, outputLanguage, notes, manifestDemoMode, demoStrategy, industry, demoRequest, demoScope, flowPrinciples }) {
   const mode = normalizeManifestDemoMode(manifestDemoMode?.id || manifestDemoMode);
   const strategy = normalizeDemoStrategy(demoStrategy?.id || demoStrategy);
   const industryPlaybook = normalizeIndustry(industry?.id || industry);
+  const prepPrinciples = flowPrinciples || demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy: strategy, industry: industryPlaybook });
   const persona = demoPersonaFor(audience, marketSegment);
-  const keySegments = segments
+  const storySegments = segments
     .filter((segment) => ["open-pl", "pl-drilldown", "open-cash360-dashboard", "cash360-forecast", "close"].includes(segment.id))
     .map((segment) => `- ${segment.title}: ${segment.valueStatement || segment.objective || segment.title}`)
     .join("\n");
 
-  return `Use this prompt to create supporting demo assets or a PowerPoint section for the SC.
+  return `Narrative asset brief
 
 PROMPT
 
-You are creating demo support assets for a NetSuite finance demo.
+Create a short PowerPoint support section for the SC demo. It should align to the personalized SC story and bring the persona to life. Do not turn the deck into a detailed requirements document. The live NetSuite demo remains the proof; the slides should make the human story easy to remember.
 
-Context:
+Story setup:
 - Company/prospect: ${companyName || "The prospect"}
 - Audience type: ${audience.label}
 - Target audience: ${marketSegment.label}
-- Manifest demo option: ${mode.label}
 - Demo strategy: ${strategy.label}
 - Industry playbook: ${industryPlaybook.label}
-- Persona: ${mode.id === "plain_demo" ? "Optional. Use a light finance-team persona only if it helps the slide story." : `${persona.name}, ${persona.role}`}
-- Persona question: ${mode.id === "plain_demo" ? "How does the standard NetSuite finance flow prove reporting, drilldown, export, and cash visibility?" : persona.question}
+- Manifest demo option: ${mode.label}
 - Demo request: ${demoRequest || "Finance demo from P&L to Cash 360"}
+- Demo scope: ${demoScope || "Use only the generated manifest and discovery-backed priorities as scope."}
+- Persona: ${mode.id === "plain_demo" ? "Use a light finance-team persona, not a named customer character." : `${persona.name}, ${persona.role}`}
+- Persona pressure: ${mode.id === "plain_demo" ? "They are trying to understand performance and cash without drowning in spreadsheets." : persona.question}
 - Likely priorities: ${joinHuman((priorities || []).slice(0, 5)) || "trusted reporting, faster finance decisions, and cash visibility"}
-- Industry signals: ${(signals || []).join(", ") || "financial visibility and operational control"}
-- Industry terms to weave in: ${joinHuman(industryPlaybook.terminology.slice(0, 5))}
-- Industry KPIs to consider: ${joinHuman(industryPlaybook.kpis.slice(0, 5))}
-- Strategy tone: ${strategy.tone}; pacing: ${strategy.pacing}; technical depth: ${strategy.technicalDepth}
-- Pre-demo notes: ${notes || "No pre-demo notes provided"}
+- Industry cues: ${joinHuman((signals || []).slice(0, 3)) || joinHuman(industryPlaybook.terminology.slice(0, 3)) || "financial visibility and operational control"}
+- Prep order: ${prepPrinciples.ordering}
+- Scope rule: ${prepPrinciples.scopeInstruction}
 - Output language: ${normalizeOutputLanguage(outputLanguage?.value || outputLanguage).label}
 
-Create a 5 to 7 slide mini-deck or reusable slide assets that support the live product demo. The deck should not replace the NetSuite demo. ${mode.id === "plain_demo" ? "Keep it product-led and reusable: set up the finance flow, show the before/after process, and help the SC transition into the live system." : "It should set up the story, introduce the persona, make the problem visible, and help the SC transition into the live system."}
+Create 5 slides:
+1. Persona under pressure: show the person trying to close the books, answer leadership, or defend the numbers while data is split across tools and spreadsheets.
+2. Why it hurts: make the business tension visible in one scene, using ${joinHuman(playbook.interests.slice(0, 3)) || "the audience priorities"}.
+3. Turning point: NetSuite gives the persona a general executive view first, then a trusted finance path.
+4. Live demo journey: use simple placeholders for the product proof moments, in this order:
+${storySegments || "- Executive overview\n- Standard income statement\n- Filters\n- Drilldown\n- Export\n- Cash 360\n- Forecast controls"}
+5. Resolution: the persona can close with more confidence, explain the numbers, and move from reporting to decisions.
 
-Required slides:
-1. ${mode.id === "plain_demo" ? "Demo objective slide: state the finance flow the SC will prove and the audience outcomes it supports." : `Persona slide: introduce ${persona.name}, their role, their pressure, and the question they need answered.`}
-2. Current-state pain slide: show the finance problem before NetSuite, using ${joinHuman(playbook.interests.slice(0, 3)) || "the audience priorities"}.
-3. Demo journey slide: map the live demo from standard income statement to filters, drilldown, export, Cash 360, and forecast controls.
-4. Proof moments slide: show what the SC must prove during the product demo.
-${keySegments || "- Use the manifest segments as the proof moments."}
-5. Outcome slide: summarize the operating rhythm after the demo: trusted performance reporting, traceable detail, and forward-looking cash visibility.
-
-Stock image and visual direction:
-- Persona image: ${mode.id === "plain_demo" ? "optional. If used, choose a realistic finance-team persona rather than a named customer character." : `professional, realistic business portrait for ${persona.name}, suitable for ${audience.label.toLowerCase()} stakeholders.`}
-- Team image: finance team reviewing performance and cash planning, realistic office or hybrid work setting.
-- Visual metaphor: connected finance flow from reporting to decisions, avoiding generic abstract gradients.
-- Screenshot placeholders: leave clearly marked placeholders for NetSuite screenshots captured during rehearsal. Do not invent product screenshots.
-- Icons: use simple finance, reporting, drilldown, export, and cash forecast icons.
-
-Design rules:
-- Keep it practical and SC-ready.
-- Match a ${marketSegment.label.toLowerCase()} audience and a ${audience.label.toLowerCase()} conversation.
-- Include what the audience should feel, what the SC should say, and where to transition into the live demo.
+Asset direction:
+- Use one consistent realistic persona throughout the deck so the audience follows one human story.
+- Include 2 to 3 supporting stock-image prompts for the persona: under pressure, collaborating with finance/IT, and confident after the issue is solved.
+- Include light slide notes for the SC: what to say, what feeling to land, and when to switch into the live NetSuite demo.
+- Leave placeholders for real NetSuite screenshots captured during rehearsal. Do not invent product screenshots.
+- Keep it clean, executive-friendly, and easy to present in 5 minutes.
 - Avoid ${joinHuman(playbook.avoidInDemo.slice(0, 5)) || "feature dumping and generic claims"}.
-- Preserve NetSuite names and report labels exactly when they refer to UI elements.
 - ${outputLanguageInstruction(outputLanguage)}`;
 }
 
@@ -2181,7 +2312,12 @@ function demoIntelligenceContext(manifest) {
     manifest.name,
     manifest.audience,
     manifest.context?.demoRequest?.topic,
+    manifest.context?.demoScope,
+    manifest.context?.demoRequest?.demoScope,
     manifest.context?.demoRequest?.instructions,
+    manifest.context?.demoPrep?.opening,
+    manifest.context?.demoPrep?.ordering,
+    manifest.context?.demoPrep?.scopeInstruction,
     manifest.context?.preDemoNotes,
     company.companyName,
     company.description,
@@ -2206,6 +2342,7 @@ function demoIntelligenceContext(manifest) {
     segments,
     actions,
     text,
+    demoScope: String(manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || ""),
     notes: String(manifest.context?.preDemoNotes || ""),
     topic: String(manifest.context?.demoRequest?.topic || ""),
     playbook: audiencePlaybookFor(manifest, audience, marketSegment),
@@ -3331,7 +3468,7 @@ function html(response) {
     .prep-grid {
       grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr);
       grid-template-areas:
-        "instructions instructions"
+        "instructions scope"
         "audience voice"
         "audience narrator"
         "audience actions"
@@ -3339,6 +3476,7 @@ function html(response) {
       align-items: start;
     }
     .prep-instructions { grid-area: instructions; }
+    .prep-scope { grid-area: scope; }
     .prep-audience { grid-area: audience; }
     .prep-voice { grid-area: voice; }
     .prep-narrator { grid-area: narrator; }
@@ -3662,6 +3800,7 @@ function html(response) {
         grid-template-columns: 1fr;
         grid-template-areas:
           "instructions"
+          "scope"
           "audience"
           "voice"
           "narrator"
@@ -3697,7 +3836,14 @@ function html(response) {
         <div class="panel prep-instructions">
           <h2>SC Demo Instructions</h2>
           <label for="instructions">What the demo generator should always do and avoid</label>
-          <textarea id="instructions" style="min-height:120px">${escapeHtml(defaultScInstructions())}</textarea>
+          <textarea id="instructions" style="min-height:95px">${escapeHtml(defaultScInstructions())}</textarea>
+        </div>
+
+        <div class="panel prep-scope">
+          <h2>Demo Scope</h2>
+          <label for="demoScope">What should this demo cover?</label>
+          <textarea id="demoScope" style="min-height:95px" placeholder="Example: financials first services SKU, P2P phase 2, fixed assets, FP&A, advanced inventory."></textarea>
+          <p class="hint">This is treated as a planning rule even when the notes do not mention it.</p>
         </div>
 
         <div class="panel prep-audience">
@@ -4005,6 +4151,7 @@ function html(response) {
     const manifestDemoModeHint = document.getElementById("manifestDemoModeHint");
     const outputLanguageSelect = document.getElementById("outputLanguage");
     const nightModeToggle = document.getElementById("nightMode");
+    const demoScopeField = document.getElementById("demoScope");
     const topicField = document.getElementById("topic");
     const preDemoNotesField = document.getElementById("preDemoNotes");
     const buttonHelpTooltip = document.getElementById("buttonHelpTooltip");
@@ -4144,6 +4291,7 @@ function html(response) {
         if (payload.manifest.context?.demoRequest?.instructions) {
           document.getElementById("instructions").value = payload.manifest.context.demoRequest.instructions;
         }
+        demoScopeField.value = payload.manifest.context?.demoScope || payload.manifest.context?.demoRequest?.demoScope || "";
         if (payload.manifest.context?.demoRequest?.topic) {
           topicField.value = inputModeSelect.value === "notes-only" ? "" : payload.manifest.context.demoRequest.topic;
         }
@@ -4649,6 +4797,7 @@ function html(response) {
               marketSegment: selectedMarketSegment(),
               outputLanguage: outputLanguageSelect.value,
               instructions: document.getElementById("instructions").value,
+              demoScope: demoScopeField.value,
               companyUrl: document.getElementById("companyUrl").value,
               preDemoNotes: preDemoNotesField.value,
               valueIntensity: document.getElementById("intensity").value,
