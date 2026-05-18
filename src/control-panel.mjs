@@ -38,6 +38,10 @@ const outputLanguages = {
   es: { value: "es", label: "Spanish" }
 };
 
+const defaultAudienceType = "prospect";
+const defaultTargetAudience = "mid_market";
+const defaultOutputLanguage = "en";
+
 const manifestDemoModes = [
   {
     id: "plain_demo",
@@ -832,7 +836,7 @@ function normalizeOutputLanguage(value) {
   const raw = String(value || "").trim().toLowerCase();
   if (outputLanguages[raw]) return outputLanguages[raw];
   const byLabel = Object.values(outputLanguages).find((language) => language.label.toLowerCase() === raw);
-  return byLabel || outputLanguages.en;
+  return byLabel || outputLanguages[defaultOutputLanguage];
 }
 
 function normalizeManifestDemoMode(value) {
@@ -853,6 +857,13 @@ function outputLanguageInstruction(language) {
 function selectOptionsHtml(items, selectedId) {
   return items
     .map((item) => `<option value="${escapeHtml(item.id)}"${item.id === selectedId ? " selected" : ""}>${escapeHtml(item.label)}</option>`)
+    .join("\n");
+}
+
+function languageOptionsHtml(selectedValue = defaultOutputLanguage) {
+  const normalized = normalizeOutputLanguage(selectedValue).value;
+  return Object.values(outputLanguages)
+    .map((language) => `<option value="${escapeHtml(language.value)}"${language.value === normalized ? " selected" : ""}>${escapeHtml(language.label)}</option>`)
     .join("\n");
 }
 
@@ -883,7 +894,7 @@ function inferDemoRequestFromNotes(preDemoNotes, company) {
 }
 
 function normalizeAudience(value) {
-  const config = resolveAudienceConfig(demoAudienceConfiguration.audienceTypes, value, "prospect", {
+  const config = resolveAudienceConfig(demoAudienceConfiguration.audienceTypes, value, defaultAudienceType, {
     "existing-customer": "customer",
     "already-existing-customer": "customer",
     "already existing customer": "customer",
@@ -896,7 +907,7 @@ function normalizeAudience(value) {
 }
 
 function normalizeMarketSegment(value) {
-  const config = resolveAudienceConfig(demoAudienceConfiguration.targetAudiences, value, "mid_market", {
+  const config = resolveAudienceConfig(demoAudienceConfiguration.targetAudiences, value, defaultTargetAudience, {
     "mid-market": "mid_market",
     midmarket: "mid_market",
     "emerging-smb": "emerging",
@@ -2757,13 +2768,13 @@ function html(response) {
           <h2>Demo Audience</h2>
           <label for="audience">Audience type</label>
           <select id="audience">
-            ${selectOptionsHtml(demoAudienceConfiguration.audienceTypes, "prospect")}
+            ${selectOptionsHtml(demoAudienceConfiguration.audienceTypes, defaultAudienceType)}
           </select>
           <p class="hint" id="audienceHint"></p>
 
           <label for="marketSegment">Target audience</label>
           <select id="marketSegment">
-            ${selectOptionsHtml(demoAudienceConfiguration.targetAudiences, "mid_market")}
+            ${selectOptionsHtml(demoAudienceConfiguration.targetAudiences, defaultTargetAudience)}
           </select>
           <p class="hint" id="targetAudienceHint"></p>
 
@@ -2785,11 +2796,7 @@ function html(response) {
 
           <label for="outputLanguage">Output language</label>
             <select id="outputLanguage">
-              <option value="en" selected>English</option>
-              <option value="nl">Dutch</option>
-              <option value="de">German</option>
-              <option value="fr">French</option>
-              <option value="es">Spanish</option>
+              ${languageOptionsHtml(defaultOutputLanguage)}
             </select>
 
             <label for="topic">Demo request</label>
@@ -2970,6 +2977,10 @@ function html(response) {
     const audienceTypeConfig = ${JSON.stringify(demoAudienceConfiguration.audienceTypes)};
     const targetAudienceConfig = ${JSON.stringify(demoAudienceConfiguration.targetAudiences)};
     const manifestDemoModeConfig = ${JSON.stringify(manifestDemoModes)};
+    const outputLanguageConfig = ${JSON.stringify(Object.values(outputLanguages))};
+    const defaultAudienceType = ${JSON.stringify(defaultAudienceType)};
+    const defaultTargetAudience = ${JSON.stringify(defaultTargetAudience)};
+    const defaultOutputLanguage = ${JSON.stringify(defaultOutputLanguage)};
     let runInProgress = false;
     let latestSetupPrompt = null;
     let helpTimer = null;
@@ -3074,10 +3085,10 @@ function html(response) {
       renderGuideOutputs(payload.guide || "", payload.guideOutputs);
       renderSetupPrompt(payload.setupPrompt);
       if (payload.manifest) {
-          setAudience(payload.manifest.context?.audience?.value || payload.manifest.context?.demoRequest?.audience || payload.manifest.audience);
-          setMarketSegment(payload.manifest.context?.targetAudience?.value || payload.manifest.context?.marketSegment?.value || payload.manifest.context?.demoRequest?.targetAudience || payload.manifest.context?.demoRequest?.marketSegment || "mid_market");
+          setAudience(payload.manifest.context?.audience?.value || payload.manifest.context?.demoRequest?.audience || payload.manifest.audience || defaultAudienceType);
+          setMarketSegment(payload.manifest.context?.targetAudience?.value || payload.manifest.context?.marketSegment?.value || payload.manifest.context?.demoRequest?.targetAudience || payload.manifest.context?.demoRequest?.marketSegment || defaultTargetAudience);
           setManifestDemoMode(payload.manifest.context?.manifestDemoMode?.id || payload.manifest.context?.demoRequest?.manifestDemoMode || payload.manifest.defaults?.manifestDemoMode || "customer_story");
-          outputLanguageSelect.value = payload.manifest.context?.outputLanguage?.value || payload.manifest.context?.demoRequest?.outputLanguage || payload.manifest.defaults?.outputLanguage || "en";
+          setOutputLanguage(payload.manifest.context?.outputLanguage?.value || payload.manifest.context?.demoRequest?.outputLanguage || payload.manifest.defaults?.outputLanguage || defaultOutputLanguage);
           inputModeSelect.value = payload.manifest.context?.demoRequest?.inputMode || "request-and-notes";
           const manifestVoiceProvider = payload.manifest.defaults?.audio?.provider || "say";
           if (voiceProviderSelect.value !== manifestVoiceProvider) {
@@ -3131,7 +3142,7 @@ function html(response) {
     }
 
     function setAudience(value) {
-      audienceSelect.value = normalizeUiAudience(value, audienceTypeConfig, "prospect", {
+      audienceSelect.value = normalizeUiAudience(value, audienceTypeConfig, defaultAudienceType, {
         "existing-customer": "customer",
         "already-existing-customer": "customer",
         "marketing-audience": "marketing",
@@ -3141,7 +3152,7 @@ function html(response) {
     }
 
     function setMarketSegment(value) {
-      targetAudienceSelect.value = normalizeUiAudience(value, targetAudienceConfig, "mid_market", {
+      targetAudienceSelect.value = normalizeUiAudience(value, targetAudienceConfig, defaultTargetAudience, {
         "mid-market": "mid_market",
         midmarket: "mid_market",
         "public-sector": "public_sector",
@@ -3152,7 +3163,11 @@ function html(response) {
     }
 
     function selectedMarketSegment() {
-      return targetAudienceSelect.value || "mid_market";
+      return targetAudienceSelect.value || defaultTargetAudience;
+    }
+
+    function setOutputLanguage(value) {
+      outputLanguageSelect.value = normalizeUiOutputLanguage(value);
     }
 
     function setManifestDemoMode(value) {
@@ -3174,13 +3189,19 @@ function html(response) {
       return items.some((item) => item.id === id) ? id : fallback;
     }
 
+    function normalizeUiOutputLanguage(value) {
+      const raw = String(value || "").trim().toLowerCase();
+      const language = outputLanguageConfig.find((item) => item.value === raw || item.label.toLowerCase() === raw);
+      return language ? language.value : defaultOutputLanguage;
+    }
+
     function selectedConfig(items, value, fallback) {
       return items.find((item) => item.id === value) || items.find((item) => item.id === fallback) || items[0];
     }
 
     function updateAudienceHints() {
-      const audience = selectedConfig(audienceTypeConfig, audienceSelect.value, "prospect");
-      const target = selectedConfig(targetAudienceConfig, targetAudienceSelect.value, "mid_market");
+      const audience = selectedConfig(audienceTypeConfig, audienceSelect.value, defaultAudienceType);
+      const target = selectedConfig(targetAudienceConfig, targetAudienceSelect.value, defaultTargetAudience);
       audienceHint.textContent = audience.description + " Focus: " + audience.primary_focus.slice(0, 4).join(", ") + ". Style: " + audience.demo_style.join(", ") + ".";
       targetAudienceHint.textContent = target.description + " Include: " + target.include_in_demo.slice(0, 4).join(", ") + ". Avoid: " + target.avoid_in_demo.slice(0, 3).join(", ") + ".";
     }
