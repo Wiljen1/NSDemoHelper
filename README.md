@@ -46,6 +46,7 @@ From the control panel you can:
 - use the hardcoded audience playbook to steer what the demo should include, avoid, and emphasize
 - add pre-demo notes from discovery
 - choose whether to use demo request plus notes, demo request only, or pre-demo notes only
+- choose whether the generated manifest should be a plain product demo or a personalized customer story
 - choose the output language
 - choose and sample the narrator voice, with cloud API key input shown only when the selected engine needs it
 - switch between light mode and night mode

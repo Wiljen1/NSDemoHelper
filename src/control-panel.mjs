@@ -38,6 +38,21 @@ const outputLanguages = {
   es: { value: "es", label: "Spanish" }
 };
 
+const manifestDemoModes = [
+  {
+    id: "plain_demo",
+    label: "Plain demo",
+    description: "A clean product-led demo path that shows the standard NetSuite flow, proof points, navigation, and talk track without turning the manifest into a customer/persona story.",
+    instruction: "Keep the manifest direct and product/process-led. Use neutral finance-team language, standard NetSuite reports, and clear proof points. Avoid persona-heavy storytelling."
+  },
+  {
+    id: "customer_story",
+    label: "Customer story",
+    description: "A personalized demo story that uses the company context, audience, persona, pain points, and business outcomes to shape the flow and talk track.",
+    instruction: "Turn the manifest into a customer-centered story. Use the selected audience and target audience playbook to personalize narration, proof moments, and the SC runbook."
+  }
+];
+
 const demoAudienceConfiguration = {
   targetAudiences: [
     {
@@ -634,12 +649,14 @@ function applyLearningRequest(manifest, body, company) {
   const audience = normalizeAudience(body.audience);
   const marketSegment = normalizeMarketSegment(body.marketSegment);
   const outputLanguage = normalizeOutputLanguage(body.outputLanguage);
+  const manifestDemoMode = normalizeManifestDemoMode(body.manifestDemoMode || body.demoMode);
 
   const next = structuredClone(manifest);
   next.audience = `${audience.label} - ${marketSegment.label}`;
   next.defaults = next.defaults || {};
   next.defaults.valueStatementIntensity = valueIntensity;
   next.defaults.outputLanguage = outputLanguage.value;
+  next.defaults.manifestDemoMode = manifestDemoMode.id;
   next.defaults.audio = next.defaults.audio || {};
   next.defaults.audio.provider = voiceProvider;
   next.defaults.audio.voice = voice;
@@ -649,6 +666,7 @@ function applyLearningRequest(manifest, body, company) {
   next.context.audience = audience;
   next.context.marketSegment = marketSegment;
   next.context.targetAudience = marketSegment;
+  next.context.manifestDemoMode = manifestDemoMode;
   next.context.outputLanguage = {
     ...outputLanguage,
     instruction: outputLanguageInstruction(outputLanguage)
@@ -661,6 +679,9 @@ function applyLearningRequest(manifest, body, company) {
     marketSegment: marketSegment.value,
     targetAudience: marketSegment.value,
     outputLanguage: outputLanguage.value,
+    manifestDemoMode: manifestDemoMode.id,
+    manifestDemoModeLabel: manifestDemoMode.label,
+    manifestDemoModeInstruction: manifestDemoMode.instruction,
     outputLanguageInstruction: outputLanguageInstruction(outputLanguage),
     audienceInstruction: audienceExecutionInstruction(audience, marketSegment),
     inputMode,
@@ -681,10 +702,8 @@ function applyLearningRequest(manifest, body, company) {
         ...segment,
         title: "Open The Standard Income Statement",
         objective: "Use NetSuite search/navigation to open a standard profitability report.",
-        valueStatement: companyValueLine(company, "reporting"),
-        narration: prospectTone(
-          `${audience.narratorAngle} ${company.companyName ? `For ${company.companyName}, ` : ""}let's start where a finance leader usually wants to start: the standard income statement. This gives a quick view of revenue, margin, overheads, and net profit from one controlled place in NetSuite.`
-        ),
+        valueStatement: manifestDemoMode.id === "plain_demo" ? standardValueLine("reporting") : companyValueLine(company, "reporting"),
+        narration: openingNarration(audience, company, manifestDemoMode),
         actions: [
           {
             type: "globalSearchOpen",
@@ -702,7 +721,7 @@ function applyLearningRequest(manifest, body, company) {
     if (segment.id === "pl-filters") {
       return {
         ...segment,
-        valueStatement: companyValueLine(company, "filters"),
+        valueStatement: manifestDemoMode.id === "plain_demo" ? standardValueLine("filters") : companyValueLine(company, "filters"),
         narration: "Now let's look at how a team can change the lens. In the standard report, the most important controls are period, date range, subsidiary context, and accounting book.",
         actions: [
           { type: "highlightText", text: "Period" },
@@ -762,7 +781,10 @@ function applyLearningRequest(manifest, body, company) {
       };
     }
 
-    return { ...segment, narration: prospectTone(segment.narration) };
+    return {
+      ...segment,
+      narration: manifestDemoMode.id === "plain_demo" ? plainDemoNarration(segment) : prospectTone(segment.narration)
+    };
   });
 
   return next;
@@ -811,6 +833,13 @@ function normalizeOutputLanguage(value) {
   if (outputLanguages[raw]) return outputLanguages[raw];
   const byLabel = Object.values(outputLanguages).find((language) => language.label.toLowerCase() === raw);
   return byLabel || outputLanguages.en;
+}
+
+function normalizeManifestDemoMode(value) {
+  const raw = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (["plain", "plain_demo", "product_demo", "standard_demo"].includes(raw)) return manifestDemoModes[0];
+  if (["customer", "customer_story", "story", "personalized", "personalized_story"].includes(raw)) return manifestDemoModes[1];
+  return manifestDemoModes[1];
 }
 
 function outputLanguageInstruction(language) {
@@ -1117,6 +1146,31 @@ function companyValueLine(company, theme) {
   return `${name} gets a fast, trusted performance view that connects directly to ${joinHuman(priorities.slice(0, 2)) || "the finance questions leadership cares about"}.`;
 }
 
+function standardValueLine(theme) {
+  if (theme === "filters") {
+    return "Finance teams can re-run the same standard report by period, subsidiary, and accounting book without changing the source of truth.";
+  }
+  return "Finance teams get a fast, trusted performance view from a standard NetSuite report before moving into drilldown, export, and cash visibility.";
+}
+
+function openingNarration(audience, company, manifestDemoMode) {
+  if (manifestDemoMode.id === "plain_demo") {
+    return "We'll start with the standard income statement. It gives a finance team a controlled view of revenue, margin, overheads, and net profit before moving into filters, drilldown, export, and cash visibility.";
+  }
+
+  return prospectTone(
+    `${audience.narratorAngle} ${company.companyName ? `For ${company.companyName}, ` : ""}let's start where a finance leader usually wants to start: the standard income statement. This gives a quick view of revenue, margin, overheads, and net profit from one controlled place in NetSuite.`
+  );
+}
+
+function plainDemoNarration(segment) {
+  return String(segment.narration || "")
+    .replace(/\b[Aa] prospect\b/g, "the audience")
+    .replace(/\b[Tt]he prospect\b/g, "the audience")
+    .replace(/\b[Cc]ustomer story\b/g, "demo flow")
+    .replace(/\b[Ss]tory\b/g, "flow");
+}
+
 function joinHuman(items) {
   if (!items.length) return "";
   if (items.length === 1) return items[0];
@@ -1162,6 +1216,7 @@ function generateSetupPrompt(manifest, account, setupPlan) {
   const company = manifest.context?.company || {};
   const audience = normalizeAudience(manifest.context?.audience?.value || manifest.context?.demoRequest?.audience);
   const marketSegment = normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
+  const manifestDemoMode = normalizeManifestDemoMode(manifest.context?.manifestDemoMode?.id || manifest.context?.demoRequest?.manifestDemoMode || manifest.defaults?.manifestDemoMode);
   const outputLanguage = normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   const items = setupPlan.items?.length
@@ -1190,6 +1245,7 @@ DEMO CONTEXT
 - Audience type description: ${audience.description}
 - Target audience: ${marketSegment.label}
 - Target audience description: ${marketSegment.description}
+- Manifest demo option: ${manifestDemoMode.label}
 - Output language: ${outputLanguage.label}
 - Audience interests: ${playbook.interests?.join(", ") || "trusted reporting and cash visibility"}
 - Include in demo: ${playbook.includeInDemo?.join(", ") || "strong proof points"}
@@ -1197,6 +1253,7 @@ DEMO CONTEXT
 - Demo style: ${playbook.demoStyle?.join(", ") || "business-focused"}
 - Demo request: ${manifest.context?.demoRequest?.topic || "Not provided"}
 - Demo input mode: ${manifest.context?.demoRequest?.inputMode || "request-and-notes"}
+- Manifest mode instruction: ${manifestDemoMode.instruction}
 - Language instruction: ${outputLanguageInstruction(outputLanguage)}
 
 REQUESTED OR INFERRED SETUP ITEMS
@@ -1233,6 +1290,7 @@ function generateScGuide(manifest, body, company) {
   const audience = normalizeAudience(body.audience || manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
   const marketSegment = normalizeMarketSegment(body.marketSegment || manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
   const outputLanguage = normalizeOutputLanguage(body.outputLanguage || manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
+  const manifestDemoMode = normalizeManifestDemoMode(body.manifestDemoMode || manifest.context?.manifestDemoMode?.id || manifest.context?.demoRequest?.manifestDemoMode || manifest.defaults?.manifestDemoMode);
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   const setupPlan = manifest.context?.setupPlan || inferSetupPlan({
     topic: manifest.context?.demoRequest?.topic,
@@ -1256,7 +1314,8 @@ function generateScGuide(manifest, body, company) {
     playbook,
     priorities,
     segments,
-    outputLanguage
+    outputLanguage,
+    manifestDemoMode
   });
   const assetPrompt = demoAssetPromptText({
     companyName,
@@ -1268,6 +1327,7 @@ function generateScGuide(manifest, body, company) {
     segments,
     outputLanguage,
     notes,
+    manifestDemoMode,
     demoRequest: manifest.context?.demoRequest?.topic || "Not provided"
   });
 
@@ -1283,6 +1343,7 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 - Audience type description: ${audience.description}
 - Target audience: ${marketSegment.label}
 - Target audience description: ${marketSegment.description}
+- Manifest demo option: ${manifestDemoMode.label}
 - Output language: ${outputLanguage.label}
 - Language guidance: ${outputLanguageInstruction(outputLanguage)}
 - Demo input: ${inputMode}
@@ -1293,6 +1354,7 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 - Demo style: ${playbook.demoStyle.join(", ")}
 - Context variables to consider: ${playbook.recommendedContextVariables.join(", ")}
 - Recommended demo goals: ${playbook.recommendedDemoGoals.join(", ")}
+- Manifest mode instruction: ${manifestDemoMode.instruction}
 
 ## Personalized Demo Story And Runbook
 
@@ -1373,11 +1435,13 @@ function guideContextFromManifest(manifest) {
   const audience = normalizeAudience(manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
   const marketSegment = normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
   const outputLanguage = normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
+  const manifestDemoMode = normalizeManifestDemoMode(manifest.context?.manifestDemoMode?.id || manifest.context?.demoRequest?.manifestDemoMode || manifest.defaults?.manifestDemoMode);
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   return {
     companyName: company.companyName || "The prospect",
     audience,
     marketSegment,
+    manifestDemoMode,
     outputLanguage,
     playbook,
     priorities: company.likelyPriorities || [],
@@ -1417,8 +1481,11 @@ function normalDemoFlowText(segments) {
     .join("\n\n");
 }
 
-function scStoryRunbookText({ companyName, audience, marketSegment, playbook, priorities, segments, outputLanguage }) {
-  const story = personalizedStoryFlowText({ companyName, audience, marketSegment, playbook, priorities, segments });
+function scStoryRunbookText({ companyName, audience, marketSegment, playbook, priorities, segments, outputLanguage, manifestDemoMode }) {
+  const mode = normalizeManifestDemoMode(manifestDemoMode?.id || manifestDemoMode);
+  const story = mode.id === "plain_demo"
+    ? plainDemoFlowText({ companyName, audience, marketSegment, playbook, priorities })
+    : personalizedStoryFlowText({ companyName, audience, marketSegment, playbook, priorities, segments });
   const runbook = segments
     .map((segment, index) => {
       const navigation = (segment.actions || [])
@@ -1447,14 +1514,27 @@ ${runbook}
 
 Closing move:
 
-Bring the audience back to the main business question. For ${companyName || "the prospect"}, the thread is not just that NetSuite has reports and Cash 360. The thread is that finance can start with a trusted performance view, prove the details, and then move into cash decisions without leaving the operating system.
+${mode.id === "plain_demo"
+  ? "Bring the audience back to the standard demo flow: trusted performance reporting, explainable detail, controlled sharing, and forward-looking cash visibility."
+  : `Bring the audience back to the main business question. For ${companyName || "the prospect"}, the thread is not just that NetSuite has reports and Cash 360. The thread is that finance can start with a trusted performance view, prove the details, and then move into cash decisions without leaving the operating system.`}
 
 Language note:
 
-${outputLanguageInstruction(outputLanguage)}`;
+${outputLanguageInstruction(outputLanguage)}
+
+Manifest mode:
+
+${mode.label}: ${mode.instruction}`;
 }
 
-function demoAssetPromptText({ companyName, audience, marketSegment, playbook, priorities, signals, segments, outputLanguage, notes, demoRequest }) {
+function plainDemoFlowText({ audience, marketSegment, playbook, priorities }) {
+  return `This is a plain NetSuite finance demo, so keep the storyline product-led and easy to follow. Start with the standard income statement, show how finance changes the reporting lens with filters, prove trust through drilldown, show controlled export options, then move into Cash 360 for current cash position and forecast visibility.
+
+The audience is still ${audience.label.toLowerCase()} in a ${marketSegment.label.toLowerCase()} context, so emphasize ${joinHuman(playbook.interests.slice(0, 4)) || joinHuman((priorities || []).slice(0, 4)) || "trusted reporting, usable workflows, and cash visibility"}. Keep persona references light. The aim is a clean, reusable demo path an SC can run for many customers without rewriting the manifest.`;
+}
+
+function demoAssetPromptText({ companyName, audience, marketSegment, playbook, priorities, signals, segments, outputLanguage, notes, manifestDemoMode, demoRequest }) {
+  const mode = normalizeManifestDemoMode(manifestDemoMode?.id || manifestDemoMode);
   const persona = demoPersonaFor(audience, marketSegment);
   const keySegments = segments
     .filter((segment) => ["open-pl", "pl-drilldown", "open-cash360-dashboard", "cash360-forecast", "close"].includes(segment.id))
@@ -1471,18 +1551,19 @@ Context:
 - Company/prospect: ${companyName || "The prospect"}
 - Audience type: ${audience.label}
 - Target audience: ${marketSegment.label}
-- Persona: ${persona.name}, ${persona.role}
-- Persona question: ${persona.question}
+- Manifest demo option: ${mode.label}
+- Persona: ${mode.id === "plain_demo" ? "Optional. Use a light finance-team persona only if it helps the slide story." : `${persona.name}, ${persona.role}`}
+- Persona question: ${mode.id === "plain_demo" ? "How does the standard NetSuite finance flow prove reporting, drilldown, export, and cash visibility?" : persona.question}
 - Demo request: ${demoRequest || "Finance demo from P&L to Cash 360"}
 - Likely priorities: ${joinHuman((priorities || []).slice(0, 5)) || "trusted reporting, faster finance decisions, and cash visibility"}
 - Industry signals: ${(signals || []).join(", ") || "financial visibility and operational control"}
 - Pre-demo notes: ${notes || "No pre-demo notes provided"}
 - Output language: ${normalizeOutputLanguage(outputLanguage?.value || outputLanguage).label}
 
-Create a 5 to 7 slide mini-deck or reusable slide assets that support the live product demo. The deck should not replace the NetSuite demo. It should set up the story, introduce the persona, make the problem visible, and help the SC transition into the live system.
+Create a 5 to 7 slide mini-deck or reusable slide assets that support the live product demo. The deck should not replace the NetSuite demo. ${mode.id === "plain_demo" ? "Keep it product-led and reusable: set up the finance flow, show the before/after process, and help the SC transition into the live system." : "It should set up the story, introduce the persona, make the problem visible, and help the SC transition into the live system."}
 
 Required slides:
-1. Persona slide: introduce ${persona.name}, their role, their pressure, and the question they need answered.
+1. ${mode.id === "plain_demo" ? "Demo objective slide: state the finance flow the SC will prove and the audience outcomes it supports." : `Persona slide: introduce ${persona.name}, their role, their pressure, and the question they need answered.`}
 2. Current-state pain slide: show the finance problem before NetSuite, using ${joinHuman(playbook.interests.slice(0, 3)) || "the audience priorities"}.
 3. Demo journey slide: map the live demo from standard income statement to filters, drilldown, export, Cash 360, and forecast controls.
 4. Proof moments slide: show what the SC must prove during the product demo.
@@ -1490,7 +1571,7 @@ ${keySegments || "- Use the manifest segments as the proof moments."}
 5. Outcome slide: summarize the operating rhythm after the demo: trusted performance reporting, traceable detail, and forward-looking cash visibility.
 
 Stock image and visual direction:
-- Persona image: professional, realistic business portrait for ${persona.name}, suitable for ${audience.label.toLowerCase()} stakeholders.
+- Persona image: ${mode.id === "plain_demo" ? "optional. If used, choose a realistic finance-team persona rather than a named customer character." : `professional, realistic business portrait for ${persona.name}, suitable for ${audience.label.toLowerCase()} stakeholders.`}
 - Team image: finance team reviewing performance and cash planning, realistic office or hybrid work setting.
 - Visual metaphor: connected finance flow from reporting to decisions, avoiding generic abstract gradients.
 - Screenshot placeholders: leave clearly marked placeholders for NetSuite screenshots captured during rehearsal. Do not invent product screenshots.
@@ -2689,14 +2770,20 @@ function html(response) {
           <label for="companyUrl">Company website</label>
           <input id="companyUrl" placeholder="https://www.example.com">
 
-            <label for="inputMode">Demo generation input</label>
-            <select id="inputMode">
-              <option value="request-and-notes" selected>Use demo request and pre-demo notes</option>
-              <option value="request-only">Use demo request only</option>
-              <option value="notes-only">Use pre-demo notes only</option>
-            </select>
+          <label for="inputMode">Demo generation input</label>
+          <select id="inputMode">
+            <option value="request-and-notes" selected>Use demo request and pre-demo notes</option>
+            <option value="request-only">Use demo request only</option>
+            <option value="notes-only">Use pre-demo notes only</option>
+          </select>
 
-            <label for="outputLanguage">Output language</label>
+          <label for="manifestDemoMode">Manifest demo option</label>
+          <select id="manifestDemoMode">
+            ${selectOptionsHtml(manifestDemoModes, "customer_story")}
+          </select>
+          <p class="hint" id="manifestDemoModeHint"></p>
+
+          <label for="outputLanguage">Output language</label>
             <select id="outputLanguage">
               <option value="en" selected>English</option>
               <option value="nl">Dutch</option>
@@ -2873,6 +2960,8 @@ function html(response) {
     const targetAudienceSelect = document.getElementById("marketSegment");
     const targetAudienceHint = document.getElementById("targetAudienceHint");
     const inputModeSelect = document.getElementById("inputMode");
+    const manifestDemoModeSelect = document.getElementById("manifestDemoMode");
+    const manifestDemoModeHint = document.getElementById("manifestDemoModeHint");
     const outputLanguageSelect = document.getElementById("outputLanguage");
     const nightModeToggle = document.getElementById("nightMode");
     const topicField = document.getElementById("topic");
@@ -2880,6 +2969,7 @@ function html(response) {
     const buttonHelpTooltip = document.getElementById("buttonHelpTooltip");
     const audienceTypeConfig = ${JSON.stringify(demoAudienceConfiguration.audienceTypes)};
     const targetAudienceConfig = ${JSON.stringify(demoAudienceConfiguration.targetAudiences)};
+    const manifestDemoModeConfig = ${JSON.stringify(manifestDemoModes)};
     let runInProgress = false;
     let latestSetupPrompt = null;
     let helpTimer = null;
@@ -2986,6 +3076,7 @@ function html(response) {
       if (payload.manifest) {
           setAudience(payload.manifest.context?.audience?.value || payload.manifest.context?.demoRequest?.audience || payload.manifest.audience);
           setMarketSegment(payload.manifest.context?.targetAudience?.value || payload.manifest.context?.marketSegment?.value || payload.manifest.context?.demoRequest?.targetAudience || payload.manifest.context?.demoRequest?.marketSegment || "mid_market");
+          setManifestDemoMode(payload.manifest.context?.manifestDemoMode?.id || payload.manifest.context?.demoRequest?.manifestDemoMode || payload.manifest.defaults?.manifestDemoMode || "customer_story");
           outputLanguageSelect.value = payload.manifest.context?.outputLanguage?.value || payload.manifest.context?.demoRequest?.outputLanguage || payload.manifest.defaults?.outputLanguage || "en";
           inputModeSelect.value = payload.manifest.context?.demoRequest?.inputMode || "request-and-notes";
           const manifestVoiceProvider = payload.manifest.defaults?.audio?.provider || "say";
@@ -3064,6 +3155,18 @@ function html(response) {
       return targetAudienceSelect.value || "mid_market";
     }
 
+    function setManifestDemoMode(value) {
+      manifestDemoModeSelect.value = normalizeUiAudience(value, manifestDemoModeConfig, "customer_story", {
+        plain: "plain_demo",
+        "plain-demo": "plain_demo",
+        "product-demo": "plain_demo",
+        story: "customer_story",
+        customer: "customer_story",
+        "customer-story": "customer_story"
+      });
+      updateManifestDemoModeHint();
+    }
+
     function normalizeUiAudience(value, items, fallback, aliases = {}) {
       const raw = String(value || "").trim().toLowerCase();
       const compact = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -3080,6 +3183,11 @@ function html(response) {
       const target = selectedConfig(targetAudienceConfig, targetAudienceSelect.value, "mid_market");
       audienceHint.textContent = audience.description + " Focus: " + audience.primary_focus.slice(0, 4).join(", ") + ". Style: " + audience.demo_style.join(", ") + ".";
       targetAudienceHint.textContent = target.description + " Include: " + target.include_in_demo.slice(0, 4).join(", ") + ". Avoid: " + target.avoid_in_demo.slice(0, 3).join(", ") + ".";
+    }
+
+    function updateManifestDemoModeHint() {
+      const mode = selectedConfig(manifestDemoModeConfig, manifestDemoModeSelect.value, "customer_story");
+      manifestDemoModeHint.textContent = mode.description;
     }
 
       function selectedVoiceApiKey() {
@@ -3170,6 +3278,7 @@ function html(response) {
 
       audienceSelect.onchange = updateAudienceHints;
       targetAudienceSelect.onchange = updateAudienceHints;
+      manifestDemoModeSelect.onchange = updateManifestDemoModeHint;
       inputModeSelect.onchange = syncInputMode;
       voiceProviderSelect.onchange = () => {
         syncVoiceProviderSettings();
@@ -3312,6 +3421,7 @@ function html(response) {
           body: JSON.stringify({
             topic: document.getElementById("topic").value,
             inputMode: inputModeSelect.value,
+            manifestDemoMode: manifestDemoModeSelect.value,
             audience: audienceSelect.value,
               marketSegment: selectedMarketSegment(),
               outputLanguage: outputLanguageSelect.value,
@@ -3427,6 +3537,7 @@ function html(response) {
 
       (async () => {
         updateAudienceHints();
+        updateManifestDemoModeHint();
         syncVoiceProviderSettings();
         await loadVoices();
         await load();
