@@ -23,6 +23,7 @@ let currentRun = null;
 let defaultScInstructionsOverride = "";
 let helperIntroOverride = "";
 let helperStepsOverride = null;
+let additionalDemoSources = [];
 
 const voiceProviders = {
   say: {
@@ -798,6 +799,7 @@ function defaultCmsContent() {
       defaultScInstructions: cmsTextBlock("Default SC Instructions", "The baseline guidance pre-filled into the Prep screen.", defaultScInstructions(), now),
       helperIntro: cmsTextBlock("How The Helper Works Intro", "The short explanation shown on the Prep page.", helperIntroText(), now),
       helperSteps: cmsJsonBlock("How The Helper Works Steps", "The explanation steps shown on the Prep page.", helperSteps(), now),
+      additionalDemoSources: cmsJsonBlock("Additional Sources / Demo Logic", "Add internal playbooks, source notes, reusable rules, and generation logic the helper should consider when creating demos.", defaultAdditionalDemoSources(), now),
       demoStrategies: cmsJsonBlock("Demo Strategies", "Selectable demo strategy playbooks and behavior rules.", demoStrategies, now),
       industryPlaybooks: cmsJsonBlock("Industry Playbooks", "Industry-specific terminology, KPIs, workflows, pain points, and avoid rules.", industryPlaybooks, now),
       targetAudiences: cmsJsonBlock("Target Audiences", "Company-size/segment playbooks such as Startup, Mid-Market, and Enterprise.", demoAudienceConfiguration.targetAudiences, now),
@@ -870,12 +872,15 @@ function parseCmsBlockValue(block, rawValue) {
 
 function validateCmsJsonBlock(block, value) {
   const id = block.id;
-  if (["demoStrategies", "industryPlaybooks", "targetAudiences", "audienceTypes", "manifestDemoModes", "helperSteps"].includes(id)) {
+  if (["demoStrategies", "industryPlaybooks", "targetAudiences", "audienceTypes", "manifestDemoModes", "helperSteps", "additionalDemoSources"].includes(id)) {
     if (!Array.isArray(value)) throw httpError(`${block.label} must be a JSON array.`, 400);
     for (const item of value) {
       if (!item || typeof item !== "object") throw httpError(`${block.label} entries must be objects.`, 400);
       if (id === "helperSteps") {
         if (!item.title || !item.body) throw httpError("Each helper step needs title and body.", 400);
+      } else if (id === "additionalDemoSources") {
+        if (!item.id || !item.label) throw httpError("Each additional source needs id and label.", 400);
+        if (!item.content && !item.guidance && !item.logic) throw httpError("Each additional source needs content, guidance, or logic.", 400);
       } else if (!item.id || !item.label) {
         throw httpError(`Each ${block.label} entry needs id and label.`, 400);
       }
@@ -894,6 +899,7 @@ function applyCmsContentToRuntime(content) {
   defaultScInstructionsOverride = String(blocks.defaultScInstructions?.value || "").trim();
   helperIntroOverride = String(blocks.helperIntro?.value || "").trim();
   helperStepsOverride = Array.isArray(blocks.helperSteps?.value) ? structuredClone(blocks.helperSteps.value) : null;
+  additionalDemoSources = Array.isArray(blocks.additionalDemoSources?.value) ? structuredClone(blocks.additionalDemoSources.value) : [];
   if (Array.isArray(blocks.demoStrategies?.value)) demoStrategies = structuredClone(blocks.demoStrategies.value);
   if (Array.isArray(blocks.industryPlaybooks?.value)) industryPlaybooks = structuredClone(blocks.industryPlaybooks.value);
   if (Array.isArray(blocks.manifestDemoModes?.value)) manifestDemoModes = structuredClone(blocks.manifestDemoModes.value);
@@ -1183,6 +1189,67 @@ function helperStepsHtml() {
   return helperSteps().map((step) => `<div class="step"><strong>${escapeHtml(step.title)}</strong><span>${escapeHtml(step.body)}</span></div>`).join("");
 }
 
+function defaultAdditionalDemoSources() {
+  return [
+    {
+      id: "standard-reports-first",
+      label: "Use Standard NetSuite Reports First",
+      sourceType: "SC best practice",
+      active: true,
+      appliesTo: ["finance", "prospect", "standard_platform_demo"],
+      content: "For prospect-facing finance demos, prioritize standard NetSuite reports and dashboards before custom reporting or saved-search detail.",
+      guidance: "Use this as a routing and narration rule when the demo touches financial reporting, P&L, drilldown, export, or cash visibility.",
+      logic: "If the demo asks for reporting or finance visibility, keep standard reports in the primary path and park custom reporting as an optional follow-up."
+    }
+  ];
+}
+
+function activeAdditionalDemoSources(context = {}) {
+  const searchable = [
+    context.topic,
+    context.preDemoNotes,
+    context.demoScope,
+    context.audience?.label,
+    context.audience?.value,
+    context.marketSegment?.label,
+    context.marketSegment?.value,
+    context.demoStrategy?.label,
+    context.demoStrategy?.id,
+    context.industry?.label,
+    context.industry?.id
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  return additionalDemoSources
+    .filter((source) => source && source.active !== false)
+    .filter((source) => {
+      const appliesTo = Array.isArray(source.appliesTo) ? source.appliesTo : [];
+      if (!appliesTo.length) return true;
+      return appliesTo.some((term) => searchable.includes(String(term || "").toLowerCase()));
+    })
+    .slice(0, 12);
+}
+
+function additionalDemoSourcesSummary(sources = []) {
+  return (sources || [])
+    .filter(Boolean)
+    .map((source) => {
+      const text = source.guidance || source.logic || source.content || "";
+      return `${source.label}: ${text}`;
+    })
+    .join(" ");
+}
+
+function additionalDemoSourcesMarkdown(sources = []) {
+  const clean = (sources || []).filter(Boolean);
+  if (!clean.length) return "- No additional Admin sources matched this demo context.";
+  return clean.map((source) => [
+    `- ${source.label}${source.sourceType ? ` (${source.sourceType})` : ""}`,
+    source.content ? `  - Source note: ${source.content}` : "",
+    source.guidance ? `  - Guidance: ${source.guidance}` : "",
+    source.logic ? `  - Logic: ${source.logic}` : ""
+  ].filter(Boolean).join("\n")).join("\n");
+}
+
 async function readScGuide() {
   try {
     return await readFile(scGuidePath, "utf8");
@@ -1439,6 +1506,8 @@ function applyLearningRequest(manifest, body, company) {
   const demoStrategy = normalizeDemoStrategy(body.demoStrategy || body.strategy);
   const industry = normalizeIndustry(body.industry);
   const flowPrinciples = demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry });
+  const adminSources = activeAdditionalDemoSources({ topic, preDemoNotes, demoScope, audience, marketSegment, demoStrategy, industry });
+  const adminSourceInstruction = additionalDemoSourcesSummary(adminSources);
 
   const next = structuredClone(manifest);
   next.audience = `${audience.label} - ${marketSegment.label}`;
@@ -1461,6 +1530,7 @@ function applyLearningRequest(manifest, body, company) {
   next.context.manifestDemoMode = manifestDemoMode;
   next.context.demoStrategy = demoStrategy;
   next.context.industry = industry;
+  next.context.additionalDemoSources = adminSources;
   next.context.demoPrep = flowPrinciples;
   next.context.outputLanguage = {
     ...outputLanguage,
@@ -1489,8 +1559,9 @@ function applyLearningRequest(manifest, body, company) {
     inputMode,
     source: inputModeSource(inputMode),
     instructions,
+    additionalDemoSources: adminSources,
     learnedAt: new Date().toISOString(),
-    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. Start with a short general or executive NetSuite overview, then order the demo from highest-value proof moments to supporting detail. Demo scope: ${demoScope || "Use the generated request and notes as scope."} ${audienceExecutionInstruction(audience, marketSegment)} ${demoStrategyInstruction(demoStrategy, industry)}`
+    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. Start with a short general or executive NetSuite overview, then order the demo from highest-value proof moments to supporting detail. Demo scope: ${demoScope || "Use the generated request and notes as scope."} ${audienceExecutionInstruction(audience, marketSegment)} ${demoStrategyInstruction(demoStrategy, industry)} ${adminSourceInstruction ? `Additional Admin logic to consider: ${adminSourceInstruction}` : ""}`
   };
   next.context.navigationPolicy = {
     preferred: ["NetSuite global search", "NetSuite navigation bar"],
@@ -2453,6 +2524,17 @@ function generateScGuide(manifest, body, company) {
   const industry = normalizeIndustry(body.industry || manifest.context?.industry?.id || manifest.context?.demoRequest?.industry || manifest.defaults?.industry);
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   const flowPrinciples = manifest.context?.demoPrep || demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry });
+  const adminSources = Array.isArray(manifest.context?.additionalDemoSources)
+    ? manifest.context.additionalDemoSources
+    : activeAdditionalDemoSources({
+      topic: manifest.context?.demoRequest?.topic,
+      preDemoNotes: notes,
+      demoScope,
+      audience,
+      marketSegment,
+      demoStrategy,
+      industry
+    });
   const setupPlan = manifest.context?.setupPlan || inferSetupPlan({
     topic: manifest.context?.demoRequest?.topic,
     preDemoNotes: manifest.context?.preDemoNotes,
@@ -2532,6 +2614,10 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 - Context variables to consider: ${playbook.recommendedContextVariables.join(", ")}
 - Recommended demo goals: ${playbook.recommendedDemoGoals.join(", ")}
 - Manifest mode instruction: ${manifestDemoMode.instruction}
+
+## Additional Admin Sources And Logic Considered
+
+${additionalDemoSourcesMarkdown(adminSources)}
 
 ## Personalized Demo Story And Runbook
 
@@ -3001,6 +3087,17 @@ function demoIntelligenceContext(manifest, scGuide = "") {
   const actions = manifestFlowReady
     ? segments.flatMap((segment) => (segment.actions || []).map((action) => ({ ...action, segmentId: segment.id, segmentTitle: segment.title })))
     : [];
+  const adminSources = Array.isArray(manifest.context?.additionalDemoSources)
+    ? manifest.context.additionalDemoSources
+    : activeAdditionalDemoSources({
+      topic: manifest.context?.demoRequest?.topic,
+      preDemoNotes: manifest.context?.preDemoNotes,
+      demoScope: manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope,
+      audience,
+      marketSegment,
+      demoStrategy: strategy,
+      industry
+    });
   const text = [
     manifest.name,
     manifest.audience,
@@ -3018,6 +3115,7 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     ...(company.likelyPriorities || []),
     ...(company.industrySignals || []),
     manifest.context?.manifestBuild?.status,
+    ...adminSources.flatMap((source) => [source.label, source.content, source.guidance, source.logic]),
     ...segments.flatMap((segment) => [
       segment.title,
       segment.objective,
@@ -3037,6 +3135,7 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     segments,
     actions,
     manifestFlowReady,
+    additionalDemoSources: adminSources,
     text,
     scGuide: scGuideText,
     scGuideLower: scGuideText.toLowerCase(),
@@ -5369,7 +5468,7 @@ function html(response) {
     <button class="tab" data-tab="intelligence" data-help="Review demo quality, risks, discovery gaps, stakeholder coverage, winning moments, and coaching recommendations.">Intelligence</button>
     <button class="tab" data-tab="manifest" data-help="Review or edit the detailed automation manifest that drives the demo.">Manifest</button>
     <button class="tab" data-tab="run" data-help="Open NetSuite, dry run, rehearse, run the live demo, or stop an active run.">Run</button>
-    <button class="tab" data-tab="admin" data-help="Protected CMS area for editing shared helper text and playbooks with version history.">Admin CMS</button>
+    <button class="tab" data-tab="admin" data-help="Protected admin area for editing shared helper text, demo logic, sources, and playbooks with version history.">Admin</button>
   </nav>
   <main>
     <section class="screen active" id="screen-prep">
@@ -5692,8 +5791,8 @@ function html(response) {
     <section class="screen" id="screen-admin">
       <div class="grid">
         <div class="panel full">
-          <h2>Admin CMS</h2>
-          <p class="hint">Protected local admin area for changing the helper's built-in guidance, playbooks, labels, and explanatory text. Passwords are stored as salted scrypt hashes and every CMS save creates a rollback version.</p>
+          <h2>Admin</h2>
+          <p class="hint">Protected local admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, and additional demo logic sources. Active sources are matched to the demo context and included when the helper creates the manifest and SC guide. Passwords are stored as salted scrypt hashes and every CMS save creates a rollback version.</p>
           <div class="cms-auth-grid" id="cmsAuthArea">
             <div class="analysis-item" id="cmsSetupPanel" hidden>
               <strong>Create Admin Login</strong>
