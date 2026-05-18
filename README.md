@@ -17,6 +17,7 @@ This workspace contains a first finance-demo package for NetSuite:
 - `src/validate-manifest.mjs` checks the manifest shape.
 - `skills/netsuite-demo-builder/SKILL.md` is the Codex skill guidance for creating future demo manifests.
 - `docs/STANDALONE_APP_PLAN.md` captures the path toward the `NSDemoHelper` standalone Mac/Windows app.
+- `docs/LOCAL_BROWSER_APP_ARCHITECTURE.md` explains the future browser UI plus local helper service model.
 
 ## First Run
 
