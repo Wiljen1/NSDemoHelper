@@ -1356,6 +1356,7 @@ function uniqueItems(items) {
 function inferSetupPlan(source, company, audience, marketSegment) {
   const combined = `${source.topic || ""}\n${source.preDemoNotes || ""}\n${source.instructions || ""}`.toLowerCase();
   const requestedCreate = /(create|setup|set up|configure|build|prepare|seed|sample|demo data|test data|record|transaction|import|upload)/.test(combined);
+  const excludesPurchaseOrders = /(don['’]?t operate with po|do not operate with po|no po['’]?s|no purchase orders|without purchase orders|not using purchase orders)/.test(combined);
   const items = [];
 
   const add = (type, label, reason, risk = "medium") => {
@@ -1368,7 +1369,7 @@ function inferSetupPlan(source, company, audience, marketSegment) {
   if (/(invoice|receivable|a\/r|ar aging|collections)/.test(combined)) add("transaction", "sample customer invoice", "needed to demonstrate receivables, collections, and cash inflow", "high");
   if (/(bill|payable|a\/p|ap aging|supplier invoice)/.test(combined)) add("transaction", "sample vendor bill", "needed to demonstrate payables, approvals, and cash outflow", "high");
   if (/(sales order|order to cash|order-to-cash)/.test(combined)) add("transaction", "sample sales order", "needed to demonstrate future inflow or order-to-cash context", "high");
-  if (/(purchase order|procure to pay|procure-to-pay)/.test(combined)) add("transaction", "sample purchase order", "needed to demonstrate future outflow or procure-to-pay context", "high");
+  if (!excludesPurchaseOrders && /(purchase order|procure to pay|procure-to-pay)/.test(combined)) add("transaction", "sample purchase order", "needed to demonstrate future outflow or procure-to-pay context", "high");
   if (/(bank|cash account|account category|cash 360|forecast category)/.test(combined)) add("configuration", "Cash 360 account/category setup", "needed if Cash 360 requires specific accounts, categories, or forecast assumptions");
   if (/(subsidiary|entity|consolidat|multi.?entity)/.test(combined)) add("configuration", "subsidiary or entity demo context", "needed to demonstrate multi-entity filtering or consolidation");
   if (/(saved search|dashboard|kpi|portlet|report customization)/.test(combined)) add("configuration", "demo dashboard/search/report view", "needed if the demo requires a prepared view beyond standard reports");
