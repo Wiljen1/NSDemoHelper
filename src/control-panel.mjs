@@ -68,6 +68,54 @@ const demoStrategies = [
     avoid: ["feature tours", "admin setup", "too many edge cases"]
   },
   {
+    id: "standard_platform_demo",
+    label: "Standard Platform Demo",
+    description: "A broad, structured product demonstration that showcases the overall platform, major capabilities, and end-to-end business value within a fixed timeframe.",
+    tone: "polished, structured, and business-focused",
+    pacing: "balanced and time-aware, with high-value workflows first",
+    technicalDepth: "light to moderate unless requested",
+    storytelling: "broad end-to-end platform story connecting multiple stakeholder perspectives",
+    includeWorkflows: [
+      "end-to-end business flows",
+      "cross-functional workflows",
+      "executive dashboards",
+      "reporting and analytics",
+      "automation examples",
+      "role-based experiences",
+      "standard best-practice flows",
+      "platform navigation and usability"
+    ],
+    avoid: [
+      "extremely deep configuration walkthroughs",
+      "long admin setup sequences",
+      "technical implementation deep dives",
+      "spending too much time in one module",
+      "feature dumping without business context",
+      "excessive customization discussions",
+      "low-value or unfinished areas"
+    ],
+    primaryObjectives: [
+      "demonstrate overall platform breadth",
+      "showcase key modules and workflows",
+      "establish credibility and platform maturity",
+      "highlight integration between departments",
+      "show scalability and flexibility",
+      "deliver a polished end-to-end story",
+      "create excitement and confidence"
+    ],
+    recommendedRuntime: ["1 hour", "2 hour", "half-day showcase", "multi-session overview"],
+    behaviorRules: [
+      "prioritize breadth over deep specialization",
+      "ensure all major departments are represented",
+      "maintain consistent pacing",
+      "avoid excessive technical depth unless requested",
+      "make executive-level value visible throughout",
+      "include multiple stakeholder perspectives",
+      "maintain a polished showcase style",
+      "connect workflows through one narrative story where possible"
+    ]
+  },
+  {
     id: "executive_alignment",
     label: "Executive Alignment Demo",
     description: "Focus senior leaders on financial impact, risk reduction, and strategic outcomes.",
@@ -1092,6 +1140,11 @@ function normalizeDemoStrategy(value) {
   return resolveNamedConfig(demoStrategies, value, defaultDemoStrategy, {
     discovery: "discovery_demo",
     vision: "vision_demo",
+    standard: "standard_platform_demo",
+    platform: "standard_platform_demo",
+    "standard-platform": "standard_platform_demo",
+    "standard-platform-demo": "standard_platform_demo",
+    "platform-demo": "standard_platform_demo",
     executive: "executive_alignment",
     "executive-demo": "executive_alignment",
     "executive-alignment-demo": "executive_alignment",
@@ -1286,7 +1339,9 @@ function audienceExecutionInstruction(audience, marketSegment) {
 function demoStrategyInstruction(strategy, industry) {
   const normalizedStrategy = normalizeDemoStrategy(strategy?.id || strategy);
   const normalizedIndustry = normalizeIndustry(industry?.id || industry);
-  return `Demo strategy: ${normalizedStrategy.label}. Keep the tone ${normalizedStrategy.tone}, pacing ${normalizedStrategy.pacing}, technical depth ${normalizedStrategy.technicalDepth}, and story style ${normalizedStrategy.storytelling}. Adapt the examples to ${normalizedIndustry.label} using ${joinHuman(normalizedIndustry.terminology.slice(0, 4)) || "industry-relevant language"}.`;
+  const workflowGuidance = joinHuman((normalizedStrategy.includeWorkflows || []).slice(0, 5));
+  const behaviorGuidance = joinHuman((normalizedStrategy.behaviorRules || []).slice(0, 5));
+  return `Demo strategy: ${normalizedStrategy.label}. Keep the tone ${normalizedStrategy.tone}, pacing ${normalizedStrategy.pacing}, technical depth ${normalizedStrategy.technicalDepth}, and story style ${normalizedStrategy.storytelling}. ${workflowGuidance ? `Prioritize ${workflowGuidance}. ` : ""}${behaviorGuidance ? `Behavior rules: ${behaviorGuidance}. ` : ""}Adapt the examples to ${normalizedIndustry.label} using ${joinHuman(normalizedIndustry.terminology.slice(0, 4)) || "industry-relevant language"}.`;
 }
 
 function industryInstruction(industry) {
@@ -4155,6 +4210,11 @@ function html(response) {
       demoStrategySelect.value = normalizeUiAudience(value, demoStrategyConfig, defaultDemoStrategy, {
         discovery: "discovery_demo",
         vision: "vision_demo",
+        standard: "standard_platform_demo",
+        platform: "standard_platform_demo",
+        "standard-platform": "standard_platform_demo",
+        "standard-platform-demo": "standard_platform_demo",
+        "platform-demo": "standard_platform_demo",
         executive: "executive_alignment",
         technical: "technical_validation",
         competitive: "competitive_defense",

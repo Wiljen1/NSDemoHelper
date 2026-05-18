@@ -46,7 +46,7 @@ From the control panel you can:
 - choose audience type: prospect, executive, operational/end user, technical, customer, marketing, or partner
 - choose target audience: startup, emerging/SMB, mid-market, enterprise, or public sector/government
 - use the hardcoded audience playbook to steer what the demo should include, avoid, and emphasize
-- choose the demo strategy: discovery, vision, executive alignment, technical validation, competitive defense, expansion, renewal, workshop, proof of concept, or training
+- choose the demo strategy: discovery, vision, standard platform demo, executive alignment, technical validation, competitive defense, expansion, renewal, workshop, proof of concept, or training
 - choose an industry playbook to steer terminology, KPIs, workflows, pain points, and demo emphasis
 - add pre-demo notes from discovery
 - choose whether to use demo request plus notes, demo request only, or pre-demo notes only
