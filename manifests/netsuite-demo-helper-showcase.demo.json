@@ -294,8 +294,8 @@
       "title": "Show Rehearsal And Live Readiness",
       "objective": "Show how the SC can rehearse, dry run, prep the account, and then run with narration.",
       "valueMoment": "page",
-      "valueStatement": "The run controls reduce customer-facing risk by separating dry run, rehearsal, account prep, and live execution.",
-      "narration": "Finally, the Run screen separates preparation from performance. The SC can dry run the plan, rehearse with account prep, and only then run the live narrated demo. This matters because many demos fail before they start: missing setup, unclear routes, weak pacing, or a story that does not match the audience. NetSuite Demo Helper gives the SC a safer path from discovery to a confident customer-facing demo.",
+      "valueStatement": "The run controls reduce customer-facing risk by letting the SC test the script, prepare the account, review required setup, and feel the demo before presenting it live.",
+      "narration": "Finally, the Run screen is where preparation turns into a controlled rehearsal. The SC can dry run the script, rehearse the browser clickthroughs, and use Rehearse plus Prep Account to create the account-prep buffer and setup prompt for any approved demo data or customizations. That means the SC can see how the demo will look and feel before the customer meeting: the route, the timing, the narration, the account readiness, and the places where the story needs to slow down. Only after that does the SC use Live Demo.",
       "actions": [
         {
           "type": "clickRole",
@@ -317,12 +317,12 @@
         {
           "type": "highlightText",
           "text": "Rehearse + Prep Account",
-          "durationMs": 900
+          "durationMs": 1400
         },
         {
           "type": "highlightText",
           "text": "Live Demo",
-          "durationMs": 900
+          "durationMs": 1200
         }
       ],
       "verifications": [
