@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import os from "node:os";
 
 const projectRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
 const manifestPath = path.join(projectRoot, "manifests/finance-pl-cash360.demo.json");
@@ -24,6 +25,10 @@ const server = http.createServer(async (request, response) => {
       return json(response, await listVoices(provider));
     }
     if (request.method === "GET" && request.url === "/api/sc-guide") return json(response, { guide: await readScGuide() });
+    if (request.method === "GET" && request.url === "/api/setup-prompt") {
+      const manifest = await readManifest();
+      return json(response, { ok: true, setupPrompt: setupPromptPayload(manifest) });
+    }
     if (request.method === "GET" && request.url === "/api/narrator-state") return json(response, await readNarratorState());
     if (request.method === "GET" && request.url?.startsWith("/api/download/")) {
       const fileName = decodeURIComponent(path.basename(request.url.replace("/api/download/", "")));
@@ -39,7 +44,7 @@ const server = http.createServer(async (request, response) => {
       await saveVersion("before-manual-edit");
       await writeFile(manifestPath, `${nextManifest}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(parsedManifest);
-      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath });
+      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, setupPrompt: setupPromptPayload(parsedManifest) });
     }
 
     if (request.method === "POST" && request.url === "/api/learn") {
@@ -51,7 +56,7 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${JSON.stringify(learned, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(learned);
       const guide = await writeScGuide(learned, body, company);
-      return json(response, { ok: true, manifest: learned, versions: await listVersions(), company, guide, namedManifestPath });
+      return json(response, { ok: true, manifest: learned, versions: await listVersions(), company, guide, namedManifestPath, setupPrompt: setupPromptPayload(learned) });
     }
 
     if (request.method === "POST" && request.url === "/api/restore") {
@@ -59,7 +64,8 @@ const server = http.createServer(async (request, response) => {
       await saveVersion("before-restore");
       const source = safeVersionPath(body.file);
       await writeFile(manifestPath, await readFile(source, "utf8"), "utf8");
-      return json(response, { ok: true, manifest: await readManifest(), versions: await listVersions() });
+      const manifest = await readManifest();
+      return json(response, { ok: true, manifest, versions: await listVersions(), setupPrompt: setupPromptPayload(manifest) });
     }
 
     if (request.method === "POST" && request.url === "/api/run") {
@@ -80,6 +86,11 @@ const server = http.createServer(async (request, response) => {
       return json(response, await exportScGuideDocx());
     }
 
+    if (request.method === "POST" && request.url === "/api/execute-setup-prompt") {
+      const body = await readBody(request);
+      return json(response, await executeSetupPrompt(body));
+    }
+
     response.writeHead(404);
     response.end("Not found");
   } catch (error) {
@@ -92,10 +103,12 @@ server.listen(port, () => {
 });
 
 async function manifestPayload() {
+  const manifest = await readManifest();
   return {
-    manifest: await readManifest(),
+    manifest,
     versions: await listVersions(),
-    guide: await readScGuide()
+    guide: await readScGuide(),
+    setupPrompt: setupPromptPayload(manifest)
   };
 }
 
@@ -432,9 +445,10 @@ function applyLearningRequest(manifest, body, company) {
   const voice = String(body.voice || "Moira").trim();
   const voiceProvider = normalizeVoiceProvider(body.voiceProvider);
   const audience = normalizeAudience(body.audience);
+  const marketSegment = normalizeMarketSegment(body.marketSegment);
 
   const next = structuredClone(manifest);
-  next.audience = audience.label;
+  next.audience = `${audience.label} - ${marketSegment.label}`;
   next.defaults = next.defaults || {};
   next.defaults.valueStatementIntensity = valueIntensity;
   next.defaults.audio = next.defaults.audio || {};
@@ -444,9 +458,13 @@ function applyLearningRequest(manifest, body, company) {
   next.context.company = company;
   next.context.preDemoNotes = preDemoNotes;
   next.context.audience = audience;
+  next.context.marketSegment = marketSegment;
+  next.context.audiencePlaybook = buildAudiencePlaybook(audience, marketSegment);
+  next.context.setupPlan = inferSetupPlan({ topic, preDemoNotes, instructions }, company, audience, marketSegment);
   next.context.demoRequest = {
     topic,
     audience: audience.value,
+    marketSegment: marketSegment.value,
     inputMode,
     source: inputModeSource(inputMode),
     instructions,
@@ -626,6 +644,107 @@ function normalizeAudience(value) {
   };
 }
 
+function normalizeMarketSegment(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw.includes("enterprise")) {
+    return {
+      value: "enterprise",
+      label: "Enterprise",
+      interests: [
+        "global consolidation and multi-entity control",
+        "governance, auditability, and segregation of duties",
+        "standardized reporting across teams, books, and subsidiaries",
+        "scalability without relying on manual spreadsheet processes"
+      ],
+      demoBias: "Lead with control, scale, governance, and trusted consolidated reporting. Keep the proof path executive enough for senior stakeholders, then drill down only to prove traceability."
+    };
+  }
+  if (raw.includes("mid")) {
+    return {
+      value: "mid-market",
+      label: "Mid-Market",
+      interests: [
+        "faster close and cleaner operational handoffs",
+        "cash visibility without manual forecast workbooks",
+        "standard reporting that scales beyond founder-led finance",
+        "repeatable processes that reduce dependency on individual users"
+      ],
+      demoBias: "Lead with operational scale, month-end speed, cash visibility, and fewer manual handoffs. Show how standard NetSuite flows make the team more repeatable."
+    };
+  }
+  return {
+    value: "emerging",
+    label: "Emerging",
+    interests: [
+      "quick visibility without heavy setup",
+      "fewer spreadsheets and simpler finance routines",
+      "clear cash and profitability signals",
+      "a path to grow into stronger controls"
+    ],
+    demoBias: "Lead with simplicity, fast time-to-insight, and how NetSuite gives a growing business a controlled foundation without overwhelming the team."
+  };
+}
+
+function buildAudiencePlaybook(audience, marketSegment) {
+  const audienceTypeInterests = {
+    "existing-customer": [
+      "better use of capabilities they may already own",
+      "process improvement and adoption expansion",
+      "low-disruption ways to mature current NetSuite usage"
+    ],
+    "marketing-audience": [
+      "crisp outcome-led proof points",
+      "visual moments that work in a broader story",
+      "less configuration depth and more reusable narrative"
+    ],
+    prospect: [
+      "confidence that NetSuite can solve the core business pains",
+      "clear first-time product orientation",
+      "proof that summary reporting connects to real detail"
+    ]
+  };
+
+  return {
+    audienceType: audience.label,
+    targetSegment: marketSegment.label,
+    interests: [...(audienceTypeInterests[audience.value] || audienceTypeInterests.prospect), ...marketSegment.interests],
+    demoBias: `${audience.guideAngle} ${marketSegment.demoBias}`
+  };
+}
+
+function inferSetupPlan(source, company, audience, marketSegment) {
+  const combined = `${source.topic || ""}\n${source.preDemoNotes || ""}\n${source.instructions || ""}`.toLowerCase();
+  const requestedCreate = /(create|setup|set up|configure|build|prepare|seed|sample|demo data|test data|record|transaction|import|upload)/.test(combined);
+  const items = [];
+
+  const add = (type, label, reason, risk = "medium") => {
+    if (!items.some((item) => item.label === label)) items.push({ type, label, reason, risk });
+  };
+
+  if (/(customer|client|prospect record)/.test(combined)) add("entity", "sample customer", "needed if the demo story should show customer-level activity or receivables");
+  if (/(vendor|supplier)/.test(combined)) add("entity", "sample vendor", "needed if the story should show payables, bills, or supplier exposure");
+  if (/(item|inventory|stock|sku|product)/.test(combined)) add("item", "sample item", "needed if operational transactions require item detail");
+  if (/(invoice|receivable|a\/r|ar aging|collections)/.test(combined)) add("transaction", "sample customer invoice", "needed to demonstrate receivables, collections, and cash inflow", "high");
+  if (/(bill|payable|a\/p|ap aging|supplier invoice)/.test(combined)) add("transaction", "sample vendor bill", "needed to demonstrate payables, approvals, and cash outflow", "high");
+  if (/(sales order|order to cash|order-to-cash)/.test(combined)) add("transaction", "sample sales order", "needed to demonstrate future inflow or order-to-cash context", "high");
+  if (/(purchase order|procure to pay|procure-to-pay)/.test(combined)) add("transaction", "sample purchase order", "needed to demonstrate future outflow or procure-to-pay context", "high");
+  if (/(bank|cash account|account category|cash 360|forecast category)/.test(combined)) add("configuration", "Cash 360 account/category setup", "needed if Cash 360 requires specific accounts, categories, or forecast assumptions");
+  if (/(subsidiary|entity|consolidat|multi.?entity)/.test(combined)) add("configuration", "subsidiary or entity demo context", "needed to demonstrate multi-entity filtering or consolidation");
+  if (/(saved search|dashboard|kpi|portlet|report customization)/.test(combined)) add("configuration", "demo dashboard/search/report view", "needed if the demo requires a prepared view beyond standard reports");
+  if (/(role|permission|approval|workflow|segregation)/.test(combined)) add("configuration", "role/permission or approval setup", "needed if the story requires controls, approvals, or role-based access", "high");
+
+  const needsSetup = requestedCreate || items.length > 0;
+  return {
+    needsSetup,
+    status: needsSetup ? "setup-may-be-required" : "read-only-demo-ready",
+    accountCreateWarning: "Creating records or configuration in NetSuite can affect the connected account. Always confirm the exact account, role, and records before executing.",
+    items,
+    promptInstruction: needsSetup
+      ? "Use the generated Codex prompt to inspect the account, confirm front-end and back-end access, identify gaps, and create only the approved demo data/configuration."
+      : "No create-in-account prep was detected. Keep the demo read-only unless the SC explicitly adds setup requirements."
+  };
+}
+
 function prospectTone(text) {
   return text.replace(/\bI will\b/g, "we'll").replace(/\bI\b/g, "we");
 }
@@ -761,6 +880,90 @@ function joinHuman(items) {
   return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 }
 
+function accountContext(manifest) {
+  const baseUrl = manifest.context?.baseUrl || "";
+  let host = "";
+  let account = "";
+  try {
+    const url = new URL(baseUrl);
+    host = url.host;
+    account = url.hostname.split(".")[0] || "";
+  } catch {}
+
+  return {
+    account: account || "unknown-account",
+    host: host || "unknown-host",
+    role: manifest.context?.role || "unknown role",
+    baseUrl: baseUrl || "unknown URL"
+  };
+}
+
+function setupPromptPayload(manifest) {
+  const account = accountContext(manifest);
+  const setupPlan = manifest.context?.setupPlan || inferSetupPlan({
+    topic: manifest.context?.demoRequest?.topic,
+    preDemoNotes: manifest.context?.preDemoNotes,
+    instructions: manifest.context?.demoRequest?.instructions
+  }, manifest.context?.company || {}, normalizeAudience(manifest.context?.audience?.value), normalizeMarketSegment(manifest.context?.marketSegment?.value));
+  const prompt = generateSetupPrompt(manifest, account, setupPlan);
+
+  return {
+    account,
+    setupPlan,
+    prompt,
+    promptPreview: prompt.split("\n").slice(0, 18).join("\n")
+  };
+}
+
+function generateSetupPrompt(manifest, account, setupPlan) {
+  const company = manifest.context?.company || {};
+  const audience = manifest.context?.audience || normalizeAudience(manifest.context?.demoRequest?.audience);
+  const marketSegment = manifest.context?.marketSegment || normalizeMarketSegment(manifest.context?.demoRequest?.marketSegment);
+  const playbook = manifest.context?.audiencePlaybook || buildAudiencePlaybook(audience, marketSegment);
+  const items = setupPlan.items?.length
+    ? setupPlan.items.map((item, index) => `${index + 1}. ${item.label} (${item.type}, ${item.risk} risk): ${item.reason}`).join("\n")
+    : "No create-in-account prep items were inferred. Keep the account read-only unless the SC explicitly approves new setup items.";
+
+  return `You are preparing a NetSuite demo account for NetSuite Demo Helper.
+
+CRITICAL ACCESS AND SAFETY RULES
+- Before creating or editing anything, verify that you have both front-end browser access and back-end NetSuite access for this account.
+- Front-end access means the browser is logged in and can navigate NetSuite UI pages.
+- Back-end access means you can inspect or create the required records/configuration through an appropriate NetSuite backend path, such as SuiteScript, REST, saved imports, or another approved administrative mechanism.
+- If either front-end or back-end access is missing, stop and report what access is missing.
+- Confirm the visible NetSuite account and role before doing any write action.
+- Do not create, edit, save, approve, post, delete, import, or submit anything until the user has confirmed the exact items below.
+
+TARGET NETSUITE ACCOUNT
+- Account: ${account.account}
+- Host: ${account.host}
+- Base URL: ${account.baseUrl}
+- Role: ${account.role}
+
+DEMO CONTEXT
+- Company/prospect: ${company.companyName || "The prospect"}
+- Audience type: ${audience.label}
+- Target segment: ${marketSegment.label}
+- Audience interests: ${playbook.interests?.join(", ") || "trusted reporting and cash visibility"}
+- Demo request: ${manifest.context?.demoRequest?.topic || "Not provided"}
+- Demo input mode: ${manifest.context?.demoRequest?.inputMode || "request-and-notes"}
+
+REQUESTED OR INFERRED SETUP ITEMS
+${items}
+
+TASK
+1. Open or use the existing NetSuite browser session for the target account.
+2. Confirm the visible account, role, and logged-in state.
+3. Inspect whether the setup items already exist.
+4. Produce a short gap list: existing, missing, risky, and not required.
+5. Ask for confirmation before creating anything.
+6. After confirmation, create only the approved demo data/configuration.
+7. Prefer standard NetSuite objects and standard reports.
+8. Avoid custom reports unless explicitly required by the approved setup.
+9. When finished, summarize exactly what was created, where it can be found, and what demo segment uses it.
+`;
+}
+
 async function writeScGuide(manifest, body, company) {
   const guide = generateScGuide(manifest, body, company);
   await mkdir(path.dirname(scGuidePath), { recursive: true });
@@ -777,6 +980,14 @@ function generateScGuide(manifest, body, company) {
   const notes = String(body.preDemoNotes || "").trim() || "No additional pre-demo notes were provided.";
   const companyName = company.companyName || "The prospect";
   const audience = normalizeAudience(body.audience || manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
+  const marketSegment = normalizeMarketSegment(body.marketSegment || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.marketSegment);
+  const playbook = manifest.context?.audiencePlaybook || buildAudiencePlaybook(audience, marketSegment);
+  const setupPlan = manifest.context?.setupPlan || inferSetupPlan({
+    topic: manifest.context?.demoRequest?.topic,
+    preDemoNotes: manifest.context?.preDemoNotes,
+    instructions
+  }, company, audience, marketSegment);
+  const account = accountContext(manifest);
   const inputModeLabels = {
     "request-and-notes": "Demo request and pre-demo notes",
     "request-only": "Demo request only",
@@ -796,8 +1007,26 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 ## Audience Angle
 
 - Selected audience: ${audience.label}
+- Target segment: ${marketSegment.label}
 - Demo input: ${inputMode}
-- Demo angle: ${audience.guideAngle}
+- Demo angle: ${playbook.demoBias}
+- Likely interests: ${playbook.interests.join(", ")}
+
+## Personalized Demo Story
+
+Open the demo as a story about ${companyName || "the prospect"} getting from uncertain finance visibility to a more controlled way of running performance and cash. Start with the standard income statement because it is familiar, then prove that the number is trusted by showing filters and drilldown. Move from profitability into Cash 360 so the audience sees that NetSuite is not only reporting history, but helping the finance team manage what happens next.
+
+For a ${marketSegment.label.toLowerCase()} ${audience.label.toLowerCase()} audience, keep the story anchored in ${joinHuman(playbook.interests.slice(0, 3))}. Use the first screen to build confidence, the middle of the demo to prove control, and the Cash 360 section to create the "this changes our operating rhythm" moment.
+
+## Tips And Tricks For The SC
+
+- Name the business reason before each click. The click is proof, not the story.
+- Use the search bar and standard navigation so the flow feels natural and repeatable.
+- If the audience asks for detail, drill once, then come back to the executive view.
+- Keep custom reporting out of the main path unless the customer explicitly asks for it.
+- For ${marketSegment.label.toLowerCase()} teams, emphasize ${joinHuman(marketSegment.interests.slice(0, 2))}.
+- For ${audience.label.toLowerCase()}, frame the proof around ${audience.guideAngle}
+- If setup data is missing, pause and use the NetSuite prep prompt instead of improvising live.
 
 ## SC Instructions
 
@@ -816,6 +1045,19 @@ ${instructions
 ## Pre-Demo Notes
 
 ${notes}
+
+## NetSuite Prep And Creation Plan
+
+- Target account: ${account.account} (${account.host})
+- Role: ${account.role}
+- Setup status: ${setupPlan.status}
+- Safety note: ${setupPlan.accountCreateWarning}
+
+${setupPlan.items?.length
+  ? setupPlan.items.map((item) => `- ${item.label}: ${item.reason} (${item.risk} risk)`).join("\n")
+  : "- No create-in-account prep items were inferred. Keep this demo read-only unless the SC explicitly adds setup requirements."}
+
+Use the setup prompt in the app if these items need to be created. It always requires front-end browser access, back-end NetSuite access, account confirmation, and approval before writes.
 
 ## Light Demo Script For The SC
 
@@ -953,6 +1195,75 @@ async function playVoiceSample(body) {
     await collectProcess("say", ["-v", voice, "-r", "175", line]);
   }
   return { ok: true, provider, voice };
+}
+
+async function executeSetupPrompt(body = {}) {
+  if (!body.confirmed) throw new Error("Confirm the NetSuite account and setup items before executing.");
+
+  const manifest = await readManifest();
+  const payload = setupPromptPayload(manifest);
+  const expectedAccount = payload.account.account;
+  if (body.account && body.account !== expectedAccount) {
+    throw new Error(`Account mismatch. Expected ${expectedAccount}, got ${body.account}.`);
+  }
+
+  const promptDir = path.join(projectRoot, "artifacts/codex-prompts");
+  await mkdir(promptDir, { recursive: true });
+  const promptFile = path.join(promptDir, `${companyFileSlug(manifest)}-netsuite-setup-prompt.md`);
+  await writeFile(promptFile, payload.prompt, "utf8");
+
+  await copyToClipboard(payload.prompt).catch(() => {});
+  const browserOpened = await openNetSuiteBrowserDetached().catch((error) => ({ ok: false, error: error.message }));
+  const codexOpened = await openCodexWorkspace().catch((error) => ({ ok: false, error: error.message }));
+
+  return {
+    ok: true,
+    promptFile,
+    account: payload.account,
+    items: payload.setupPlan.items || [],
+    browserOpened,
+    codexOpened,
+    message: "Setup prompt created and copied to clipboard. NetSuite and Codex were opened where possible; paste the prompt into a new Codex session before executing."
+  };
+}
+
+function openNetSuiteBrowserDetached() {
+  return new Promise((resolve, reject) => {
+    const child = spawn("node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--open-browser"], {
+      cwd: projectRoot,
+      detached: true,
+      stdio: "ignore"
+    });
+    child.on("error", reject);
+    child.unref();
+    resolve({ ok: true });
+  });
+}
+
+function openCodexWorkspace() {
+  const command = process.env.CODEX_BIN
+    || (os.platform() === "darwin" ? "/Applications/Codex.app/Contents/Resources/codex" : "codex");
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, ["app", projectRoot], { cwd: projectRoot, detached: true, stdio: "ignore" });
+    child.on("error", reject);
+    child.unref();
+    resolve({ ok: true });
+  });
+}
+
+function copyToClipboard(text) {
+  const command = os.platform() === "win32" ? "clip.exe" : "pbcopy";
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, [], { cwd: projectRoot });
+    child.on("error", reject);
+    child.stdin.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve({ ok: true });
+      else reject(new Error(`${command} exited with code ${code}`));
+    });
+    child.stdin.end(text);
+  });
 }
 
 async function speakWithElevenLabs(text, voiceId) {
@@ -1205,6 +1516,31 @@ function html(response) {
       font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .segment-option {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 8px;
+      background: #fff;
+      text-align: center;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .segment-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .segment-option:has(input:checked) {
+      border-color: var(--accent);
+      background: #eaf7f7;
+      color: var(--accent-dark);
+    }
     button {
       border: 1px solid var(--accent);
       background: var(--accent);
@@ -1549,6 +1885,10 @@ function html(response) {
       min-height: 68vh;
       font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
+    #setupPrompt {
+      min-height: 280px;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
     @media (max-width: 880px) {
       main { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
@@ -1564,7 +1904,7 @@ function html(response) {
   <nav class="tabs" aria-label="Workspace screens">
     <button class="tab active" data-tab="prep" data-help="Set up the audience, company context, demo input, notes, voice, and demo value emphasis.">Prep</button>
     <button class="tab" data-tab="manifest" data-help="Review or edit the detailed automation manifest that drives the demo.">Manifest</button>
-    <button class="tab" data-tab="guide" data-help="Review the lighter SC-facing guide and export it to Word.">SC Guide</button>
+    <button class="tab" data-tab="guide" data-help="Review the personalized SC demo story, setup prompt, and export it to Word.">SC Guide</button>
     <button class="tab" data-tab="run" data-help="Open NetSuite, dry run, rehearse, run the live demo, or stop an active run.">Run</button>
   </nav>
   <main>
@@ -1584,6 +1924,13 @@ function html(response) {
             <option value="prospect" selected>Prospect</option>
             <option value="marketing-audience">Marketing audience</option>
           </select>
+
+          <label>Target segment</label>
+          <div class="segmented" id="marketSegmentGroup">
+            <label class="segment-option"><input type="radio" name="marketSegment" value="emerging">Emerging</label>
+            <label class="segment-option"><input type="radio" name="marketSegment" value="mid-market" checked>Mid-Market</label>
+            <label class="segment-option"><input type="radio" name="marketSegment" value="enterprise">Enterprise</label>
+          </div>
 
           <label for="companyUrl">Company website</label>
           <input id="companyUrl" placeholder="https://www.example.com">
@@ -1681,8 +2028,18 @@ function html(response) {
         <button class="secondary" id="refreshGuide" data-help="Reloads the latest SC guide text generated by the helper.">Refresh Guide</button>
         <button id="exportGuide" data-help="Creates a Word document version of the SC guide and downloads it.">Export To Word</button>
       </div>
-      <label for="scGuide">Light SC demo guide</label>
+      <label for="scGuide">Personalized SC demo story and guide</label>
       <textarea id="scGuide" spellcheck="false" readonly></textarea>
+      <div class="band">
+        <h2>NetSuite Setup Prompt</h2>
+        <p class="hint" id="setupAccountSummary">Target account will appear after a demo is generated.</p>
+        <p class="hint" id="setupItemSummary">Setup items will appear here when the helper detects data or configuration that may need to be created.</p>
+        <label for="setupPrompt">Prompt for Codex account setup</label>
+        <textarea id="setupPrompt" spellcheck="false" readonly></textarea>
+        <div class="row" style="margin-top:10px">
+          <button id="executeSetupPrompt" data-help="After confirmation, opens the NetSuite browser, copies the setup prompt, and opens Codex for the account setup handoff.">Execute Now</button>
+        </div>
+      </div>
     </section>
 
     <section class="screen" id="screen-run">
@@ -1722,6 +2079,9 @@ function html(response) {
     const statusBox = document.getElementById("status");
     const versions = document.getElementById("versions");
     const scGuide = document.getElementById("scGuide");
+    const setupPrompt = document.getElementById("setupPrompt");
+    const setupAccountSummary = document.getElementById("setupAccountSummary");
+    const setupItemSummary = document.getElementById("setupItemSummary");
     const voiceSelect = document.getElementById("voiceSelect");
     const voiceProviderSelect = document.getElementById("voiceProvider");
     const voiceProviderHint = document.getElementById("voiceProviderHint");
@@ -1731,6 +2091,7 @@ function html(response) {
     const preDemoNotesField = document.getElementById("preDemoNotes");
     const buttonHelpTooltip = document.getElementById("buttonHelpTooltip");
     let runInProgress = false;
+    let latestSetupPrompt = null;
     let helpTimer = null;
     let helpTarget = null;
 
@@ -1821,8 +2182,10 @@ function html(response) {
     function render(payload) {
       editor.value = JSON.stringify(payload.manifest, null, 2);
       scGuide.value = payload.guide || "";
+      renderSetupPrompt(payload.setupPrompt);
       if (payload.manifest) {
         setAudience(payload.manifest.context?.audience?.value || payload.manifest.context?.demoRequest?.audience || payload.manifest.audience);
+        setMarketSegment(payload.manifest.context?.marketSegment?.value || payload.manifest.context?.demoRequest?.marketSegment || "mid-market");
         inputModeSelect.value = payload.manifest.context?.demoRequest?.inputMode || "request-and-notes";
         const manifestVoiceProvider = payload.manifest.defaults?.audio?.provider || "say";
         if (voiceProviderSelect.value !== manifestVoiceProvider) {
@@ -1865,6 +2228,39 @@ function html(response) {
       } else {
         audienceSelect.value = "prospect";
       }
+    }
+
+    function setMarketSegment(value) {
+      const normalized = String(value || "").toLowerCase();
+      const target = normalized.includes("enterprise")
+        ? "enterprise"
+        : normalized.includes("emerging")
+          ? "emerging"
+          : "mid-market";
+      const input = document.querySelector('input[name="marketSegment"][value="' + target + '"]');
+      if (input) input.checked = true;
+    }
+
+    function selectedMarketSegment() {
+      return document.querySelector('input[name="marketSegment"]:checked')?.value || "mid-market";
+    }
+
+    function renderSetupPrompt(payload) {
+      latestSetupPrompt = payload || null;
+      if (!payload) {
+        setupPrompt.value = "";
+        setupAccountSummary.textContent = "Target account will appear after a demo is generated.";
+        setupItemSummary.textContent = "Setup items will appear here when the helper detects data or configuration that may need to be created.";
+        return;
+      }
+
+      const account = payload.account || {};
+      const items = payload.setupPlan?.items || [];
+      setupPrompt.value = payload.prompt || "";
+      setupAccountSummary.textContent = "Target account: " + (account.account || "unknown") + " | Host: " + (account.host || "unknown") + " | Role: " + (account.role || "unknown");
+      setupItemSummary.textContent = items.length
+        ? "Potential create/setup items: " + items.map((item) => item.label).join(", ")
+        : "No create-in-account prep items were inferred. Keep this demo read-only unless setup requirements are added.";
     }
 
     function syncInputMode() {
@@ -1925,6 +2321,8 @@ function html(response) {
     async function loadGuide() {
       const payload = await api("/api/sc-guide");
       scGuide.value = payload.guide || "";
+      const setupPayload = await api("/api/setup-prompt");
+      renderSetupPrompt(setupPayload.setupPrompt);
     }
 
     document.querySelectorAll(".tab").forEach((button) => {
@@ -1939,6 +2337,41 @@ function html(response) {
     document.getElementById("reload").onclick = async () => { await load(); await loadGuide(); };
     document.getElementById("reloadManifest").onclick = load;
     document.getElementById("refreshGuide").onclick = loadGuide;
+    document.getElementById("executeSetupPrompt").onclick = async () => {
+      if (!latestSetupPrompt) {
+        setStatus("Create a demo first so the setup prompt can be generated.");
+        return;
+      }
+
+      const account = latestSetupPrompt.account || {};
+      const items = latestSetupPrompt.setupPlan?.items || [];
+      const itemText = items.length ? items.map((item) => item.label).join(", ") : "no inferred create items";
+      const confirmed = window.confirm(
+        "Are you sure you want to prepare Codex to create/setup these in this NetSuite account?\\n\\n" +
+        "Account: " + (account.account || "unknown") + "\\n" +
+        "Host: " + (account.host || "unknown") + "\\n" +
+        "Role: " + (account.role || "unknown") + "\\n\\n" +
+        "Items: " + itemText + "\\n\\n" +
+        "The prompt will still require Codex to confirm front-end and back-end access before any write action."
+      );
+      if (!confirmed) return;
+
+      setBusy(true);
+      try {
+        const payload = await api("/api/execute-setup-prompt", {
+          method: "POST",
+          body: JSON.stringify({
+            confirmed: true,
+            account: account.account
+          })
+        });
+        setStatus(payload.message + "\\nPrompt file: " + payload.promptFile);
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
     document.getElementById("exportGuide").onclick = async () => {
       setBusy(true);
       try {
@@ -1977,6 +2410,7 @@ function html(response) {
             topic: document.getElementById("topic").value,
             inputMode: inputModeSelect.value,
             audience: audienceSelect.value,
+            marketSegment: selectedMarketSegment(),
             instructions: document.getElementById("instructions").value,
             companyUrl: document.getElementById("companyUrl").value,
             preDemoNotes: preDemoNotesField.value,

@@ -27,6 +27,7 @@
     "demoRequest": {
       "topic": "Finance demo for a prospect: standard income statement, filters, drilldown, export, and Cash 360.",
       "audience": "prospect",
+      "marketSegment": "mid-market",
       "inputMode": "request-and-notes",
       "source": "demo-request-and-pre-demo-notes",
       "instructions": "Lead with the audience's business problem and desired outcome before showing screens.\nOpen with the biggest business hitters first: executive visibility, trusted numbers, cash control, close speed, auditability, and fewer spreadsheets.\nUse a crisp tell-show-tell rhythm: frame the point, show the shortest proof path, then land why it matters in plain language.\nUse NetSuite global search and the navigation bar as the primary way to move through the product.\nUse standard NetSuite reports for finance demos unless the audience explicitly asks for custom reporting.\nChoose the optimal demo flow, even if the product can do more. Show the path an excellent SC would choose in a live meeting.\nConnect each screen to the audience's likely role, pressure, and decision criteria. Make the story feel specific, not generic.\nKeep the demo read-only unless the SC intentionally chooses to create or edit a record.\nPause for smart discovery questions at natural decision points, especially before drilling into detail or switching modules.\nShow drilldown only when it proves trust, auditability, or actionability. Do not drill for the sake of clicking.\nUse realistic business language. Avoid NetSuite jargon unless the audience already uses it.\nNever announce internal labels such as 'value statement' during narration.\nAvoid feature tours, menu wandering, slow setup, dead clicks, custom report shortcuts, and explaining every field on the page.\nAvoid showing unconfigured areas, risky transactions, preference saves, or anything that could distract from the core story.\nIf a page takes time to load, narrate the business reason for the next step instead of filling the silence with product trivia.",
@@ -56,6 +57,38 @@
       "label": "Prospect",
       "guideAngle": "Assume first-time NetSuite viewers. Build confidence quickly, avoid jargon, prove the main business outcomes first, and show enough detail to create trust without turning the meeting into a system walkthrough.",
       "narratorAngle": "For a prospect, explain the business reason for each step before going into detail."
+    },
+    "marketSegment": {
+      "value": "mid-market",
+      "label": "Mid-Market",
+      "interests": [
+        "faster close and cleaner operational handoffs",
+        "cash visibility without manual forecast workbooks",
+        "standard reporting that scales beyond founder-led finance",
+        "repeatable processes that reduce dependency on individual users"
+      ],
+      "demoBias": "Lead with operational scale, month-end speed, cash visibility, and fewer manual handoffs. Show how standard NetSuite flows make the team more repeatable."
+    },
+    "audiencePlaybook": {
+      "audienceType": "Prospect",
+      "targetSegment": "Mid-Market",
+      "interests": [
+        "confidence that NetSuite can solve the core business pains",
+        "clear first-time product orientation",
+        "proof that summary reporting connects to real detail",
+        "faster close and cleaner operational handoffs",
+        "cash visibility without manual forecast workbooks",
+        "standard reporting that scales beyond founder-led finance",
+        "repeatable processes that reduce dependency on individual users"
+      ],
+      "demoBias": "Assume first-time NetSuite viewers. Build confidence quickly, avoid jargon, prove the main business outcomes first, and show enough detail to create trust without turning the meeting into a system walkthrough. Lead with operational scale, month-end speed, cash visibility, and fewer manual handoffs. Show how standard NetSuite flows make the team more repeatable."
+    },
+    "setupPlan": {
+      "needsSetup": false,
+      "status": "read-only-demo-ready",
+      "accountCreateWarning": "Creating records or configuration in NetSuite can affect the connected account. Always confirm the exact account, role, and records before executing.",
+      "items": [],
+      "promptInstruction": "No create-in-account prep was detected. Keep the demo read-only unless the SC explicitly adds setup requirements."
     }
   },
   "defaults": {

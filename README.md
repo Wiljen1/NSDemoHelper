@@ -40,12 +40,14 @@ From the control panel you can:
 - describe the demo you want
 - set SC demo-generation instructions
 - add the prospect company website
+- choose target segment: emerging, mid-market, or enterprise
 - add pre-demo notes from discovery
 - choose whether to use demo request plus notes, demo request only, or pre-demo notes only
 - choose and sample the narrator voice
 - create a manifest draft
 - edit the manifest directly
-- read a lighter SC demo guide for manual delivery
+- read a personalized SC demo story and guide for manual delivery
+- generate a guarded NetSuite setup prompt when demo data/configuration may need to be created
 - restore earlier manifest versions
 - open the reusable NetSuite browser
 - dry run, rehearse, or run the live narrated demo
