@@ -5,9 +5,10 @@ This workspace contains a first finance-demo package for NetSuite:
 - P&L report walkthrough
 - filters, drilldown, and export options
 - Cash 360 dashboard, actions, forecast, and preferences
-- live narration using either the local Mac voice engine or ElevenLabs cloud voices
+- live narration using local Mac voices or ElevenLabs cloud voices, including female and male voice options
 - screenshot capture for rehearsal review
 - a demo value emphasis setting: light, balanced, or heavy
+- output language selection for generated demo guidance
 - a rehearsal/account-prep/cache step before the live run
 
 ## Files
@@ -43,7 +44,9 @@ From the control panel you can:
 - choose target segment: emerging, mid-market, or enterprise
 - add pre-demo notes from discovery
 - choose whether to use demo request plus notes, demo request only, or pre-demo notes only
-- choose and sample the narrator voice
+- choose the output language
+- choose and sample the narrator voice, with cloud API key input shown only when the selected engine needs it
+- switch between light mode and night mode
 - create a manifest draft
 - edit the manifest directly
 - read three SC guide outputs: normal demo flow, personalized experience flow, and required NetSuite customization prompts
@@ -108,13 +111,13 @@ To use a different Mac voice for one run:
 npm run demo -- --voice=Moira
 ```
 
-To use ElevenLabs cloud narration, create an ElevenLabs API key, then start the control panel with it:
+To use ElevenLabs cloud narration, choose `ElevenLabs cloud voice` in the app and paste the API key into the narration settings. The key is used for that browser session and is not written into the manifest. You can also start the control panel with the key already set:
 
 ```bash
 ELEVENLABS_API_KEY=your_key_here npm run control
 ```
 
-In the app, choose `ElevenLabs cloud voice` as the narration engine. The local Mac voice remains available without any API key.
+The local Mac voice remains available without any API key.
 
 To force a one-off browser instead of the reusable browser:
 

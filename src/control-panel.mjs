@@ -14,6 +14,30 @@ const narratorStatePath = path.join(projectRoot, "artifacts/runtime/narrator-sta
 const port = Number(process.env.PORT || 4173);
 let currentRun = null;
 
+const voiceProviders = {
+  say: {
+    value: "say",
+    label: "Local Mac narrator",
+    requiresApiKey: false,
+    apiKeyLabel: ""
+  },
+  elevenlabs: {
+    value: "elevenlabs",
+    label: "ElevenLabs cloud narrator",
+    requiresApiKey: true,
+    apiKeyEnv: "ELEVENLABS_API_KEY",
+    apiKeyLabel: "ElevenLabs API key"
+  }
+};
+
+const outputLanguages = {
+  en: { value: "en", label: "English" },
+  nl: { value: "nl", label: "Dutch" },
+  de: { value: "de", label: "German" },
+  fr: { value: "fr", label: "French" },
+  es: { value: "es", label: "Spanish" }
+};
+
 const server = http.createServer(async (request, response) => {
   try {
     if (request.method === "GET" && request.url === "/") return html(response);
@@ -23,6 +47,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && request.url?.startsWith("/api/voices")) {
       const provider = new URL(request.url, "http://localhost").searchParams.get("provider") || "say";
       return json(response, await listVoices(provider));
+    }
+    if (request.method === "POST" && request.url === "/api/voices") {
+      const body = await readBody(request);
+      return json(response, await listVoices(body.provider, body.apiKey));
     }
     if (request.method === "GET" && request.url === "/api/sc-guide") {
       const manifest = await readManifest();
@@ -454,11 +482,13 @@ function applyLearningRequest(manifest, body, company) {
   const voiceProvider = normalizeVoiceProvider(body.voiceProvider);
   const audience = normalizeAudience(body.audience);
   const marketSegment = normalizeMarketSegment(body.marketSegment);
+  const outputLanguage = normalizeOutputLanguage(body.outputLanguage);
 
   const next = structuredClone(manifest);
   next.audience = `${audience.label} - ${marketSegment.label}`;
   next.defaults = next.defaults || {};
   next.defaults.valueStatementIntensity = valueIntensity;
+  next.defaults.outputLanguage = outputLanguage.value;
   next.defaults.audio = next.defaults.audio || {};
   next.defaults.audio.provider = voiceProvider;
   next.defaults.audio.voice = voice;
@@ -467,12 +497,18 @@ function applyLearningRequest(manifest, body, company) {
   next.context.preDemoNotes = preDemoNotes;
   next.context.audience = audience;
   next.context.marketSegment = marketSegment;
+  next.context.outputLanguage = {
+    ...outputLanguage,
+    instruction: outputLanguageInstruction(outputLanguage)
+  };
   next.context.audiencePlaybook = buildAudiencePlaybook(audience, marketSegment);
   next.context.setupPlan = inferSetupPlan({ topic, preDemoNotes, instructions }, company, audience, marketSegment);
   next.context.demoRequest = {
     topic,
     audience: audience.value,
     marketSegment: marketSegment.value,
+    outputLanguage: outputLanguage.value,
+    outputLanguageInstruction: outputLanguageInstruction(outputLanguage),
     inputMode,
     source: inputModeSource(inputMode),
     instructions,
@@ -596,8 +632,39 @@ function notesForCompanyAnalysis(body) {
 
 function normalizeVoiceProvider(value) {
   const provider = String(value || "").trim().toLowerCase();
-  if (["say", "elevenlabs"].includes(provider)) return provider;
+  if (voiceProviders[provider]) return provider;
   return "say";
+}
+
+function voiceProviderConfig(value) {
+  return voiceProviders[normalizeVoiceProvider(value)];
+}
+
+function effectiveProviderApiKey(provider, suppliedKey = "") {
+  const config = voiceProviderConfig(provider);
+  if (!config.requiresApiKey) return "";
+  return String(suppliedKey || "").trim() || process.env[config.apiKeyEnv] || "";
+}
+
+function providerRuntimeEnv(provider, suppliedKey = "") {
+  const config = voiceProviderConfig(provider);
+  const apiKey = effectiveProviderApiKey(provider, suppliedKey);
+  return config.requiresApiKey && apiKey ? { [config.apiKeyEnv]: apiKey } : {};
+}
+
+function normalizeOutputLanguage(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (outputLanguages[raw]) return outputLanguages[raw];
+  const byLabel = Object.values(outputLanguages).find((language) => language.label.toLowerCase() === raw);
+  return byLabel || outputLanguages.en;
+}
+
+function outputLanguageInstruction(language) {
+  const normalized = normalizeOutputLanguage(language?.value || language);
+  if (normalized.value === "en") {
+    return "Write SC-facing output, setup guidance, and narrator talk tracks in English.";
+  }
+  return `Write SC-facing output, setup guidance, and narrator talk tracks in ${normalized.label}. Preserve NetSuite product names, field labels, menu labels, report names, and account terms as they appear in the NetSuite UI.`;
 }
 
 function inferDemoRequestFromNotes(preDemoNotes, company) {
@@ -927,6 +994,7 @@ function generateSetupPrompt(manifest, account, setupPlan) {
   const company = manifest.context?.company || {};
   const audience = manifest.context?.audience || normalizeAudience(manifest.context?.demoRequest?.audience);
   const marketSegment = manifest.context?.marketSegment || normalizeMarketSegment(manifest.context?.demoRequest?.marketSegment);
+  const outputLanguage = normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
   const playbook = manifest.context?.audiencePlaybook || buildAudiencePlaybook(audience, marketSegment);
   const items = setupPlan.items?.length
     ? setupPlan.items.map((item, index) => `${index + 1}. ${item.label} (${item.type}, ${item.risk} risk): ${item.reason}`).join("\n")
@@ -952,9 +1020,11 @@ DEMO CONTEXT
 - Company/prospect: ${company.companyName || "The prospect"}
 - Audience type: ${audience.label}
 - Target segment: ${marketSegment.label}
+- Output language: ${outputLanguage.label}
 - Audience interests: ${playbook.interests?.join(", ") || "trusted reporting and cash visibility"}
 - Demo request: ${manifest.context?.demoRequest?.topic || "Not provided"}
 - Demo input mode: ${manifest.context?.demoRequest?.inputMode || "request-and-notes"}
+- Language instruction: ${outputLanguageInstruction(outputLanguage)}
 
 REQUESTED OR INFERRED SETUP ITEMS
 ${items}
@@ -989,6 +1059,7 @@ function generateScGuide(manifest, body, company) {
   const companyName = company.companyName || "The prospect";
   const audience = normalizeAudience(body.audience || manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
   const marketSegment = normalizeMarketSegment(body.marketSegment || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.marketSegment);
+  const outputLanguage = normalizeOutputLanguage(body.outputLanguage || manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
   const playbook = manifest.context?.audiencePlaybook || buildAudiencePlaybook(audience, marketSegment);
   const setupPlan = manifest.context?.setupPlan || inferSetupPlan({
     topic: manifest.context?.demoRequest?.topic,
@@ -1019,15 +1090,21 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 
 - Selected audience: ${audience.label}
 - Target segment: ${marketSegment.label}
+- Output language: ${outputLanguage.label}
+- Language guidance: ${outputLanguageInstruction(outputLanguage)}
 - Demo input: ${inputMode}
 - Demo angle: ${playbook.demoBias}
 - Likely interests: ${playbook.interests.join(", ")}
 
 ## Normal Demo Flow
 
+${outputLanguageInstruction(outputLanguage)}
+
 ${normalDemoFlow}
 
 ## Personalized Experience Flow
+
+${outputLanguageInstruction(outputLanguage)}
 
 ${personalizedStoryFlow}
 
@@ -1122,11 +1199,13 @@ function guideContextFromManifest(manifest) {
   const company = manifest.context?.company || {};
   const audience = normalizeAudience(manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
   const marketSegment = normalizeMarketSegment(manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.marketSegment);
+  const outputLanguage = normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
   const playbook = manifest.context?.audiencePlaybook || buildAudiencePlaybook(audience, marketSegment);
   return {
     companyName: company.companyName || "The prospect",
     audience,
     marketSegment,
+    outputLanguage,
     playbook,
     priorities: company.likelyPriorities || [],
     segments: manifest.segments || []
@@ -1245,13 +1324,25 @@ function describeNavigationAction(action) {
   return url;
 }
 
-async function listVoices(provider = "say") {
-  if (normalizeVoiceProvider(provider) === "elevenlabs") {
-    return listElevenLabsVoices();
+async function listVoices(provider = "say", apiKey = "") {
+  const normalizedProvider = normalizeVoiceProvider(provider);
+  const config = voiceProviderConfig(normalizedProvider);
+  if (normalizedProvider === "elevenlabs") {
+    return listElevenLabsVoices(apiKey);
   }
 
   const output = await collectProcess("say", ["-v", "?"]).catch(() => "");
   const preferred = new Set([
+    "Alex",
+    "Daniel",
+    "Fred",
+    "Oliver",
+    "Rishi",
+    "Aaron",
+    "Eddy (English (UK))",
+    "Eddy (English (US))",
+    "Reed (English (UK))",
+    "Reed (English (US))",
     "Moira",
     "Samantha",
     "Karen",
@@ -1271,32 +1362,45 @@ async function listVoices(provider = "say") {
 
   const localVoices = voices.length ? voices : [
     { name: "Moira", locale: "en_IE", sample: "Hello! My name is Moira." },
-    { name: "Samantha", locale: "en_US", sample: "Hello! My name is Samantha." }
+    { name: "Samantha", locale: "en_US", sample: "Hello! My name is Samantha." },
+    { name: "Daniel", locale: "en_GB", sample: "Hello! My name is Daniel." },
+    { name: "Alex", locale: "en_US", sample: "Hello! My name is Alex." }
   ];
 
   return {
     provider: "say",
-    providerLabel: "Local Mac narrator",
+    providerLabel: config.label,
+    requiresApiKey: config.requiresApiKey,
+    apiKeyLabel: config.apiKeyLabel,
     configured: true,
-    voices: localVoices.map((voice) => ({ id: voice.name, provider: "say", ...voice }))
+    voices: localVoices.map((voice) => ({
+      id: voice.name,
+      provider: "say",
+      gender: inferLocalVoiceGender(voice.name),
+      ...voice
+    }))
   };
 }
 
-async function listElevenLabsVoices() {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) {
+async function listElevenLabsVoices(apiKey = "") {
+  const config = voiceProviderConfig("elevenlabs");
+  const effectiveApiKey = effectiveProviderApiKey("elevenlabs", apiKey);
+  if (!effectiveApiKey) {
     return {
       provider: "elevenlabs",
-      providerLabel: "ElevenLabs cloud narrator",
+      providerLabel: config.label,
+      requiresApiKey: config.requiresApiKey,
+      apiKeyEnv: config.apiKeyEnv,
+      apiKeyLabel: config.apiKeyLabel,
       configured: false,
-      message: "Add ELEVENLABS_API_KEY before starting the app to use cloud voices.",
+      message: "Add an ElevenLabs API key here, or set ELEVENLABS_API_KEY before starting the app, to load cloud voices and run cloud narration.",
       voices: fallbackElevenLabsVoices()
     };
   }
 
   try {
     const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-      headers: { "xi-api-key": apiKey }
+      headers: { "xi-api-key": effectiveApiKey }
     });
     if (!response.ok) throw new Error(await response.text());
     const payload = await response.json();
@@ -1307,18 +1411,25 @@ async function listElevenLabsVoices() {
         name: voice.name,
         locale: "cloud",
         provider: "elevenlabs",
+        gender: inferCloudVoiceGender(voice),
         sample: voice.description || "ElevenLabs cloud voice"
       }));
     return {
       provider: "elevenlabs",
-      providerLabel: "ElevenLabs cloud narrator",
+      providerLabel: config.label,
+      requiresApiKey: config.requiresApiKey,
+      apiKeyEnv: config.apiKeyEnv,
+      apiKeyLabel: config.apiKeyLabel,
       configured: true,
       voices: voices.length ? voices : fallbackElevenLabsVoices()
     };
   } catch (error) {
     return {
       provider: "elevenlabs",
-      providerLabel: "ElevenLabs cloud narrator",
+      providerLabel: config.label,
+      requiresApiKey: config.requiresApiKey,
+      apiKeyEnv: config.apiKeyEnv,
+      apiKeyLabel: config.apiKeyLabel,
       configured: false,
       message: `Could not load ElevenLabs voices: ${error.message}`,
       voices: fallbackElevenLabsVoices()
@@ -1328,9 +1439,31 @@ async function listElevenLabsVoices() {
 
 function fallbackElevenLabsVoices() {
   return [
-    { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", locale: "cloud", provider: "elevenlabs", sample: "Clear, friendly cloud narrator" },
-    { id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", locale: "cloud", provider: "elevenlabs", sample: "Warm, expressive cloud narrator" }
+    { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", locale: "cloud", provider: "elevenlabs", gender: "female", sample: "Clear, friendly cloud narrator" },
+    { id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", locale: "cloud", provider: "elevenlabs", gender: "female", sample: "Warm, expressive cloud narrator" },
+    { id: "pNInz6obpgDQGcFmaJgB", name: "Adam", locale: "cloud", provider: "elevenlabs", gender: "male", sample: "Confident, polished cloud narrator" },
+    { id: "TxGEqnHWrfWFTfGW9XjXj", name: "Josh", locale: "cloud", provider: "elevenlabs", gender: "male", sample: "Natural, conversational cloud narrator" }
   ];
+}
+
+function inferLocalVoiceGender(name) {
+  const raw = String(name || "").toLowerCase();
+  if (/(alex|daniel|fred|oliver|rishi|aaron|eddy|reed|rocko|grandpa)/.test(raw)) return "male";
+  if (/(moira|samantha|karen|tessa|kathy|shelley|sandy|grandma)/.test(raw)) return "female";
+  return "neutral";
+}
+
+function inferCloudVoiceGender(voice) {
+  const name = String(voice?.name || "").toLowerCase();
+  const labels = [
+    voice?.labels?.gender,
+    voice?.labels?.accent,
+    voice?.labels?.description,
+    voice?.description
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (/(^|\b)(female|woman|feminine|rachel|bella|domi|elli|glinda|serena|matilda|emily)(\b|$)/.test(`${name} ${labels}`)) return "female";
+  if (/(^|\b)(male|man|masculine|adam|josh|antoni|arnold|sam|charlie)(\b|$)/.test(`${name} ${labels}`)) return "male";
+  return "neutral";
 }
 
 async function playVoiceSample(body) {
@@ -1338,7 +1471,7 @@ async function playVoiceSample(body) {
   const provider = normalizeVoiceProvider(body.voiceProvider);
   const line = String(body.line || "Let's show how NetSuite gives finance teams a clearer view of performance and cash.").trim();
   if (provider === "elevenlabs") {
-    await speakWithElevenLabs(line, voice);
+    await speakWithElevenLabs(line, voice, body.voiceApiKey);
   } else {
     await collectProcess("say", ["-v", voice, "-r", "175", line]);
   }
@@ -1414,9 +1547,9 @@ function copyToClipboard(text) {
   });
 }
 
-async function speakWithElevenLabs(text, voiceId) {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) throw new Error("ElevenLabs needs ELEVENLABS_API_KEY. Create a free ElevenLabs API key, stop the app, set the key, and start it again.");
+async function speakWithElevenLabs(text, voiceId, suppliedApiKey = "") {
+  const apiKey = effectiveProviderApiKey("elevenlabs", suppliedApiKey);
+  if (!apiKey) throw new Error("ElevenLabs needs an API key. Add it in the narration settings or set ELEVENLABS_API_KEY before starting the app.");
 
   const audioDir = path.join(projectRoot, "artifacts/audio");
   await mkdir(audioDir, { recursive: true });
@@ -1469,6 +1602,10 @@ async function runCommand(body) {
   const valueIntensity = body.valueIntensity || "balanced";
   const voice = body.voice || "Moira";
   const voiceProvider = normalizeVoiceProvider(body.voiceProvider);
+  const voiceEnv = providerRuntimeEnv(voiceProvider, body.voiceApiKey);
+  if (mode === "live" && voiceProviderConfig(voiceProvider).requiresApiKey && !Object.keys(voiceEnv).length) {
+    throw new Error(`${voiceProviderConfig(voiceProvider).label} needs an API key. Add it in Narrator Voice before running the live demo.`);
+  }
   if (mode === "rehearse") {
     const prep = await prepareAccountBuffer();
     const run = await runProcess("node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--rehearse", "--audio=none", `--value-intensity=${valueIntensity}`]);
@@ -1485,7 +1622,7 @@ async function runCommand(body) {
   };
   const command = commands[mode];
   if (!command) throw new Error(`Unknown run mode: ${mode}`);
-  return runProcess(command[0], command[1]);
+  return runProcess(command[0], command[1], { env: voiceEnv });
 }
 
 async function prepareAccountBuffer() {
@@ -1523,14 +1660,14 @@ async function prepareAccountBuffer() {
   return { ok: true, file, log };
 }
 
-function runProcess(command, args) {
+function runProcess(command, args, options = {}) {
   return new Promise((resolve) => {
     if (currentRun) {
       resolve({ ok: false, code: 1, log: "A demo is already running. Stop it before starting another run." });
       return;
     }
 
-    const child = spawn(command, args, { cwd: projectRoot, detached: true });
+    const child = spawn(command, args, { cwd: projectRoot, detached: true, env: { ...process.env, ...(options.env || {}) } });
     let log = "";
     currentRun = {
       child,
@@ -1656,26 +1793,91 @@ function html(response) {
       --danger: #9f2d20;
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--ink);
-      background: #ffffff;
-    }
-    header {
-      border-bottom: 1px solid var(--line);
-      padding: 18px 24px;
-      display: flex;
-      align-items: center;
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: #ffffff;
+      }
+      body.night {
+        color-scheme: dark;
+        --ink: #edf3f6;
+        --muted: #9fb0bc;
+        --line: #314251;
+        --soft: #101820;
+        --accent: #20a39e;
+        --accent-dark: #79d8d5;
+        --danger: #ff8a75;
+        background: #0b1117;
+      }
+      header {
+        border-bottom: 1px solid var(--line);
+        padding: 18px 24px;
+        display: flex;
+        align-items: center;
       justify-content: space-between;
       gap: 16px;
-    }
-    h1 { margin: 0; font-size: 20px; font-weight: 700; }
-    main {
-      display: grid;
-      grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
-      min-height: calc(100vh - 66px);
-    }
+      }
+      h1 { margin: 0; font-size: 20px; font-weight: 700; }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .theme-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        font-size: 13px;
+        background: #fff;
+        cursor: pointer;
+        user-select: none;
+      }
+      .theme-toggle input {
+        width: auto;
+        margin: 0;
+        accent-color: var(--accent);
+      }
+      body.night header,
+      body.night .tabs {
+        background: #0d151d;
+      }
+      body.night .theme-toggle,
+      body.night textarea,
+      body.night select,
+      body.night input,
+      body.night .panel,
+      body.night .step,
+      body.night .tab,
+      body.night .segment-option {
+        background: #121c25;
+        color: var(--ink);
+      }
+      body.night button.secondary,
+      body.night button.danger {
+        background: #121c25;
+      }
+      body.night .segment-option:has(input:checked) {
+        background: #102b31;
+        color: var(--accent-dark);
+      }
+      body.night .status {
+        background: #060a0f;
+        color: #dce7ef;
+      }
+      body.night .help-tooltip {
+        background: #edf3f6;
+        color: #0b1117;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+        min-height: calc(100vh - 66px);
+      }
     aside {
       border-right: 1px solid var(--line);
       background: var(--soft);
@@ -1727,11 +1929,12 @@ function html(response) {
       opacity: 0;
       pointer-events: none;
     }
-    .segment-option:has(input:checked) {
-      border-color: var(--accent);
-      background: #eaf7f7;
-      color: var(--accent-dark);
-    }
+      .segment-option:has(input:checked) {
+        border-color: var(--accent);
+        background: #eaf7f7;
+        color: var(--accent-dark);
+      }
+      .conditional-setting[hidden] { display: none; }
     button {
       border: 1px solid var(--accent);
       background: var(--accent);
@@ -1959,19 +2162,51 @@ function html(response) {
       border-radius: 30px 30px 16px 18px;
       background: linear-gradient(155deg, #5a342e 0%, #2e1917 72%);
     }
-    .presenter-avatar .hair-front::after {
-      content: "";
-      position: absolute;
-      width: 30px;
-      height: 30px;
+      .presenter-avatar .hair-front::after {
+        content: "";
+        position: absolute;
+        width: 30px;
+        height: 30px;
       right: 2px;
       top: 4px;
       border-radius: 0 28px 0 28px;
-      background: #2c1917;
-      transform: rotate(-9deg);
-    }
-    .presenter-avatar .brow {
-      position: absolute;
+        background: #2c1917;
+        transform: rotate(-9deg);
+      }
+      .presenter-avatar.male .hair-back {
+        width: 72px;
+        height: 56px;
+        left: 33px;
+        top: 19px;
+        border-radius: 30px 30px 18px 18px;
+        background: linear-gradient(155deg, #44312c 0%, #201816 72%);
+      }
+      .presenter-avatar.male .hair-front {
+        height: 25px;
+        top: -4px;
+        border-radius: 28px 28px 14px 14px;
+        background: linear-gradient(155deg, #4b3631 0%, #201816 76%);
+      }
+      .presenter-avatar.male .hair-front::after {
+        width: 24px;
+        height: 19px;
+        right: 8px;
+        top: 1px;
+        border-radius: 16px 16px 8px 8px;
+        transform: rotate(-3deg);
+      }
+      .presenter-avatar.male .head {
+        border-radius: 28px 28px 30px 30px;
+      }
+      .presenter-avatar.male .brow {
+        height: 4px;
+        background: #2c211d;
+      }
+      .presenter-avatar.male .shoulders {
+        background: linear-gradient(135deg, #263b54 0%, #162536 100%);
+      }
+      .presenter-avatar .brow {
+        position: absolute;
       width: 15px;
       height: 3px;
       top: 35px;
@@ -2098,10 +2333,16 @@ function html(response) {
     }
   </style>
 </head>
-<body>
-  <header>
-    <h1>NetSuite Demo Helper</h1>
-  </header>
+  <body>
+    <header>
+      <h1>NetSuite Demo Helper</h1>
+      <div class="header-actions">
+        <label class="theme-toggle" for="nightMode">
+          <input type="checkbox" id="nightMode">
+          Night mode
+        </label>
+      </div>
+    </header>
   <nav class="tabs" aria-label="Workspace screens">
     <button class="tab active" data-tab="prep" data-help="Set up the audience, company context, demo input, notes, voice, and demo value emphasis.">Prep</button>
     <button class="tab" data-tab="manifest" data-help="Review or edit the detailed automation manifest that drives the demo.">Manifest</button>
@@ -2136,15 +2377,24 @@ function html(response) {
           <label for="companyUrl">Company website</label>
           <input id="companyUrl" placeholder="https://www.example.com">
 
-          <label for="inputMode">Demo generation input</label>
-          <select id="inputMode">
-            <option value="request-and-notes" selected>Use demo request and pre-demo notes</option>
-            <option value="request-only">Use demo request only</option>
-            <option value="notes-only">Use pre-demo notes only</option>
-          </select>
+            <label for="inputMode">Demo generation input</label>
+            <select id="inputMode">
+              <option value="request-and-notes" selected>Use demo request and pre-demo notes</option>
+              <option value="request-only">Use demo request only</option>
+              <option value="notes-only">Use pre-demo notes only</option>
+            </select>
 
-          <label for="topic">Demo request</label>
-          <textarea id="topic" style="min-height:135px">Finance demo for a prospect: standard income statement, filters, drilldown, export, and Cash 360.</textarea>
+            <label for="outputLanguage">Output language</label>
+            <select id="outputLanguage">
+              <option value="en" selected>English</option>
+              <option value="nl">Dutch</option>
+              <option value="de">German</option>
+              <option value="fr">French</option>
+              <option value="es">Spanish</option>
+            </select>
+
+            <label for="topic">Demo request</label>
+            <textarea id="topic" style="min-height:135px">Finance demo for a prospect: standard income statement, filters, drilldown, export, and Cash 360.</textarea>
 
           <label for="preDemoNotes">Pre-demo notes</label>
           <textarea id="preDemoNotes" style="min-height:170px" placeholder="Paste discovery notes, pain points, role notes, current systems, concerns, and success criteria."></textarea>
@@ -2156,10 +2406,16 @@ function html(response) {
           <select id="voiceProvider">
             <option value="say" selected>Local Mac voice</option>
             <option value="elevenlabs">ElevenLabs cloud voice (free account/API key)</option>
-          </select>
-          <p class="hint" id="voiceProviderHint">Local voices work without an API key. Cloud voices need ELEVENLABS_API_KEY when starting the app.</p>
+            </select>
+            <p class="hint" id="voiceProviderHint">Local voices work without an API key. Cloud voices need ELEVENLABS_API_KEY when starting the app.</p>
 
-          <label for="voiceSelect">Voice</label>
+            <div class="conditional-setting" id="voiceApiKeyWrap" hidden>
+              <label for="voiceApiKey">Narration API key</label>
+              <input id="voiceApiKey" type="password" autocomplete="off" placeholder="Paste the API key for the selected narration service">
+              <p class="hint" id="voiceApiKeyHint">The key is used for this browser session and is not saved into the manifest.</p>
+            </div>
+
+            <label for="voiceSelect">Voice</label>
           <select id="voiceSelect"></select>
           <div class="row" style="margin-top:10px">
             <button class="secondary" id="sampleVoice" data-help="Plays a short sample line using the selected local narrator voice.">Play Sample</button>
@@ -2302,11 +2558,16 @@ function html(response) {
     const setupPrompt = document.getElementById("setupPrompt");
     const setupAccountSummary = document.getElementById("setupAccountSummary");
     const setupItemSummary = document.getElementById("setupItemSummary");
-    const voiceSelect = document.getElementById("voiceSelect");
-    const voiceProviderSelect = document.getElementById("voiceProvider");
-    const voiceProviderHint = document.getElementById("voiceProviderHint");
-    const audienceSelect = document.getElementById("audience");
-    const inputModeSelect = document.getElementById("inputMode");
+      const voiceSelect = document.getElementById("voiceSelect");
+      const voiceProviderSelect = document.getElementById("voiceProvider");
+      const voiceProviderHint = document.getElementById("voiceProviderHint");
+      const voiceApiKeyWrap = document.getElementById("voiceApiKeyWrap");
+      const voiceApiKeyField = document.getElementById("voiceApiKey");
+      const voiceApiKeyHint = document.getElementById("voiceApiKeyHint");
+      const audienceSelect = document.getElementById("audience");
+      const inputModeSelect = document.getElementById("inputMode");
+      const outputLanguageSelect = document.getElementById("outputLanguage");
+      const nightModeToggle = document.getElementById("nightMode");
     const topicField = document.getElementById("topic");
     const preDemoNotesField = document.getElementById("preDemoNotes");
     const buttonHelpTooltip = document.getElementById("buttonHelpTooltip");
@@ -2339,15 +2600,24 @@ function html(response) {
       statusBox.textContent = text;
     }
 
-    function setBusy(isBusy) {
-      document.querySelectorAll("button").forEach((button) => {
-        if (button.id === "stopRun") {
-          button.disabled = !runInProgress;
-        } else {
-          button.disabled = isBusy;
-        }
-      });
-    }
+      function setBusy(isBusy) {
+        document.querySelectorAll("button").forEach((button) => {
+          if (button.id === "stopRun") {
+            button.disabled = !runInProgress;
+          } else {
+            button.disabled = isBusy;
+          }
+        });
+      }
+
+      function applyNightMode(save = true) {
+        document.body.classList.toggle("night", nightModeToggle.checked);
+        if (save) localStorage.setItem("nsDemoHelperNightMode", nightModeToggle.checked ? "1" : "0");
+      }
+
+      nightModeToggle.checked = localStorage.getItem("nsDemoHelperNightMode") === "1";
+      applyNightMode(false);
+      nightModeToggle.onchange = () => applyNightMode();
 
     function hideButtonHelp() {
       clearTimeout(helpTimer);
@@ -2405,18 +2675,21 @@ function html(response) {
       renderGuideOutputs(payload.guide || "", payload.guideOutputs);
       renderSetupPrompt(payload.setupPrompt);
       if (payload.manifest) {
-        setAudience(payload.manifest.context?.audience?.value || payload.manifest.context?.demoRequest?.audience || payload.manifest.audience);
-        setMarketSegment(payload.manifest.context?.marketSegment?.value || payload.manifest.context?.demoRequest?.marketSegment || "mid-market");
-        inputModeSelect.value = payload.manifest.context?.demoRequest?.inputMode || "request-and-notes";
-        const manifestVoiceProvider = payload.manifest.defaults?.audio?.provider || "say";
-        if (voiceProviderSelect.value !== manifestVoiceProvider) {
-          voiceProviderSelect.value = manifestVoiceProvider;
+          setAudience(payload.manifest.context?.audience?.value || payload.manifest.context?.demoRequest?.audience || payload.manifest.audience);
+          setMarketSegment(payload.manifest.context?.marketSegment?.value || payload.manifest.context?.demoRequest?.marketSegment || "mid-market");
+          outputLanguageSelect.value = payload.manifest.context?.outputLanguage?.value || payload.manifest.context?.demoRequest?.outputLanguage || payload.manifest.defaults?.outputLanguage || "en";
+          inputModeSelect.value = payload.manifest.context?.demoRequest?.inputMode || "request-and-notes";
+          const manifestVoiceProvider = payload.manifest.defaults?.audio?.provider || "say";
+          if (voiceProviderSelect.value !== manifestVoiceProvider) {
+            voiceProviderSelect.value = manifestVoiceProvider;
           loadVoices(payload.manifest.defaults?.audio?.voice);
         }
         document.getElementById("intensity").value = payload.manifest.defaults?.valueStatementIntensity || "balanced";
-        if (payload.manifest.defaults?.audio?.voice && voiceSelect.options.length) {
-          voiceSelect.value = payload.manifest.defaults.audio.voice;
-        }
+          if (payload.manifest.defaults?.audio?.voice && voiceSelect.options.length) {
+            voiceSelect.value = payload.manifest.defaults.audio.voice;
+          }
+          syncVoiceProviderSettings();
+          updateAvatarPersona();
         if (payload.manifest.context?.demoRequest?.instructions) {
           document.getElementById("instructions").value = payload.manifest.context.demoRequest.instructions;
         }
@@ -2480,9 +2753,50 @@ function html(response) {
       if (input) input.checked = true;
     }
 
-    function selectedMarketSegment() {
-      return document.querySelector('input[name="marketSegment"]:checked')?.value || "mid-market";
-    }
+      function selectedMarketSegment() {
+        return document.querySelector('input[name="marketSegment"]:checked')?.value || "mid-market";
+      }
+
+      function selectedVoiceApiKey() {
+        return voiceApiKeyField.value.trim();
+      }
+
+      function voiceApiKeyStorageKey() {
+        return "nsDemoHelperApiKey:" + (voiceProviderSelect.value || "say");
+      }
+
+      function syncVoiceProviderSettings(payload = {}) {
+        const provider = voiceProviderSelect.value || "say";
+        const requiresApiKey = payload.requiresApiKey ?? provider !== "say";
+        voiceApiKeyWrap.hidden = !requiresApiKey;
+        if (requiresApiKey) {
+          const savedKey = sessionStorage.getItem(voiceApiKeyStorageKey()) || "";
+          if (!voiceApiKeyField.value && savedKey) voiceApiKeyField.value = savedKey;
+          voiceApiKeyHint.textContent = payload.apiKeyLabel
+            ? payload.apiKeyLabel + " is used only for this browser session and is not saved into the manifest."
+            : "The key is used only for this browser session and is not saved into the manifest.";
+        } else {
+          voiceApiKeyField.value = "";
+        }
+      }
+
+      function selectedVoiceGender(fallbackVoice = "") {
+        const selected = voiceSelect.selectedOptions[0];
+        if (selected?.dataset?.gender) return selected.dataset.gender;
+        const raw = String(fallbackVoice || voiceSelect.value || "").toLowerCase();
+        if (/(adam|josh|alex|daniel|fred|oliver|rishi|aaron|eddy|reed)/.test(raw)) return "male";
+        if (/(rachel|bella|moira|samantha|karen|tessa|kathy|shelley|sandy)/.test(raw)) return "female";
+        return "neutral";
+      }
+
+      function updateAvatarPersona(fallbackVoice = "") {
+        const gender = selectedVoiceGender(fallbackVoice);
+        for (const avatar of [document.getElementById("avatar"), document.getElementById("runAvatar")]) {
+          if (!avatar) continue;
+          avatar.classList.toggle("male", gender === "male");
+          avatar.classList.toggle("female", gender !== "male");
+        }
+      }
 
     function renderSetupPrompt(payload) {
       latestSetupPrompt = payload || null;
@@ -2529,33 +2843,55 @@ function html(response) {
       }
     }
 
-    inputModeSelect.onchange = syncInputMode;
-    voiceProviderSelect.onchange = () => loadVoices();
+      inputModeSelect.onchange = syncInputMode;
+      voiceProviderSelect.onchange = () => {
+        syncVoiceProviderSettings();
+        loadVoices();
+      };
+      voiceSelect.onchange = () => updateAvatarPersona();
+      voiceApiKeyField.oninput = () => {
+        if (voiceApiKeyField.value.trim()) sessionStorage.setItem(voiceApiKeyStorageKey(), voiceApiKeyField.value.trim());
+        else sessionStorage.removeItem(voiceApiKeyStorageKey());
+      };
+      voiceApiKeyField.onchange = () => loadVoices(voiceSelect.value);
 
     async function load() {
       render(await api("/api/manifest"));
     }
 
-    async function loadVoices(preferredVoice = "") {
-      const provider = voiceProviderSelect.value || "say";
-      const payload = await api("/api/voices?provider=" + encodeURIComponent(provider));
-      voiceSelect.innerHTML = "";
-      for (const voice of payload.voices || []) {
-        const option = document.createElement("option");
-        option.value = voice.id || voice.name;
-        option.textContent = voice.name + " (" + voice.locale + ")";
-        voiceSelect.appendChild(option);
+      async function loadVoices(preferredVoice = "") {
+        const provider = voiceProviderSelect.value || "say";
+        syncVoiceProviderSettings();
+        const payload = await api("/api/voices", {
+          method: "POST",
+          body: JSON.stringify({
+            provider,
+            apiKey: selectedVoiceApiKey()
+          })
+        });
+        voiceSelect.innerHTML = "";
+        for (const voice of payload.voices || []) {
+          const option = document.createElement("option");
+          option.value = voice.id || voice.name;
+          option.dataset.gender = voice.gender || "neutral";
+          option.dataset.provider = voice.provider || provider;
+          option.textContent = voice.name + " (" + voice.locale + (voice.gender ? ", " + voice.gender : "") + ")";
+          voiceSelect.appendChild(option);
+        }
+        syncVoiceProviderSettings(payload);
+        voiceProviderHint.textContent = payload.message || (provider === "elevenlabs"
+          ? "Cloud voices use ElevenLabs. Add the API key here or set ELEVENLABS_API_KEY before starting the app."
+          : "Local voices work without an API key.");
+        const values = Array.from(voiceSelect.options).map((option) => option.value);
+        if (preferredVoice && values.includes(preferredVoice)) {
+          voiceSelect.value = preferredVoice;
+        } else if (provider === "say" && values.includes("Moira")) {
+          voiceSelect.value = "Moira";
+        } else if (provider === "elevenlabs" && values.includes("21m00Tcm4TlvDq8ikWAM")) {
+          voiceSelect.value = "21m00Tcm4TlvDq8ikWAM";
+        }
+        updateAvatarPersona(preferredVoice);
       }
-      voiceProviderHint.textContent = payload.message || (provider === "elevenlabs"
-        ? "Cloud voices use ElevenLabs. Add ELEVENLABS_API_KEY before starting the app to enable samples and live narration."
-        : "Local voices work without an API key.");
-      const values = Array.from(voiceSelect.options).map((option) => option.value);
-      if (preferredVoice && values.includes(preferredVoice)) {
-        voiceSelect.value = preferredVoice;
-      } else if (provider === "say" && values.includes("Moira")) {
-        voiceSelect.value = "Moira";
-      }
-    }
 
     async function loadGuide() {
       const payload = await api("/api/sc-guide");
@@ -2650,12 +2986,13 @@ function html(response) {
             topic: document.getElementById("topic").value,
             inputMode: inputModeSelect.value,
             audience: audienceSelect.value,
-            marketSegment: selectedMarketSegment(),
-            instructions: document.getElementById("instructions").value,
-            companyUrl: document.getElementById("companyUrl").value,
-            preDemoNotes: preDemoNotesField.value,
-            valueIntensity: document.getElementById("intensity").value,
-            voiceProvider: voiceProviderSelect.value,
+              marketSegment: selectedMarketSegment(),
+              outputLanguage: outputLanguageSelect.value,
+              instructions: document.getElementById("instructions").value,
+              companyUrl: document.getElementById("companyUrl").value,
+              preDemoNotes: preDemoNotesField.value,
+              valueIntensity: document.getElementById("intensity").value,
+              voiceProvider: voiceProviderSelect.value,
             voice: voiceSelect.value
           })
         });
@@ -2676,10 +3013,11 @@ function html(response) {
         await api("/api/voice-sample", {
           method: "POST",
           body: JSON.stringify({
-            voice: voiceSelect.value,
-            voiceProvider: voiceProviderSelect.value,
-            line: "Let's show how NetSuite gives finance teams a clearer view of performance and cash."
-          })
+              voice: voiceSelect.value,
+              voiceProvider: voiceProviderSelect.value,
+              voiceApiKey: selectedVoiceApiKey(),
+              line: "Let's show how NetSuite gives finance teams a clearer view of performance and cash."
+            })
         });
         setStatus("Played sample voice: " + voiceSelect.value);
       } catch (error) {
@@ -2711,11 +3049,12 @@ function html(response) {
         const payload = await apiWithLog("/api/run", {
           method: "POST",
           body: JSON.stringify({
-            mode,
-            valueIntensity: document.getElementById("intensity").value,
-            voiceProvider: voiceProviderSelect.value,
-            voice: voiceSelect.value
-          })
+              mode,
+              valueIntensity: document.getElementById("intensity").value,
+              voiceProvider: voiceProviderSelect.value,
+              voiceApiKey: selectedVoiceApiKey(),
+              voice: voiceSelect.value
+            })
         });
         const prefix = payload.ok ? "" : "Run stopped with an error. Details:\\n\\n";
         setStatus(prefix + (payload.log || "Done."));
@@ -2747,10 +3086,11 @@ function html(response) {
     async function pollNarrator() {
       try {
         const state = await api("/api/narrator-state");
-        const speaking = Boolean(state.speaking);
-        document.getElementById("avatar").classList.toggle("speaking", speaking);
-        document.getElementById("runAvatar").classList.toggle("speaking", speaking);
-        document.getElementById("narratorName").textContent = "Narrator: " + (state.voice || voiceSelect.value || "Moira");
+          const speaking = Boolean(state.speaking);
+          document.getElementById("avatar").classList.toggle("speaking", speaking);
+          document.getElementById("runAvatar").classList.toggle("speaking", speaking);
+          updateAvatarPersona(state.voice);
+          document.getElementById("narratorName").textContent = "Narrator: " + (state.voice || voiceSelect.value || "Moira");
         document.getElementById("narratorSegment").textContent = state.segmentTitle || "Ready";
         document.getElementById("runNarratorSegment").textContent = state.segmentTitle || "Ready";
         document.getElementById("narratorLine").textContent = state.text || "The narrator is ready.";
@@ -2758,9 +3098,10 @@ function html(response) {
       } catch {}
     }
 
-    (async () => {
-      await loadVoices();
-      await load();
+      (async () => {
+        syncVoiceProviderSettings();
+        await loadVoices();
+        await load();
       await loadGuide();
       await pollNarrator();
       setInterval(pollNarrator, 1500);
