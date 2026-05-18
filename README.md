@@ -46,7 +46,7 @@ From the control panel you can:
 - choose and sample the narrator voice
 - create a manifest draft
 - edit the manifest directly
-- read a personalized SC demo story and guide for manual delivery
+- read three SC guide outputs: normal demo flow, personalized experience flow, and required NetSuite customization prompts
 - generate a guarded NetSuite setup prompt when demo data/configuration may need to be created
 - restore earlier manifest versions
 - open the reusable NetSuite browser

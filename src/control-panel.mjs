@@ -24,7 +24,11 @@ const server = http.createServer(async (request, response) => {
       const provider = new URL(request.url, "http://localhost").searchParams.get("provider") || "say";
       return json(response, await listVoices(provider));
     }
-    if (request.method === "GET" && request.url === "/api/sc-guide") return json(response, { guide: await readScGuide() });
+    if (request.method === "GET" && request.url === "/api/sc-guide") {
+      const manifest = await readManifest();
+      const guide = await readScGuide();
+      return json(response, { guide, guideOutputs: guideOutputsPayload(manifest, guide) });
+    }
     if (request.method === "GET" && request.url === "/api/setup-prompt") {
       const manifest = await readManifest();
       return json(response, { ok: true, setupPrompt: setupPromptPayload(manifest) });
@@ -44,7 +48,8 @@ const server = http.createServer(async (request, response) => {
       await saveVersion("before-manual-edit");
       await writeFile(manifestPath, `${nextManifest}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(parsedManifest);
-      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, setupPrompt: setupPromptPayload(parsedManifest) });
+      const guide = await readScGuide();
+      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest) });
     }
 
     if (request.method === "POST" && request.url === "/api/learn") {
@@ -56,7 +61,7 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${JSON.stringify(learned, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(learned);
       const guide = await writeScGuide(learned, body, company);
-      return json(response, { ok: true, manifest: learned, versions: await listVersions(), company, guide, namedManifestPath, setupPrompt: setupPromptPayload(learned) });
+      return json(response, { ok: true, manifest: learned, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(learned, guide), namedManifestPath, setupPrompt: setupPromptPayload(learned) });
     }
 
     if (request.method === "POST" && request.url === "/api/restore") {
@@ -65,7 +70,8 @@ const server = http.createServer(async (request, response) => {
       const source = safeVersionPath(body.file);
       await writeFile(manifestPath, await readFile(source, "utf8"), "utf8");
       const manifest = await readManifest();
-      return json(response, { ok: true, manifest, versions: await listVersions(), setupPrompt: setupPromptPayload(manifest) });
+      const guide = await readScGuide();
+      return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest) });
     }
 
     if (request.method === "POST" && request.url === "/api/run") {
@@ -104,10 +110,12 @@ server.listen(port, () => {
 
 async function manifestPayload() {
   const manifest = await readManifest();
+  const guide = await readScGuide();
   return {
     manifest,
     versions: await listVersions(),
-    guide: await readScGuide(),
+    guide,
+    guideOutputs: guideOutputsPayload(manifest, guide),
     setupPrompt: setupPromptPayload(manifest)
   };
 }
@@ -997,6 +1005,9 @@ function generateScGuide(manifest, body, company) {
   const priorities = company.likelyPriorities || [];
   const signals = company.industrySignals || [];
   const segments = manifest.segments || [];
+  const normalDemoFlow = normalDemoFlowText(segments);
+  const personalizedStoryFlow = personalizedStoryFlowText({ companyName, audience, marketSegment, playbook, priorities, segments });
+  const customizationPrompt = setupPromptPayload(manifest).prompt;
 
   return `# SC Demo Guide: ${companyName}
 
@@ -1011,6 +1022,18 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 - Demo input: ${inputMode}
 - Demo angle: ${playbook.demoBias}
 - Likely interests: ${playbook.interests.join(", ")}
+
+## Normal Demo Flow
+
+${normalDemoFlow}
+
+## Personalized Experience Flow
+
+${personalizedStoryFlow}
+
+## Customization Prompts For NetSuite
+
+${customizationPrompt}
 
 ## Personalized Demo Story
 
@@ -1083,6 +1106,131 @@ ${segments
 - "How often does cash forecasting live outside the ERP?"
 - "Which view would your CFO want first: consolidated performance, entity-level detail, or working capital?"
 `;
+}
+
+function guideOutputsPayload(manifest, guide = "") {
+  const context = guideContextFromManifest(manifest);
+  const setupPrompt = setupPromptPayload(manifest).prompt;
+  return {
+    normalDemoFlow: markdownSection(guide, "Normal Demo Flow") || normalDemoFlowText(context.segments),
+    personalizedExperienceFlow: markdownSection(guide, "Personalized Experience Flow") || personalizedStoryFlowText(context),
+    customizationPrompts: markdownSection(guide, "Customization Prompts For NetSuite") || setupPrompt
+  };
+}
+
+function guideContextFromManifest(manifest) {
+  const company = manifest.context?.company || {};
+  const audience = normalizeAudience(manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
+  const marketSegment = normalizeMarketSegment(manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.marketSegment);
+  const playbook = manifest.context?.audiencePlaybook || buildAudiencePlaybook(audience, marketSegment);
+  return {
+    companyName: company.companyName || "The prospect",
+    audience,
+    marketSegment,
+    playbook,
+    priorities: company.likelyPriorities || [],
+    segments: manifest.segments || []
+  };
+}
+
+function markdownSection(markdown, heading) {
+  const lines = String(markdown || "").split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === `## ${heading}`);
+  if (start < 0) return "";
+  const collected = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (lines[index].startsWith("## ")) break;
+    collected.push(lines[index]);
+  }
+  return collected.join("\n").trim();
+}
+
+function normalDemoFlowText(segments) {
+  return segments
+    .map((segment, index) => {
+      const navigation = (segment.actions || [])
+        .filter((action) => ["globalSearchOpen", "goto", "clickText", "clickRole"].includes(action.type))
+        .map(describeNavigationAction)
+        .filter(Boolean)
+        .join(" -> ") || "Stay on the current view";
+      return `${index + 1}. ${segment.title}
+   - Show: ${segment.objective || segment.title}
+   - Why it matters: ${segment.valueStatement}
+   - Navigation: ${navigation}
+   - Talk track: ${segment.narration}`;
+    })
+    .join("\n\n");
+}
+
+function personalizedStoryFlowText({ companyName, audience, marketSegment, playbook, priorities, segments }) {
+  const persona = demoPersonaFor(audience, marketSegment);
+  const opening = `${persona.name}, ${persona.role}, is trying to answer one practical question: ${persona.question}`;
+  const context = `${persona.name} cares most about ${joinHuman(playbook.interests.slice(0, 3)) || joinHuman(priorities.slice(0, 3)) || "trusted reporting and cash visibility"}.`;
+  const beats = [
+    `1. Start with the standard income statement as ${persona.name}'s executive checkpoint. Show that revenue, expenses, and net income are available without leaving the finance system.`,
+    `2. Use filters as the control moment. Position period, subsidiary, and accounting book as the way ${persona.name} changes the lens without changing the source of truth.`,
+    `3. Drill down once to prove trust. The point is not the click itself; it is that ${persona.name} can defend a number when leadership challenges it.`,
+    `4. Show export options as the collaboration moment. Keep it light: exporting is available, but the story is that fewer decisions should depend on disconnected spreadsheets.`,
+    `5. Move into Cash 360 as the forward-looking moment. ${persona.name} moves from what happened to what is likely to happen next.`,
+    `6. Close by connecting performance and liquidity. For a ${marketSegment.label.toLowerCase()} ${audience.label.toLowerCase()} audience, land the story on ${marketSegment.demoBias}`
+  ];
+
+  const segmentTips = segments
+    .filter((segment) => ["open-pl", "pl-drilldown", "open-cash360-dashboard", "cash360-forecast", "close"].includes(segment.id))
+    .map((segment) => `- ${segment.title}: ${persona.name} should hear "${segment.valueStatement}"`)
+    .join("\n");
+
+  return `${opening}
+
+${context}
+
+Story beats:
+
+${beats.join("\n")}
+
+Persona-led callouts:
+
+${segmentTips}`;
+}
+
+function demoPersonaFor(audience, marketSegment) {
+  if (audience.value === "marketing-audience") {
+    return {
+      name: "Maya",
+      role: "a finance transformation storyteller",
+      question: "how can we explain NetSuite's finance story in a way that lands quickly for a broader audience?"
+    };
+  }
+
+  if (audience.value === "existing-customer") {
+    return {
+      name: "Elena",
+      role: "an existing NetSuite finance leader",
+      question: "what are we already licensed for that could help the team run finance with less manual effort?"
+    };
+  }
+
+  if (marketSegment.value === "enterprise") {
+    return {
+      name: "Priya",
+      role: "an enterprise CFO",
+      question: "can we trust consolidated numbers, trace the detail, and manage cash without adding more manual governance?"
+    };
+  }
+
+  if (marketSegment.value === "emerging") {
+    return {
+      name: "Sofia",
+      role: "a finance lead at a growing company",
+      question: "can we get dependable visibility without building a heavy finance process too early?"
+    };
+  }
+
+  return {
+    name: "Alex",
+    role: "a mid-market finance director",
+    question: "can we close faster, trust the numbers, and understand cash without stitching spreadsheets together?"
+  };
 }
 
 function describeNavigationAction(action) {
@@ -1928,6 +2076,16 @@ function html(response) {
       min-height: 68vh;
       font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
+    .guide-outputs {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 12px;
+    }
+    .guide-outputs textarea {
+      min-height: 260px;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
     #setupPrompt {
       min-height: 280px;
       font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -2071,8 +2229,24 @@ function html(response) {
         <button class="secondary" id="refreshGuide" data-help="Reloads the latest SC guide text generated by the helper.">Refresh Guide</button>
         <button id="exportGuide" data-help="Creates a Word document version of the SC guide and downloads it.">Export To Word</button>
       </div>
-      <label for="scGuide">Personalized SC demo story and guide</label>
-      <textarea id="scGuide" spellcheck="false" readonly></textarea>
+      <div class="guide-outputs">
+        <div>
+          <label for="normalDemoFlow">1. Normal demo flow</label>
+          <textarea id="normalDemoFlow" spellcheck="false" readonly></textarea>
+        </div>
+        <div>
+          <label for="personalizedExperienceFlow">2. Personalized experience flow</label>
+          <textarea id="personalizedExperienceFlow" spellcheck="false" readonly></textarea>
+        </div>
+        <div>
+          <label for="customizationPromptFlow">3. Required NetSuite customization prompts</label>
+          <textarea id="customizationPromptFlow" spellcheck="false" readonly></textarea>
+        </div>
+      </div>
+      <div class="band">
+        <label for="scGuide">Full SC guide export text</label>
+        <textarea id="scGuide" spellcheck="false" readonly></textarea>
+      </div>
       <div class="band">
         <h2>NetSuite Setup Prompt</h2>
         <p class="hint" id="setupAccountSummary">Target account will appear after a demo is generated.</p>
@@ -2122,6 +2296,9 @@ function html(response) {
     const statusBox = document.getElementById("status");
     const versions = document.getElementById("versions");
     const scGuide = document.getElementById("scGuide");
+    const normalDemoFlow = document.getElementById("normalDemoFlow");
+    const personalizedExperienceFlow = document.getElementById("personalizedExperienceFlow");
+    const customizationPromptFlow = document.getElementById("customizationPromptFlow");
     const setupPrompt = document.getElementById("setupPrompt");
     const setupAccountSummary = document.getElementById("setupAccountSummary");
     const setupItemSummary = document.getElementById("setupItemSummary");
@@ -2225,6 +2402,7 @@ function html(response) {
     function render(payload) {
       editor.value = JSON.stringify(payload.manifest, null, 2);
       scGuide.value = payload.guide || "";
+      renderGuideOutputs(payload.guide || "", payload.guideOutputs);
       renderSetupPrompt(payload.setupPrompt);
       if (payload.manifest) {
         setAudience(payload.manifest.context?.audience?.value || payload.manifest.context?.demoRequest?.audience || payload.manifest.audience);
@@ -2260,6 +2438,24 @@ function html(response) {
         option.textContent = file;
         versions.appendChild(option);
       }
+    }
+
+    function renderGuideOutputs(guide, outputs = {}) {
+      normalDemoFlow.value = outputs.normalDemoFlow || sectionFromGuide(guide, "Normal Demo Flow") || "";
+      personalizedExperienceFlow.value = outputs.personalizedExperienceFlow || sectionFromGuide(guide, "Personalized Experience Flow") || "";
+      customizationPromptFlow.value = outputs.customizationPrompts || sectionFromGuide(guide, "Customization Prompts For NetSuite") || "";
+    }
+
+    function sectionFromGuide(guide, heading) {
+      const lines = String(guide || "").split(/\\r?\\n/);
+      const start = lines.findIndex((line) => line.trim() === "## " + heading);
+      if (start < 0) return "";
+      const collected = [];
+      for (let index = start + 1; index < lines.length; index += 1) {
+        if (lines[index].startsWith("## ")) break;
+        collected.push(lines[index]);
+      }
+      return collected.join("\\n").trim();
     }
 
     function setAudience(value) {
@@ -2364,6 +2560,7 @@ function html(response) {
     async function loadGuide() {
       const payload = await api("/api/sc-guide");
       scGuide.value = payload.guide || "";
+      renderGuideOutputs(payload.guide || "", payload.guideOutputs);
       const setupPayload = await api("/api/setup-prompt");
       renderSetupPrompt(setupPayload.setupPrompt);
     }
@@ -2464,6 +2661,7 @@ function html(response) {
         });
         render(payload);
         scGuide.value = payload.guide || "";
+        renderGuideOutputs(payload.guide || "", payload.guideOutputs);
         setStatus("Manifest and SC guide created. Review the Manifest and SC Guide tabs before rehearsal.");
       } catch (error) {
         setStatus(error.message);
