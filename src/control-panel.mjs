@@ -3867,8 +3867,8 @@ function html(response) {
     .score-grid,
     .analysis-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+      gap: 10px;
       margin-top: 12px;
     }
     .score-card,
@@ -3880,8 +3880,10 @@ function html(response) {
     }
     .score-card {
       display: grid;
-      gap: 6px;
-      min-height: 150px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 5px 8px;
+      min-height: 0;
+      padding: 8px 10px;
     }
     body.night .score-card,
     body.night .analysis-item {
@@ -3889,15 +3891,20 @@ function html(response) {
     }
     .score-value {
       display: block;
-      font-size: 30px;
+      font-size: 24px;
       line-height: 1;
       font-weight: 800;
-      margin: 4px 0 6px;
+      margin: 0;
     }
     .score-body {
       color: var(--muted);
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1.4;
+      grid-column: 1 / -1;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .score-pill {
       display: inline-flex;
@@ -3908,6 +3915,7 @@ function html(response) {
       font-weight: 700;
       color: #10201b;
       background: #dff4e8;
+      align-self: center;
     }
     .score-pill.watch { background: #fff1c6; color: #3b2b00; }
     .score-pill.risk { background: #ffd8d1; color: #4a1409; }
@@ -3918,6 +3926,56 @@ function html(response) {
       font-size: 13px;
       margin-bottom: 4px;
     }
+    .score-card .score-label,
+    .score-card .hint {
+      grid-column: 1 / -1;
+      margin: 0;
+    }
+    .score-card .hint {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 11px;
+    }
+    .intel-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(220px, .7fr);
+      gap: 14px;
+      border: 1px solid #bddbe1;
+      border-radius: 8px;
+      padding: 12px;
+      background: linear-gradient(135deg, #f5fbfb, #ffffff);
+      margin: 12px 0;
+    }
+    body.night .intel-summary {
+      background: linear-gradient(135deg, #0f1d23, #0f1821);
+      border-color: #24404a;
+    }
+    .intel-summary h3,
+    .priority-card h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+    .intel-summary ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    .priority-intelligence-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 12px 0 14px;
+    }
+    .priority-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+    }
+    body.night .priority-card { background: #0f1821; }
     .intelligence-overview-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3999,6 +4057,21 @@ function html(response) {
       color: var(--muted);
       font-size: 12px;
       line-height: 1.35;
+    }
+    .heatmap-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .heatmap-page {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .heatmap-nav {
+      padding: 6px 9px;
+      font-size: 12px;
     }
     .pill-list {
       display: flex;
@@ -4422,7 +4495,9 @@ function html(response) {
           "how";
       }
       .field-grid { grid-template-columns: 1fr; }
-      .intelligence-overview-grid { grid-template-columns: 1fr; }
+      .intelligence-overview-grid,
+      .intel-summary,
+      .priority-intelligence-grid { grid-template-columns: 1fr; }
       .steps { grid-template-columns: 1fr 1fr; }
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
     }
@@ -4655,12 +4730,23 @@ function html(response) {
       <div class="grid" style="margin-top:12px">
         <div class="panel full">
           <h2>Demo Intelligence Overview</h2>
+          <div class="score-grid" id="intelligenceScores"></div>
+          <div class="intel-summary" id="intelligenceSummary"></div>
+          <div class="priority-intelligence-grid">
+            <div class="priority-card">
+              <h3>Winning Moments</h3>
+              <div id="winningMomentsAnalyzer"></div>
+            </div>
+            <div class="priority-card">
+              <h3>What Not To Demo</h3>
+              <div id="avoidAnalyzer"></div>
+            </div>
+          </div>
           <div class="row">
             <button class="secondary" id="createFollowUps" data-help="Creates follow-up discovery questions from the Intelligence heatmaps and risk areas.">Create Follow-Up Questions</button>
             <button id="improveGuideFromIntel" data-help="Updates the SC guide with the Intelligence recommendations and guardrails.">Improve SC Guide</button>
           </div>
           <textarea id="intelligenceActionOutput" spellcheck="false" readonly placeholder="Follow-up questions and applied improvements will appear here." style="min-height:130px;margin-top:12px"></textarea>
-          <div class="score-grid" id="intelligenceScores"></div>
           <p class="hint" id="intelligencePositioning"></p>
           <div class="score-explainer" id="scoreExplainer"></div>
           <div class="intelligence-overview-grid">
@@ -4688,23 +4774,8 @@ function html(response) {
         </div>
 
         <div class="panel">
-          <h2>Strategy And Industry</h2>
-          <div id="strategyIndustryAnalyzer"></div>
-        </div>
-
-        <div class="panel">
           <h2>Stakeholder Coverage</h2>
           <div id="stakeholderAnalyzer"></div>
-        </div>
-
-        <div class="panel">
-          <h2>Winning Moments</h2>
-          <div id="winningMomentsAnalyzer"></div>
-        </div>
-
-        <div class="panel">
-          <h2>What Not To Demo</h2>
-          <div id="avoidAnalyzer"></div>
         </div>
 
         <div class="panel">
@@ -4715,6 +4786,11 @@ function html(response) {
         <div class="panel">
           <h2>Rehearsal Coach</h2>
           <div id="rehearsalCoachAnalyzer"></div>
+        </div>
+
+        <div class="panel full">
+          <h2>Strategy And Industry</h2>
+          <div id="strategyIndustryAnalyzer"></div>
         </div>
 
         <div class="panel full">
@@ -4804,6 +4880,8 @@ function html(response) {
     const defaultIndustry = ${JSON.stringify(defaultIndustry)};
     let runInProgress = false;
     let latestSetupPrompt = null;
+    let latestIntelligence = null;
+    const heatmapPages = { demo: 0, notes: 0 };
     let helpTimer = null;
     let helpTarget = null;
 
@@ -5081,6 +5159,7 @@ function html(response) {
 
     function renderIntelligence(intelligence) {
       if (!intelligence) return;
+      latestIntelligence = intelligence;
       const risk = intelligence.demo_risk_analyzer || {};
       const discovery = intelligence.discovery_gap_analyzer || {};
       const stakeholder = intelligence.stakeholder_coverage_analyzer || {};
@@ -5093,7 +5172,12 @@ function html(response) {
       const competitive = intelligence.competitive_positioning_mode || {};
       const strategy = intelligence.demo_strategy || {};
       const industry = intelligence.industry_playbook || {};
+      const demoHeatmapItems = demoHeatmap.heatmap || [];
+      const notesHeatmapItems = notes.heatmap || [];
+      heatmapPages.demo = boundedHeatmapPage("demo", demoHeatmapItems);
+      heatmapPages.notes = boundedHeatmapPage("notes", notesHeatmapItems);
 
+      document.getElementById("intelligenceSummary").innerHTML = intelligenceSummary(risk, discovery, stakeholder, winning, avoid, timing, demoHeatmap, notes);
       document.getElementById("intelligenceScores").innerHTML = [
         scoreCard("Demo quality", risk.demo_quality_score, "Higher is better", risk.score_details?.demo_quality_summary),
         scoreCard("Demo risk", risk.demo_risk_score, "Lower is better", risk.score_details?.demo_risk_summary, true),
@@ -5109,8 +5193,8 @@ function html(response) {
         analysisItem("Notes impact", notes.word_count ? notes.word_count + " words captured" : "No notes captured", risk.score_details?.notes_dependency);
       document.getElementById("demoHeatmapSummary").textContent = demoHeatmap.summary || "";
       document.getElementById("notesHeatmapSummary").textContent = notes.summary || "";
-      document.getElementById("demoHeatmap").innerHTML = heatmapRows(demoHeatmap.heatmap || []);
-      document.getElementById("notesHeatmap").innerHTML = heatmapRows(notes.heatmap || []);
+      document.getElementById("demoHeatmap").innerHTML = heatmapRows(demoHeatmapItems, "demo");
+      document.getElementById("notesHeatmap").innerHTML = heatmapRows(notesHeatmapItems, "notes");
 
       document.getElementById("riskAnalyzer").innerHTML =
         listBlock("Warnings", risk.warnings) +
@@ -5137,11 +5221,12 @@ function html(response) {
         hintBlock(stakeholder.recommendation);
 
       document.getElementById("winningMomentsAnalyzer").innerHTML =
-        listBlock("Moments to slow down for", winning.winning_moments) +
-        (winning.details || []).slice(0, 4).map((item) => analysisItem(item.moment, item.segment, item.coaching_tip)).join("");
+        listBlock("Moments to slow down for", (winning.winning_moments || []).slice(0, 3)) +
+        (winning.details || []).slice(0, 2).map((item) => analysisItem(item.moment, item.segment, item.coaching_tip)).join("") +
+        ((winning.winning_moments || []).length > 3 ? hintBlock("More winning moments are included in the SC guide and full intelligence data.") : "");
 
       document.getElementById("avoidAnalyzer").innerHTML =
-        listBlock("Avoid showing", avoid.avoid_showing) +
+        listBlock("Avoid showing", (avoid.avoid_showing || []).slice(0, 6)) +
         hintBlock(avoid.rationale);
 
       document.getElementById("timingAnalyzer").innerHTML =
@@ -5162,6 +5247,32 @@ function html(response) {
         (competitive.competitive_focus || []).map((item) => analysisItem(item.topic, item.why_it_matters, item.recommended_demo_moment)).join("");
     }
 
+    function intelligenceSummary(risk, discovery, stakeholder, winning, avoid, timing, demoHeatmap, notes) {
+      const attention = uniqueClientItems([
+        ...(demoHeatmap.needs_work_areas || []).map((item) => "Strengthen demo area: " + item),
+        ...(notes.risk_areas || []).map((item) => "Clarify pre-demo notes: " + item),
+        ...(risk.warnings || []),
+        timing.overrun_risk && timing.overrun_risk !== "low" ? "Watch pacing: " + timing.overrun_risk + " overrun risk" : "",
+        stakeholder.recommendation
+      ]).slice(0, 3);
+      const sections = uniqueClientItems([
+        (winning.winning_moments || []).length ? "Winning Moments" : "",
+        (avoid.avoid_showing || []).length ? "What Not To Demo" : "",
+        (notes.risk_areas || []).length || (discovery.missing_discovery_items || []).length ? "Discovery Gaps" : "",
+        (demoHeatmap.needs_work_areas || []).length ? "Demo Strength Heatmap" : "",
+        timing.overrun_risk && timing.overrun_risk !== "low" ? "Timing And Pacing" : "",
+        stakeholder.recommendation ? "Stakeholder Coverage" : ""
+      ]).slice(0, 4);
+      const attentionHtml = attention.length
+        ? attention.map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("")
+        : "<li>No major risk areas detected. Still review the winning moments and pacing before rehearsal.</li>";
+      const sectionsHtml = sections.length
+        ? sections.map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("")
+        : "<li>Demo Intelligence Overview</li><li>Timing And Pacing</li>";
+      return "<div><h3>SC Attention Summary</h3><ul>" + attentionHtml + "</ul></div>" +
+        "<div><h3>Definitely Review</h3><ul>" + sectionsHtml + "</ul></div>";
+    }
+
     function scoreCard(label, value, note, body = "", lowerIsBetter = false) {
       const displayValue = Number.isFinite(Number(value)) ? Math.round(Number(value)) : "-";
       const numeric = Number(value);
@@ -5169,6 +5280,16 @@ function html(response) {
       const status = Number.isFinite(effective) ? heatmapClass(effective) : "watch";
       const statusLabel = status === "strong" ? "Super strong" : status === "healthy" ? "Strong" : status === "watch" ? "Needs work" : "Risk area";
       return "<div class='score-card'><span class='score-label'>" + escapeClientHtml(label) + "</span><span class='score-value'>" + displayValue + "</span><span class='score-pill " + status + "'>" + escapeClientHtml(statusLabel) + "</span><span class='hint'>" + escapeClientHtml(note || "") + "</span><span class='score-body'>" + escapeClientHtml(body || "") + "</span></div>";
+    }
+
+    function uniqueClientItems(items = []) {
+      const seen = new Set();
+      return (items || []).filter((item) => {
+        const clean = String(item || "").trim();
+        if (!clean || seen.has(clean.toLowerCase())) return false;
+        seen.add(clean.toLowerCase());
+        return true;
+      });
     }
 
     function heatmapClass(score) {
@@ -5199,9 +5320,25 @@ function html(response) {
       return "<div class='pill-list'>" + clean.map((item) => "<span class='pill'>" + escapeClientHtml(item) + "</span>").join("") + "</div>";
     }
 
-    function heatmapRows(items = []) {
+    function boundedHeatmapPage(key, items = []) {
+      const pageCount = Math.max(1, Math.ceil((items || []).length / 3));
+      return Math.max(0, Math.min(pageCount - 1, Number(heatmapPages[key]) || 0));
+    }
+
+    function heatmapRows(items = [], key = "demo") {
       if (!items.length) return "<p class='hint'>No heatmap data available yet.</p>";
-      return "<div class='heatmap-list'>" + items.map((item) => {
+      const pageSize = 3;
+      const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+      const page = boundedHeatmapPage(key, items);
+      const visibleItems = items.slice(page * pageSize, page * pageSize + pageSize);
+      const controls = items.length > pageSize
+        ? "<div class='heatmap-controls'>" +
+          "<button class='secondary heatmap-nav' data-heatmap-key='" + escapeClientHtml(key) + "' data-heatmap-step='-1' " + (page <= 0 ? "disabled" : "") + ">Previous</button>" +
+          "<span class='heatmap-page'>Showing " + (page * pageSize + 1) + "-" + Math.min(items.length, page * pageSize + pageSize) + " of " + items.length + "</span>" +
+          "<button class='secondary heatmap-nav' data-heatmap-key='" + escapeClientHtml(key) + "' data-heatmap-step='1' " + (page >= pageCount - 1 ? "disabled" : "") + ">Next</button>" +
+        "</div>"
+        : "";
+      return "<div class='heatmap-list'>" + visibleItems.map((item) => {
         const score = Math.max(0, Math.min(100, Number(item.score) || 0));
         const status = item.status || heatmapClass(score);
         return "<div class='heatmap-item " + escapeClientHtml(status) + "'>" +
@@ -5211,7 +5348,7 @@ function html(response) {
           "<p class='heatmap-copy'>" + escapeClientHtml(item.evidence || "") + "</p>" +
           "<p class='heatmap-copy'><strong>Improve:</strong> " + escapeClientHtml(item.recommendation || "") + "</p>" +
         "</div>";
-      }).join("") + "</div>";
+      }).join("") + "</div>" + controls;
     }
 
     function timingRows(items = []) {
@@ -5406,6 +5543,15 @@ function html(response) {
         button.classList.add("active");
         document.getElementById("screen-" + button.dataset.tab).classList.add("active");
       };
+    });
+
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-heatmap-key]");
+      if (!button || button.disabled) return;
+      const key = button.dataset.heatmapKey;
+      const step = Number(button.dataset.heatmapStep) || 0;
+      heatmapPages[key] = (Number(heatmapPages[key]) || 0) + step;
+      if (latestIntelligence) renderIntelligence(latestIntelligence);
     });
 
     document.getElementById("reload").onclick = async () => { await load(); await loadGuide(); };
