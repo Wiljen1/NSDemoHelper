@@ -3272,6 +3272,28 @@ function html(response) {
       gap: 18px;
       width: 100%;
     }
+    .prep-grid {
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr);
+      grid-template-areas:
+        "instructions instructions"
+        "audience voice"
+        "audience narrator"
+        "audience actions"
+        "how how";
+      align-items: start;
+    }
+    .prep-instructions { grid-area: instructions; }
+    .prep-audience { grid-area: audience; }
+    .prep-voice { grid-area: voice; }
+    .prep-narrator { grid-area: narrator; }
+    .prep-actions { grid-area: actions; }
+    .prep-how { grid-area: how; }
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 16px;
+    }
+    .field-full { grid-column: 1 / -1; }
     .panel {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -3284,7 +3306,7 @@ function html(response) {
     }
     .steps {
       display: grid;
-      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 10px;
       margin-top: 10px;
     }
@@ -3580,6 +3602,17 @@ function html(response) {
     }
     @media (max-width: 880px) {
       .grid { grid-template-columns: 1fr; }
+      .prep-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "instructions"
+          "audience"
+          "voice"
+          "narrator"
+          "actions"
+          "how";
+      }
+      .field-grid { grid-template-columns: 1fr; }
       .steps { grid-template-columns: 1fr 1fr; }
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
     }
@@ -3604,68 +3637,90 @@ function html(response) {
   </nav>
   <main>
     <section class="screen active" id="screen-prep">
-      <div class="grid">
-        <div class="panel">
+      <div class="grid prep-grid">
+        <div class="panel prep-instructions">
           <h2>SC Demo Instructions</h2>
           <label for="instructions">What the demo generator should always do and avoid</label>
-          <textarea id="instructions" style="min-height:145px">${escapeHtml(defaultScInstructions())}</textarea>
+          <textarea id="instructions" style="min-height:120px">${escapeHtml(defaultScInstructions())}</textarea>
         </div>
 
-        <div class="panel">
+        <div class="panel prep-audience">
           <h2>Demo Audience</h2>
-          <label for="audience">Audience type</label>
-          <select id="audience">
-            ${selectOptionsHtml(demoAudienceConfiguration.audienceTypes, defaultAudienceType)}
-          </select>
-          <p class="hint" id="audienceHint"></p>
+          <div class="field-grid">
+            <div class="field">
+              <label for="audience">Audience type</label>
+              <select id="audience">
+                ${selectOptionsHtml(demoAudienceConfiguration.audienceTypes, defaultAudienceType)}
+              </select>
+              <p class="hint" id="audienceHint"></p>
+            </div>
 
-          <label for="marketSegment">Target audience</label>
-          <select id="marketSegment">
-            ${selectOptionsHtml(demoAudienceConfiguration.targetAudiences, defaultTargetAudience)}
-          </select>
-          <p class="hint" id="targetAudienceHint"></p>
+            <div class="field">
+              <label for="marketSegment">Target audience</label>
+              <select id="marketSegment">
+                ${selectOptionsHtml(demoAudienceConfiguration.targetAudiences, defaultTargetAudience)}
+              </select>
+              <p class="hint" id="targetAudienceHint"></p>
+            </div>
 
-          <label for="demoStrategy">Demo strategy</label>
-          <select id="demoStrategy">
-            ${selectOptionsHtml(demoStrategies, defaultDemoStrategy)}
-          </select>
-          <p class="hint" id="demoStrategyHint"></p>
+            <div class="field">
+              <label for="demoStrategy">Demo strategy</label>
+              <select id="demoStrategy">
+                ${selectOptionsHtml(demoStrategies, defaultDemoStrategy)}
+              </select>
+              <p class="hint" id="demoStrategyHint"></p>
+            </div>
 
-          <label for="industry">Industry playbook</label>
-          <select id="industry">
-            ${selectOptionsHtml(industryPlaybooks, defaultIndustry)}
-          </select>
-          <p class="hint" id="industryHint"></p>
+            <div class="field">
+              <label for="industry">Industry playbook</label>
+              <select id="industry">
+                ${selectOptionsHtml(industryPlaybooks, defaultIndustry)}
+              </select>
+              <p class="hint" id="industryHint"></p>
+            </div>
 
-          <label for="companyUrl">Company website</label>
-          <input id="companyUrl" placeholder="https://www.example.com">
+            <div class="field">
+              <label for="companyUrl">Company website</label>
+              <input id="companyUrl" placeholder="https://www.example.com">
+            </div>
 
-          <label for="inputMode">Demo generation input</label>
-          <select id="inputMode">
-            <option value="request-and-notes" selected>Use demo request and pre-demo notes</option>
-            <option value="request-only">Use demo request only</option>
-            <option value="notes-only">Use pre-demo notes only</option>
-          </select>
+            <div class="field">
+              <label for="inputMode">Demo generation input</label>
+              <select id="inputMode">
+                <option value="request-and-notes" selected>Use demo request and pre-demo notes</option>
+                <option value="request-only">Use demo request only</option>
+                <option value="notes-only">Use pre-demo notes only</option>
+              </select>
+            </div>
 
-          <label for="manifestDemoMode">Manifest demo option</label>
-          <select id="manifestDemoMode">
-            ${selectOptionsHtml(manifestDemoModes, "customer_story")}
-          </select>
-          <p class="hint" id="manifestDemoModeHint"></p>
+            <div class="field">
+              <label for="manifestDemoMode">Manifest demo option</label>
+              <select id="manifestDemoMode">
+                ${selectOptionsHtml(manifestDemoModes, "customer_story")}
+              </select>
+              <p class="hint" id="manifestDemoModeHint"></p>
+            </div>
 
-          <label for="outputLanguage">Output language</label>
-            <select id="outputLanguage">
-              ${languageOptionsHtml(defaultOutputLanguage)}
-            </select>
+            <div class="field">
+              <label for="outputLanguage">Output language</label>
+              <select id="outputLanguage">
+                ${languageOptionsHtml(defaultOutputLanguage)}
+              </select>
+            </div>
 
-            <label for="topic">Demo request</label>
-            <textarea id="topic" style="min-height:135px">Finance demo for a prospect: standard income statement, filters, drilldown, export, and Cash 360.</textarea>
+            <div class="field field-full">
+              <label for="topic">Demo request</label>
+              <textarea id="topic" style="min-height:135px">Finance demo for a prospect: standard income statement, filters, drilldown, export, and Cash 360.</textarea>
+            </div>
 
-          <label for="preDemoNotes">Pre-demo notes</label>
-          <textarea id="preDemoNotes" style="min-height:170px" placeholder="Paste discovery notes, pain points, role notes, current systems, concerns, and success criteria."></textarea>
+            <div class="field field-full">
+              <label for="preDemoNotes">Pre-demo notes</label>
+              <textarea id="preDemoNotes" style="min-height:170px" placeholder="Paste discovery notes, pain points, role notes, current systems, concerns, and success criteria."></textarea>
+            </div>
+          </div>
         </div>
 
-        <div class="panel">
+        <div class="panel prep-voice">
           <h2>Narrator Voice</h2>
           <label for="voiceProvider">Narration engine</label>
           <select id="voiceProvider">
@@ -3695,7 +3750,7 @@ function html(response) {
           <p class="hint">Controls how often the generated demo connects what is shown to business value for the audience.</p>
         </div>
 
-        <div class="panel narrator-card">
+        <div class="panel narrator-card prep-narrator">
           ${presenterAvatarHtml("avatar")}
           <div>
             <h2 id="narratorName">Narrator</h2>
@@ -3705,7 +3760,7 @@ function html(response) {
           </div>
         </div>
 
-        <div class="panel full">
+        <div class="panel prep-actions">
           <div class="row">
             <button id="learn" data-help="Checks the company website, applies your instructions and notes, then creates a fresh manifest and SC guide.">Learn / Create Demo</button>
             <button class="secondary" id="reload" data-help="Reloads the latest saved manifest and guide without changing anything.">Reload</button>
@@ -3713,17 +3768,19 @@ function html(response) {
           <p class="hint">This checks the company site, combines it with your notes and instructions, then creates both the editable manifest and a lighter SC guide.</p>
         </div>
 
-        <div class="panel full">
+        <div class="panel full prep-how">
           <h2>How NetSuite Demo Helper Works</h2>
-          <p class="hint">The tool uses Codex as the reasoning layer to interpret the SC instructions, company context, demo request, and notes, then turns that into demo-ready assets.</p>
-          <p class="hint">Current version: local prototype. Target version: standalone NSDemoHelper desktop app for Mac and Windows, with GitHub release-based update checks.</p>
+          <p class="hint">The tool uses Codex-style reasoning plus hardcoded SC playbooks to turn company context, discovery notes, audience choices, and demo strategy into practical demo assets.</p>
+          <p class="hint">Current version: local SC workspace. Target version: standalone NSDemoHelper app for Mac and Windows, with update checks from GitHub releases.</p>
           <div class="steps">
-            <div class="step"><strong>1. Prep</strong><span>You choose the audience, input mode, voice, and demo value emphasis.</span></div>
-            <div class="step"><strong>2. Interpret</strong><span>Codex-style logic reads the company site and notes to infer likely ERP priorities.</span></div>
-            <div class="step"><strong>3. Generate</strong><span>The helper creates an editable manifest with navigation, narration, proof points, and safe actions.</span></div>
-            <div class="step"><strong>4. Guide</strong><span>It creates a personalized SC story, runbook, and asset prompt for demo prep.</span></div>
-            <div class="step"><strong>5. Rehearse</strong><span>Rehearsal buffers account prep, checks routes, timing, screenshots, and caches useful information.</span></div>
-            <div class="step"><strong>6. Run</strong><span>The final demo drives NetSuite and narrates the story with the selected voice engine.</span></div>
+            <div class="step"><strong>1. Brief</strong><span>Add the company site, demo request, discovery notes, and SC instructions.</span></div>
+            <div class="step"><strong>2. Shape</strong><span>Choose audience type, target segment, strategy, industry, language, and story mode.</span></div>
+            <div class="step"><strong>3. Learn</strong><span>The helper interprets the context and infers likely ERP priorities and demo pressure points.</span></div>
+            <div class="step"><strong>4. Generate</strong><span>It creates an editable manifest with navigation, narration, proof points, and safe actions.</span></div>
+            <div class="step"><strong>5. Check</strong><span>The Intelligence tab scores risk, discovery gaps, pacing, stakeholders, and winning moments.</span></div>
+            <div class="step"><strong>6. Coach</strong><span>The SC guide gives the demo story, talk track, setup prompt, and asset prompt.</span></div>
+            <div class="step"><strong>7. Rehearse</strong><span>Rehearsal checks routes, buffers account prep, captures timing, and warms the flow.</span></div>
+            <div class="step"><strong>8. Run</strong><span>The live demo drives NetSuite and narrates with the selected voice engine.</span></div>
           </div>
         </div>
       </div>
