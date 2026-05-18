@@ -476,7 +476,11 @@ const server = http.createServer(async (request, response) => {
   try {
     if (request.method === "GET" && request.url === "/") return html(response);
     if (request.method === "GET" && request.url === "/api/manifest") return json(response, await manifestPayload());
-    if (request.method === "GET" && request.url === "/api/intelligence") return json(response, { ok: true, intelligence: demoIntelligencePayload(await readManifest()) });
+    if (request.method === "GET" && request.url === "/api/intelligence") {
+      const manifest = await readManifest();
+      const guide = await readOrGenerateScGuide(manifest);
+      return json(response, { ok: true, intelligence: demoIntelligencePayload(manifest, guide) });
+    }
     if (request.method === "GET" && request.url === "/api/versions") return json(response, { versions: await listVersions() });
     if (request.method === "GET" && request.url === "/api/run-state") return json(response, runState());
     if (request.method === "GET" && request.url?.startsWith("/api/voices")) {
@@ -512,7 +516,7 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${nextManifest}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(parsedManifest);
       const guide = await readOrGenerateScGuide(parsedManifest);
-      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest), intelligence: demoIntelligencePayload(parsedManifest) });
+      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest), intelligence: demoIntelligencePayload(parsedManifest, guide) });
     }
 
     if (request.method === "POST" && request.url === "/api/learn") {
@@ -524,7 +528,7 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${JSON.stringify(learned, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(learned);
       const guide = await writeScGuide(learned, body, company);
-      return json(response, { ok: true, manifest: learned, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(learned, guide), namedManifestPath, setupPrompt: setupPromptPayload(learned), intelligence: demoIntelligencePayload(learned) });
+      return json(response, { ok: true, manifest: learned, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(learned, guide), namedManifestPath, setupPrompt: setupPromptPayload(learned), intelligence: demoIntelligencePayload(learned, guide) });
     }
 
     if (request.method === "POST" && request.url === "/api/restore") {
@@ -534,7 +538,7 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, await readFile(source, "utf8"), "utf8");
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
-      return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest), intelligence: demoIntelligencePayload(manifest) });
+      return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest), intelligence: demoIntelligencePayload(manifest, guide) });
     }
 
     if (request.method === "POST" && request.url === "/api/run") {
@@ -580,7 +584,7 @@ async function manifestPayload() {
     guide,
     guideOutputs: guideOutputsPayload(manifest, guide),
     setupPrompt: setupPromptPayload(manifest),
-    intelligence: demoIntelligencePayload(manifest)
+    intelligence: demoIntelligencePayload(manifest, guide)
   };
 }
 
@@ -2255,8 +2259,8 @@ function describeNavigationAction(action) {
   return url;
 }
 
-function demoIntelligencePayload(manifest) {
-  const context = demoIntelligenceContext(manifest);
+function demoIntelligencePayload(manifest, scGuide = "") {
+  const context = demoIntelligenceContext(manifest, scGuide);
   const discovery = discoveryGapAnalysis(context);
   const stakeholderCoverage = stakeholderCoverageAnalysis(context);
   const winning = winningMomentAnalysis(context);
@@ -2265,6 +2269,9 @@ function demoIntelligencePayload(manifest) {
   const risk = demoRiskAnalysis(context, discovery, stakeholderCoverage, timing, winning);
   const rehearsalCoach = rehearsalCoachAnalysis(context, risk, timing, stakeholderCoverage);
   const competitive = competitivePositioningGuidance(context);
+  const preDemoNotes = preDemoNotesAnalysis(context, discovery);
+  const demoHeatmap = demoHeatmapAnalysis(context, risk, discovery, stakeholderCoverage, timing, winning, rehearsalCoach);
+  risk.score_details = demoScoreDetails(risk, demoHeatmap, timing, discovery, preDemoNotes);
 
   return {
     generated_at: new Date().toISOString(),
@@ -2295,12 +2302,14 @@ function demoIntelligencePayload(manifest) {
     what_not_to_demo_engine: avoid,
     demo_timing_pacing_analyzer: timing,
     ai_rehearsal_coach: rehearsalCoach,
+    demo_heatmap_analyzer: demoHeatmap,
+    pre_demo_notes_analyzer: preDemoNotes,
     competitive_positioning_mode: competitive,
     internal_best_practices_library: bestPracticeRecommendations(context, winning)
   };
 }
 
-function demoIntelligenceContext(manifest) {
+function demoIntelligenceContext(manifest, scGuide = "") {
   const audience = normalizeAudience(manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
   const marketSegment = normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
   const strategy = normalizeDemoStrategy(manifest.context?.demoStrategy?.id || manifest.context?.demoRequest?.demoStrategy || manifest.defaults?.demoStrategy);
@@ -2308,6 +2317,10 @@ function demoIntelligenceContext(manifest) {
   const company = manifest.context?.company || {};
   const segments = manifest.segments || [];
   const actions = segments.flatMap((segment) => (segment.actions || []).map((action) => ({ ...action, segmentId: segment.id, segmentTitle: segment.title })));
+  const scGuideText = String(scGuide || "");
+  const scRunbook = markdownSection(scGuideText, "Personalized Demo Story And Runbook");
+  const assetPrompt = markdownSection(scGuideText, "Demo Asset Generation Prompt");
+  const setupPrompt = markdownSection(scGuideText, "NetSuite Prep Summary");
   const text = [
     manifest.name,
     manifest.audience,
@@ -2319,6 +2332,7 @@ function demoIntelligenceContext(manifest) {
     manifest.context?.demoPrep?.ordering,
     manifest.context?.demoPrep?.scopeInstruction,
     manifest.context?.preDemoNotes,
+    scGuideText,
     company.companyName,
     company.description,
     ...(company.likelyPriorities || []),
@@ -2342,6 +2356,11 @@ function demoIntelligenceContext(manifest) {
     segments,
     actions,
     text,
+    scGuide: scGuideText,
+    scGuideLower: scGuideText.toLowerCase(),
+    scRunbook,
+    assetPrompt,
+    setupPrompt,
     demoScope: String(manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || ""),
     notes: String(manifest.context?.preDemoNotes || ""),
     topic: String(manifest.context?.demoRequest?.topic || ""),
@@ -2416,8 +2435,101 @@ function demoRiskAnalysis(context, discovery, stakeholderCoverage, timing, winni
   };
 }
 
+function coveragePercent(found, total) {
+  return total > 0 ? boundedScore((found / total) * 100) : 0;
+}
+
+function heatmapItem(label, score, evidence, recommendation) {
+  const cleanScore = boundedScore(score);
+  const status = heatmapStatus(cleanScore);
+  return {
+    label,
+    score: cleanScore,
+    status: status.id,
+    status_label: status.label,
+    evidence,
+    recommendation
+  };
+}
+
+function heatmapStatus(score) {
+  if (score >= 85) return { id: "strong", label: "Super strong" };
+  if (score >= 70) return { id: "healthy", label: "Strong" };
+  if (score >= 50) return { id: "watch", label: "Needs work" };
+  return { id: "risk", label: "Risk area" };
+}
+
+function wordCount(value) {
+  const text = String(value || "").trim();
+  return text ? text.split(/\s+/).length : 0;
+}
+
+function demoHeatmapAnalysis(context, risk, discovery, stakeholderCoverage, timing, winning, rehearsalCoach) {
+  const discoveryCoverage = coveragePercent(discovery.found_discovery_items.length, discovery.found_discovery_items.length + discovery.missing_discovery_items.length);
+  const stakeholderScores = stakeholderCoverage.stakeholder_coverage || [];
+  const stakeholderBalance = stakeholderScores.length
+    ? boundedScore(stakeholderScores.slice(0, 5).reduce((total, item) => total + item.coverage, 0) / Math.min(5, stakeholderScores.length))
+    : 40;
+  const playbookHits = countKeywordHits(context.text, [
+    ...(context.playbook.interests || []).slice(0, 5),
+    ...(context.playbook.includeInDemo || []).slice(0, 5)
+  ]);
+  const storySignals = countKeywordHits(context.text, ["executive", "overview", "story", "persona", "pressure", "before", "after", "outcome", "close"]);
+  const technicalFit = context.audience.value === "technical" || context.strategy.id === "technical_validation"
+    ? boundedScore(62 + context.technicalSignalCount * 4)
+    : boundedScore(95 - Math.max(0, context.technicalSignalCount - 7) * 6);
+  const navigationScore = boundedScore(100 - Math.max(0, context.navigationActions.length - 10) * 5 - Math.max(0, context.clickLikeActions.length - 42));
+  const pacingScore = timing.overrun_risk === "low" ? 88 : timing.overrun_risk === "medium" ? 66 : 42;
+  const scopeScore = context.demoScope
+    ? boundedScore(78 + (context.text.includes(context.demoScope.toLowerCase().slice(0, 18)) ? 12 : 0))
+    : 58;
+
+  const heatmap = [
+    heatmapItem("Executive opening", boundedScore(55 + (context.segments.some((segment) => segment.id === "executive-overview") ? 30 : 0) + storySignals * 2), "Checks whether the demo starts with the leadership story before detail.", "Add a short executive NetSuite overview before opening the first detailed workflow."),
+    heatmapItem("Audience fit", boundedScore(58 + playbookHits * 5), `Matched ${playbookHits} audience/playbook signals in the manifest.`, "Use the selected audience and target segment language in the opening, proof moments, and close."),
+    heatmapItem("Business outcome density", boundedScore(45 + context.businessSignalCount * 5 + context.valueStatementCount * 3), `${context.businessSignalCount} business signals and ${context.valueStatementCount} segment proof points detected.`, "Name the business reason before each click and add measurable outcome language."),
+    heatmapItem("Discovery alignment", discoveryCoverage, `${discovery.found_discovery_items.length} discovery categories found; ${discovery.missing_discovery_items.length} still missing.`, "Fill the highest-risk discovery gaps before final rehearsal."),
+    heatmapItem("Stakeholder balance", stakeholderBalance, stakeholderCoverage.recommendation, "Add one proof point or question for under-covered stakeholders."),
+    heatmapItem("Pacing control", pacingScore, `Estimated runtime is ${timing.estimated_runtime}; overrun risk is ${timing.overrun_risk}.`, "Pre-select cuts and keep lower-value sections for Q&A."),
+    heatmapItem("Navigation simplicity", navigationScore, `${context.navigationActions.length} navigation actions and ${context.clickLikeActions.length} click-like actions detected.`, "Use NetSuite search/navigation for the shortest route and cut wandering transitions."),
+    heatmapItem("Technical depth fit", technicalFit, `${context.technicalSignalCount} technical/setup signals detected for ${context.audience.label}.`, "Move technical setup into appendix unless the audience is technical."),
+    heatmapItem("Winning moments", boundedScore(35 + winning.winning_moments.length * 14), `${winning.winning_moments.length} memorable proof moments detected.`, "Create one or two moments where the SC slows down and lands the proof."),
+    heatmapItem("Scope discipline", scopeScore, context.demoScope ? `Scope captured: ${context.demoScope}` : "No explicit demo scope captured.", "Add scope in Prep so the manifest avoids unrelated modules and setup.")
+  ];
+
+  const strongest = heatmap.filter((item) => item.score >= 80).map((item) => item.label);
+  const needsWork = heatmap.filter((item) => item.score < 70).map((item) => item.label);
+  return {
+    summary: strongest.length
+      ? `Strongest areas: ${joinHuman(strongest.slice(0, 3))}. ${needsWork.length ? `Needs work: ${joinHuman(needsWork.slice(0, 3))}.` : "No major weak area detected."}`
+      : "The demo has usable structure, but no area is clearly dominant yet.",
+    strongest_areas: strongest,
+    needs_work_areas: needsWork,
+    heatmap
+  };
+}
+
+function demoScoreDetails(risk, demoHeatmap, timing, discovery, preDemoNotes) {
+  const strongest = demoHeatmap.strongest_areas || [];
+  const needsWork = demoHeatmap.needs_work_areas || [];
+  const warningCount = risk.warnings?.length || 0;
+  return {
+    demo_quality_summary: `${risk.demo_quality_score}/100 reflects demo structure, business outcome density, pacing, stakeholder coverage, discovery alignment, and winning moments.`,
+    demo_risk_summary: `${risk.demo_risk_score}/100 risk is driven by ${warningCount} warning${warningCount === 1 ? "" : "s"}, ${timing.overrun_risk} pacing risk, and ${discovery.missing_discovery_items.length} missing discovery categories.`,
+    what_is_strong: strongest.length ? strongest.slice(0, 4) : ["No dominant strength detected yet"],
+    what_needs_work: needsWork.length ? needsWork.slice(0, 4) : ["No major weak area detected"],
+    quality_explanation: strongest.length
+      ? `The demo is strongest around ${joinHuman(strongest.slice(0, 3))}.`
+      : "The demo has a workable foundation, but it needs clearer standout proof moments.",
+    risk_explanation: needsWork.length
+      ? `Risk is concentrated around ${joinHuman(needsWork.slice(0, 3))}.`
+      : "Risk is currently controlled; keep rehearsal focused on pacing and proof moments.",
+    notes_dependency: `Pre-demo notes health is ${preDemoNotes.overall_score}/100. Weak notes can make a strong manifest feel generic, so fill the note gaps before final prep.`
+  };
+}
+
 function discoveryGapAnalysis(context) {
-  const source = `${context.notes}\n${context.topic}\n${context.company.description || ""}\n${(context.company.likelyPriorities || []).join(" ")}`.toLowerCase();
+  const source = `${context.notes}\n${context.topic}\n${context.demoScope}\n${context.company.description || ""}\n${(context.company.likelyPriorities || []).join(" ")}`.toLowerCase();
   const checks = [
     ["Current ERP system", /(current system|erp|quickbooks|sage|sap|dynamics|xero|excel|spreadsheet|netsuite|oracle|workday)/],
     ["Biggest operational challenge", /(challenge|pain|problem|manual|slow|broken|issue|bottleneck|risk|struggle)/],
@@ -2459,6 +2571,117 @@ function discoveryQuestionFor(item) {
     "Industry priorities": "Which industry-specific pressures should shape the language and proof moments?"
   };
   return questions[item] || `Clarify ${item.toLowerCase()} before demo generation.`;
+}
+
+function preDemoNotesAnalysis(context, discovery) {
+  const notes = String(context.notes || "");
+  const source = notes.toLowerCase();
+  const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
+  const checks = [
+    {
+      label: "Current systems",
+      patterns: [/current system|erp|access|jedox|payhawk|quickbooks|sage|sap|dynamics|xero|spreadsheet|excel/],
+      why: "Shows what the customer is replacing or working around.",
+      recommendation: "Name the current ERP, planning tools, expense tools, reporting tools, and any spreadsheet dependency."
+    },
+    {
+      label: "Business pain",
+      patterns: [/challenge|pain|problem|manual|slow|broken|issue|bottleneck|risk|struggle|email heavy|not centralized|spreadsheet/],
+      why: "Gives the demo a reason to exist.",
+      recommendation: "Write the top three pains in plain business language and connect each one to a demo proof point."
+    },
+    {
+      label: "Stakeholders and roles",
+      patterns: [/cfo|controller|finance|it director|project manager|business analyst|operations|head of|manager|stakeholder|sponsor/],
+      why: "Helps the SC cover the people in the room.",
+      recommendation: "List attendees by role and add what each person likely needs to believe after the demo."
+    },
+    {
+      label: "Success criteria",
+      patterns: [/success|kpi|measure|target|goal|outcome|reduce|improve|faster|days|accuracy|must show|highlight|prove/],
+      why: "Defines how the audience will judge whether the demo landed.",
+      recommendation: "Add the measurable outcomes or decision criteria the demo must prove."
+    },
+    {
+      label: "Scope clarity",
+      patterns: [/scope|phase|financials|fixed assets|fp&a|fpa|inventory|procure|p2p|ar\/ap|a\/r|a\/p|services sku|advanced inventory|cash 360|reporting/],
+      why: "Prevents the demo from drifting into unrelated areas.",
+      recommendation: "State what is in scope, what is phase 2, and what should only be answered if asked."
+    },
+    {
+      label: "Process detail",
+      patterns: [/approval|invoice|bill|po|purchase order|project|revenue recognition|recognition|dunning|collections|cash|consolidation|multibook|tax|e-invoicing/],
+      why: "Turns discovery into a realistic story instead of a generic flow.",
+      recommendation: "Capture the key process, where it breaks today, and what a better future process should feel like."
+    },
+    {
+      label: "Technical and integration context",
+      patterns: [/integration|architecture|api|odbc|crm|ibos|e-invoicing|data|database|security|role|permission|backend/],
+      why: "Helps keep technical concerns visible without over-demoing them.",
+      recommendation: "Note the systems to integrate, technical constraints, and which topics belong in Q&A."
+    },
+    {
+      label: "Timeline and urgency",
+      patterns: [/timeline|go live|deadline|urgent|quarter|month|rollout|phase 1|phase 2|project date|by q[1-4]/],
+      why: "Shapes pacing, depth, and how hard the close should land.",
+      recommendation: "Add timing pressure, project phase, decision date, or why this matters now."
+    },
+    {
+      label: "Risks and constraints",
+      patterns: [/risk|constraint|local gaap|tax|language|country|countries|compliance|audit|approval matrix|threshold|legal entity|subsidiary/],
+      why: "Surfaces the topics that could derail confidence if ignored.",
+      recommendation: "Call out compliance, country, language, approval, and reporting constraints before generation."
+    },
+    {
+      label: "Competitive or decision context",
+      patterns: [/competitor|shortlist|compare|evaluation|business case|approved budget|budget|decision|procurement|vendor selection/],
+      why: "Shows what the SC must position against or de-risk.",
+      recommendation: "Add who else they are evaluating and what would make NetSuite the preferred option."
+    }
+  ];
+
+  const heatmap = checks.map((check) => {
+    const hitCount = check.patterns.reduce((total, pattern) => total + (pattern.test(source) ? 1 : 0), 0);
+    const score = hitCount > 0
+      ? boundedScore(72 + Math.min(18, hitCount * 6))
+      : words > 250 ? 38 : 22;
+    return heatmapItem(
+      check.label,
+      score,
+      hitCount ? check.why : `Missing or too light. ${check.why}`,
+      check.recommendation
+    );
+  });
+
+  const lengthScore = words > 1800 ? 92 : words > 900 ? 84 : words > 350 ? 68 : words > 120 ? 48 : words > 0 ? 28 : 0;
+  const coverageScore = coveragePercent(discovery.found_discovery_items.length, discovery.found_discovery_items.length + discovery.missing_discovery_items.length);
+  const categoryScore = heatmap.length
+    ? heatmap.reduce((total, item) => total + item.score, 0) / heatmap.length
+    : 0;
+  const overallScore = boundedScore(categoryScore * 0.6 + lengthScore * 0.2 + coverageScore * 0.2);
+  const riskAreas = heatmap.filter((item) => item.score < 60).map((item) => item.label);
+  const strongAreas = heatmap.filter((item) => item.score >= 80).map((item) => item.label);
+  const recommendations = uniqueItems([
+    ...heatmap.filter((item) => item.score < 70).slice(0, 5).map((item) => item.recommendation),
+    discovery.missing_discovery_items.length ? `Ask follow-up questions for ${joinHuman(discovery.missing_discovery_items.slice(0, 3))}.` : "",
+    words < 200 ? "Add more raw discovery notes before relying on heavy personalization." : ""
+  ]);
+
+  return {
+    overall_score: overallScore,
+    discovery_coverage_score: coverageScore,
+    word_count: words,
+    summary: overallScore >= 80
+      ? "The notes are strong enough to support a tailored demo story."
+      : overallScore >= 65
+        ? "The notes are usable, but a few gaps could make the demo less specific."
+        : "The notes carry meaningful risk. The SC should add discovery context before final prep.",
+    coverage_summary: `${discovery.found_discovery_items.length} discovery categories found, ${discovery.missing_discovery_items.length} missing.`,
+    strong_areas: strongAreas,
+    risk_areas: riskAreas,
+    recommendations,
+    heatmap
+  };
 }
 
 function stakeholderCoverageAnalysis(context) {
@@ -2504,7 +2727,9 @@ function stakeholderCoverageAnalysis(context) {
 
 function winningMomentAnalysis(context) {
   const momentRules = [
+    ["executive", "Executive NetSuite overview", "Slow down here to frame the platform story before showing detailed workflow."],
     ["standard income statement", "Trusted performance view", "Slow down here to anchor the audience in the source of truth."],
+    ["income statement", "Trusted performance view", "Slow down here to anchor the audience in the source of truth."],
     ["filter", "Controlled reporting lens", "Use this as the moment where finance changes the view without changing the numbers."],
     ["drill", "Trust through drilldown", "Land that summary numbers can be defended when challenged."],
     ["export", "Controlled sharing without spreadsheet dependency", "Keep this short and frame it as collaboration, not the main operating model."],
@@ -2515,12 +2740,15 @@ function winningMomentAnalysis(context) {
   ];
   const details = [];
   for (const segment of context.segments) {
-    const segmentText = `${segment.id} ${segment.title} ${segment.objective} ${segment.valueStatement} ${segment.narration}`.toLowerCase();
+    const guideSignal = segmentGuideSnippet(context, segment);
+    const segmentText = `${segment.id} ${segment.title} ${segment.objective} ${segment.valueStatement} ${segment.narration} ${guideSignal}`.toLowerCase();
     const rule = momentRules.find(([keyword]) => segmentText.includes(keyword));
-    if (rule || segment.valueMoment === "major") {
+    const hasBusinessProof = /(cash|close|forecast|trusted|risk|control|visibility|margin|outcome|working capital|audit|consolidat)/.test(segmentText);
+    if (rule || segment.valueMoment === "major" || hasBusinessProof) {
       details.push({
         segment: segment.title,
         moment: rule?.[1] || segment.title,
+        source: guideSignal ? "Manifest and SC guide" : "Manifest",
         why_it_lands: segment.valueStatement || rule?.[2] || "This is a memorable business proof point.",
         coaching_tip: rule?.[2] || "Slow down, narrate the business reason, then show the proof."
       });
@@ -2537,43 +2765,52 @@ function winningMomentAnalysis(context) {
 }
 
 function whatNotToDemoAnalysis(context) {
-  const base = [
-    "Admin setup menus",
-    "Empty dashboards",
-    "Long report configurations",
-    "Unrelated modules",
-    "Deep accounting setup",
-    "Complex technical navigation"
-  ];
+  const base = [];
   const strategyAvoid = context.strategy.avoid || [];
   const industryAvoid = context.industry.avoid || [];
   const audienceAvoid = context.playbook.avoidInDemo || [];
   const conditional = [];
+  const manifestAvoid = [];
+  const scope = context.demoScope.toLowerCase();
+  const hasSetupOrPrefs = /(setup|preference|configuration|custom|saved search|script|field)/.test(context.text);
+  const hasCash360Prefs = context.segments.some((segment) => /preference|forecast controls/i.test(segment.title));
+  const hasExportDetail = context.segments.some((segment) => /export|print|word|csv/i.test(segment.title));
+  const hasTechnicalSignals = context.technicalSignalCount > 7;
+  const hasPurchaseOrder = /(purchase order|procure|p2p)/.test(context.text);
+  const excludesPurchaseOrders = /(don['’]?t operate with po|do not operate with po|no po['’]?s|no purchase orders|without purchase orders|not using purchase orders)/.test(context.text);
+
+  if (hasSetupOrPrefs) manifestAvoid.push("Do not turn setup or preferences into the main demo path");
+  if (hasCash360Prefs) manifestAvoid.push("Keep Cash 360 preferences short unless the audience asks about forecast assumptions");
+  if (hasExportDetail) manifestAvoid.push("Do not walk through every export format; prove availability and move on");
+  if (hasTechnicalSignals && context.audience.value !== "technical") manifestAvoid.push("Do not over-explain APIs, backend setup, roles, or configuration");
+  if (excludesPurchaseOrders && hasPurchaseOrder) manifestAvoid.push("Do not lead with purchase orders when the notes say the customer does not operate with POs today");
+  if (scope && !/(fixed assets|asset)/.test(scope)) manifestAvoid.push("Do not add fixed assets unless the SC explicitly brings it into scope");
+  if (scope && !/(inventory|advanced inventory)/.test(scope)) manifestAvoid.push("Do not branch into inventory unless it supports the scoped story");
+
   if (context.audience.value !== "technical") conditional.push("API or backend setup unless asked");
   if (context.strategy.id !== "technical_validation") conditional.push("Permission configuration deep dives");
   if (context.segments.length > 10) conditional.push("Optional sections after the main proof moments");
   return {
-    avoid_showing: uniqueItems([...base, ...strategyAvoid, ...industryAvoid, ...audienceAvoid, ...conditional]).slice(0, 14),
-    rationale: "These items are likely to reduce clarity, pace, or audience alignment for the selected strategy and audience."
+    avoid_showing: uniqueItems([...base, ...manifestAvoid, ...strategyAvoid, ...industryAvoid, ...audienceAvoid, ...conditional]).slice(0, 14),
+    rationale: "These items are based on the current manifest, SC guide, selected audience, demo strategy, industry playbook, and scope. They are the areas most likely to reduce clarity, pace, or audience alignment if the SC over-demos them."
   };
 }
 
 function timingAndPacingAnalysis(context) {
   const segmentTimings = context.segments.map((segment) => {
     const actions = segment.actions || [];
-    const actionMinutes = actions.reduce((total, action) => {
-      if (action.type === "globalSearchOpen" || action.type === "goto") return total + 1.1;
-      if (action.type === "clickText" || action.type === "clickRole") return total + 0.6;
-      if (action.type === "waitForText" || action.type === "waitForAnyText") return total + 0.4;
-      if (action.type === "highlightText") return total + 0.25;
-      return total + 0.3;
-    }, 0);
-    const narrationMinutes = segment.valueMoment === "major" ? 1.4 : 1.0;
-    const estimatedMinutes = Math.max(1.2, actionMinutes + narrationMinutes);
+    const actionMinutes = actions.reduce((total, action) => total + actionEstimatedMinutes(action), 0);
+    const narrationWords = wordCount(`${segment.narration || ""} ${segment.valueStatement || ""}`);
+    const guideWords = Math.min(120, wordCount(segmentGuideSnippet(context, segment)));
+    const narrationMinutes = Math.max(0.45, narrationWords / 155);
+    const guideTalkTrackMinutes = guideWords ? Math.max(0.25, guideWords / 175) : 0;
+    const majorMomentBuffer = segment.valueMoment === "major" || /executive|cash|forecast|drill|close|outcome/i.test(`${segment.title} ${segment.valueStatement}`) ? 0.35 : 0.15;
+    const estimatedMinutes = Math.max(0.9, actionMinutes + narrationMinutes + guideTalkTrackMinutes + majorMomentBuffer);
     return {
       segment: segment.title,
       estimated_minutes: roundOne(estimatedMinutes),
-      pacing_risk: actions.length >= 7 || /(preference|setup|configuration|custom|admin)/i.test(segment.title) ? "high" : actions.length >= 5 ? "medium" : "low"
+      pacing_risk: actions.length >= 7 || estimatedMinutes >= 4 || /(preference|setup|configuration|custom|admin)/i.test(segment.title) ? "high" : actions.length >= 5 || estimatedMinutes >= 2.6 ? "medium" : "low",
+      basis: `${actions.length} manifest actions, ${narrationWords} narration/proof words${guideWords ? `, ${guideWords} SC guide words` : ""}`
     };
   });
   const estimatedMinutes = roundOne(segmentTimings.reduce((total, item) => total + item.estimated_minutes, 0));
@@ -2588,27 +2825,52 @@ function timingAndPacingAnalysis(context) {
     estimated_runtime: `${Math.round(estimatedMinutes)} minutes`,
     estimated_minutes: estimatedMinutes,
     overrun_risk: overrunRisk,
+    basis: "Estimated from manifest actions, explicit waits/highlights/clicks, narration length, value statements, and matching SC guide runbook text.",
     section_timing: segmentTimings,
     high_risk_sections: highRiskSections,
     recommended_cuts: uniqueItems(recommendedCuts)
   };
 }
 
+function actionEstimatedMinutes(action) {
+  if (action.type === "wait") return roundOne((Number(action.ms) || 1000) / 60000);
+  if (action.type === "highlightText") return roundOne(((Number(action.durationMs) || 900) / 60000) + 0.12);
+  if (action.type === "globalSearchOpen") return 1.15;
+  if (action.type === "goto") return 0.9;
+  if (action.type === "clickText" || action.type === "clickRole") return 0.45;
+  if (action.type === "waitForText" || action.type === "waitForAnyText") return 0.25;
+  if (action.type === "screenshot") return 0.18;
+  if (action.type === "note") return 0.15;
+  return 0.25;
+}
+
+function segmentGuideSnippet(context, segment) {
+  const runbook = context.scRunbook || context.scGuide || "";
+  if (!runbook || !segment?.title) return "";
+  const title = String(segment.title).trim();
+  const index = runbook.toLowerCase().indexOf(title.toLowerCase());
+  if (index < 0) return "";
+  return runbook.slice(index, Math.min(runbook.length, index + 700));
+}
+
 function rehearsalCoachAnalysis(context, risk, timing, stakeholderCoverage) {
-  const businessValueScore = boundedScore(68 + context.businessSignalCount * 3 + context.valueStatementCount * 2 - risk.warnings.length * 3);
-  const clarityScore = boundedScore(88 - Math.max(0, context.navigationActions.length - 12) * 2 - Math.max(0, context.segments.length - 10) * 3);
-  const executiveAlignmentScore = boundedScore(62 + countKeywordHits(context.text, ["cash", "risk", "margin", "forecast", "kpi", "executive", "outcome", "close"]) * 4);
+  const guideSignals = countKeywordHits(context.scGuideLower, ["story", "runbook", "what to say", "proof point", "sc tip", "closing move", "demo prep rules"]);
+  const businessValueScore = boundedScore(64 + context.businessSignalCount * 3 + context.valueStatementCount * 2 + Math.min(8, guideSignals) - risk.warnings.length * 3);
+  const clarityScore = boundedScore(88 - Math.max(0, context.navigationActions.length - 12) * 2 - Math.max(0, context.segments.length - 11) * 3 + (context.scRunbook ? 5 : 0));
+  const executiveAlignmentScore = boundedScore(58 + countKeywordHits(context.text, ["cash", "risk", "margin", "forecast", "kpi", "executive", "outcome", "close", "overview", "leadership"]) * 4);
   const recommendations = uniqueItems([
     timing.overrun_risk !== "low" ? "Rehearse with a visible timer and pre-select the first section to cut." : "",
     businessValueScore < 80 ? "Mention the business outcome before the first product click." : "",
     clarityScore < 80 ? "Reduce navigation time and keep transitions shorter." : "",
     executiveAlignmentScore < 75 ? "Bring executive outcomes into the opening and close." : "",
     stakeholderCoverage.low_coverage_roles.length ? `Add a question for ${stakeholderCoverage.low_coverage_roles[0]} during rehearsal.` : "",
+    !context.scRunbook ? "Regenerate the SC guide so rehearsal coaching can use the runbook." : "",
     "Practice slowing down during the winning moments instead of slowing down during navigation."
   ]);
 
   return {
     status: "ready-for-rehearsal-feedback",
+    basis: "Scores are derived from the manifest structure, SC guide/runbook text, navigation count, business outcome language, and pacing estimate.",
     business_value_score: businessValueScore,
     clarity_score: clarityScore,
     executive_alignment_score: executiveAlignmentScore,
@@ -3369,6 +3631,11 @@ function html(response) {
       padding: 12px;
       background: #fbfcfd;
     }
+    .score-card {
+      display: grid;
+      gap: 6px;
+      min-height: 150px;
+    }
     body.night .score-card,
     body.night .analysis-item {
       background: #0f1821;
@@ -3380,11 +3647,111 @@ function html(response) {
       font-weight: 800;
       margin: 4px 0 6px;
     }
+    .score-body {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .score-pill {
+      display: inline-flex;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #10201b;
+      background: #dff4e8;
+    }
+    .score-pill.watch { background: #fff1c6; color: #3b2b00; }
+    .score-pill.risk { background: #ffd8d1; color: #4a1409; }
+    body.night .score-pill { color: #0b1218; }
     .score-label,
     .analysis-item strong {
       display: block;
       font-size: 13px;
       margin-bottom: 4px;
+    }
+    .intelligence-overview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .heatmap-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+    }
+    body.night .heatmap-panel { background: #0f1821; }
+    .heatmap-panel h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+    .score-explainer {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+      gap: 10px;
+    }
+    .score-explainer .analysis-item { background: white; }
+    body.night .score-explainer .analysis-item { background: #0f1821; }
+    .heatmap-list {
+      display: grid;
+      gap: 9px;
+    }
+    .heatmap-item {
+      border: 1px solid var(--line);
+      border-left: 5px solid #c9d2dc;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfcfd;
+    }
+    body.night .heatmap-item { background: #0b1218; }
+    .heatmap-item.strong { border-left-color: #16854f; }
+    .heatmap-item.healthy { border-left-color: #2b7bbb; }
+    .heatmap-item.watch { border-left-color: #c48200; }
+    .heatmap-item.risk { border-left-color: #c94b35; }
+    .heatmap-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .heatmap-score {
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+    }
+    .heatmap-track {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--line);
+      overflow: hidden;
+      margin: 8px 0;
+    }
+    .heatmap-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: #2b7bbb;
+    }
+    .heatmap-item.strong .heatmap-fill { background: #16854f; }
+    .heatmap-item.healthy .heatmap-fill { background: #2b7bbb; }
+    .heatmap-item.watch .heatmap-fill { background: #c48200; }
+    .heatmap-item.risk .heatmap-fill { background: #c94b35; }
+    .heatmap-status {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+    }
+    .heatmap-copy {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
     }
     .pill-list {
       display: flex;
@@ -3808,6 +4175,7 @@ function html(response) {
           "how";
       }
       .field-grid { grid-template-columns: 1fr; }
+      .intelligence-overview-grid { grid-template-columns: 1fr; }
       .steps { grid-template-columns: 1fr 1fr; }
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
     }
@@ -4041,6 +4409,19 @@ function html(response) {
           <h2>Demo Intelligence Overview</h2>
           <div class="score-grid" id="intelligenceScores"></div>
           <p class="hint" id="intelligencePositioning"></p>
+          <div class="score-explainer" id="scoreExplainer"></div>
+          <div class="intelligence-overview-grid">
+            <div class="heatmap-panel">
+              <h3>Demo Strength Heatmap</h3>
+              <p class="hint" id="demoHeatmapSummary"></p>
+              <div id="demoHeatmap"></div>
+            </div>
+            <div class="heatmap-panel">
+              <h3>Pre-Demo Notes Heatmap</h3>
+              <p class="hint" id="notesHeatmapSummary"></p>
+              <div id="notesHeatmap"></div>
+            </div>
+          </div>
         </div>
 
         <div class="panel">
@@ -4452,17 +4833,29 @@ function html(response) {
       const avoid = intelligence.what_not_to_demo_engine || {};
       const timing = intelligence.demo_timing_pacing_analyzer || {};
       const coach = intelligence.ai_rehearsal_coach || {};
+      const demoHeatmap = intelligence.demo_heatmap_analyzer || {};
+      const notes = intelligence.pre_demo_notes_analyzer || {};
       const competitive = intelligence.competitive_positioning_mode || {};
       const strategy = intelligence.demo_strategy || {};
       const industry = intelligence.industry_playbook || {};
 
       document.getElementById("intelligenceScores").innerHTML = [
-        scoreCard("Demo quality", risk.demo_quality_score, "Higher is better"),
-        scoreCard("Demo risk", risk.demo_risk_score, "Lower is better"),
-        scoreCard("Business clarity", coach.clarity_score, "Rehearsal view"),
-        scoreCard("Executive alignment", coach.executive_alignment_score, "Outcome focus")
+        scoreCard("Demo quality", risk.demo_quality_score, "Higher is better", risk.score_details?.demo_quality_summary),
+        scoreCard("Demo risk", risk.demo_risk_score, "Lower is better", risk.score_details?.demo_risk_summary, true),
+        scoreCard("Pre-demo notes", notes.overall_score, "Discovery health", notes.summary),
+        scoreCard("Notes coverage", notes.discovery_coverage_score, "Coverage of key discovery areas", notes.coverage_summary),
+        scoreCard("Business clarity", coach.clarity_score, "Manifest + SC guide", coach.basis),
+        scoreCard("Executive alignment", coach.executive_alignment_score, "Outcome focus", "Checks whether leadership outcomes are visible in the manifest and guide.")
       ].join("");
       document.getElementById("intelligencePositioning").textContent = intelligence.positioning || "";
+      document.getElementById("scoreExplainer").innerHTML =
+        analysisItem("What is strongest", (risk.score_details?.what_is_strong || []).join(", "), risk.score_details?.quality_explanation) +
+        analysisItem("What needs work", (risk.score_details?.what_needs_work || []).join(", "), risk.score_details?.risk_explanation) +
+        analysisItem("Notes impact", notes.word_count ? notes.word_count + " words captured" : "No notes captured", risk.score_details?.notes_dependency);
+      document.getElementById("demoHeatmapSummary").textContent = demoHeatmap.summary || "";
+      document.getElementById("notesHeatmapSummary").textContent = notes.summary || "";
+      document.getElementById("demoHeatmap").innerHTML = heatmapRows(demoHeatmap.heatmap || []);
+      document.getElementById("notesHeatmap").innerHTML = heatmapRows(notes.heatmap || []);
 
       document.getElementById("riskAnalyzer").innerHTML =
         listBlock("Warnings", risk.warnings) +
@@ -4470,8 +4863,11 @@ function html(response) {
         hintBlock(risk.score_explanation);
 
       document.getElementById("discoveryAnalyzer").innerHTML =
+        analysisItem("Pre-demo notes score", notes.overall_score ? notes.overall_score + "/100" : "-", notes.summary) +
         listBlock("Missing discovery items", discovery.missing_discovery_items) +
         listBlock("Follow-up questions", discovery.recommended_follow_up_questions) +
+        listBlock("Notes risk areas", notes.risk_areas) +
+        listBlock("Notes recommendations", notes.recommendations) +
         pillList(discovery.found_discovery_items || []);
 
       document.getElementById("strategyIndustryAnalyzer").innerHTML =
@@ -4495,11 +4891,14 @@ function html(response) {
 
       document.getElementById("timingAnalyzer").innerHTML =
         analysisItem("Estimated runtime", timing.estimated_runtime, "Overrun risk: " + (timing.overrun_risk || "unknown")) +
+        hintBlock(timing.basis) +
+        timingRows(timing.section_timing || []) +
         listBlock("High-risk sections", timing.high_risk_sections) +
         listBlock("Recommended cuts", timing.recommended_cuts);
 
       document.getElementById("rehearsalCoachAnalyzer").innerHTML =
         analysisItem("Status", coach.status, "Use rehearsal output later for transcript and pacing feedback.") +
+        hintBlock(coach.basis) +
         listBlock("Coaching recommendations", coach.recommendations) +
         listBlock("Future transcript metrics", coach.suggested_metrics_for_future_rehearsal_transcripts);
 
@@ -4508,9 +4907,21 @@ function html(response) {
         (competitive.competitive_focus || []).map((item) => analysisItem(item.topic, item.why_it_matters, item.recommended_demo_moment)).join("");
     }
 
-    function scoreCard(label, value, note) {
+    function scoreCard(label, value, note, body = "", lowerIsBetter = false) {
       const displayValue = Number.isFinite(Number(value)) ? Math.round(Number(value)) : "-";
-      return "<div class='score-card'><span class='score-label'>" + escapeClientHtml(label) + "</span><span class='score-value'>" + displayValue + "</span><span class='hint'>" + escapeClientHtml(note || "") + "</span></div>";
+      const numeric = Number(value);
+      const effective = lowerIsBetter && Number.isFinite(numeric) ? 100 - numeric : numeric;
+      const status = Number.isFinite(effective) ? heatmapClass(effective) : "watch";
+      const statusLabel = status === "strong" ? "Super strong" : status === "healthy" ? "Strong" : status === "watch" ? "Needs work" : "Risk area";
+      return "<div class='score-card'><span class='score-label'>" + escapeClientHtml(label) + "</span><span class='score-value'>" + displayValue + "</span><span class='score-pill " + status + "'>" + escapeClientHtml(statusLabel) + "</span><span class='hint'>" + escapeClientHtml(note || "") + "</span><span class='score-body'>" + escapeClientHtml(body || "") + "</span></div>";
+    }
+
+    function heatmapClass(score) {
+      const value = Number(score) || 0;
+      if (value >= 85) return "strong";
+      if (value >= 70) return "healthy";
+      if (value >= 50) return "watch";
+      return "risk";
     }
 
     function listBlock(title, items = []) {
@@ -4531,6 +4942,34 @@ function html(response) {
       const clean = (items || []).filter(Boolean);
       if (!clean.length) return "";
       return "<div class='pill-list'>" + clean.map((item) => "<span class='pill'>" + escapeClientHtml(item) + "</span>").join("") + "</div>";
+    }
+
+    function heatmapRows(items = []) {
+      if (!items.length) return "<p class='hint'>No heatmap data available yet.</p>";
+      return "<div class='heatmap-list'>" + items.map((item) => {
+        const score = Math.max(0, Math.min(100, Number(item.score) || 0));
+        const status = item.status || heatmapClass(score);
+        return "<div class='heatmap-item " + escapeClientHtml(status) + "'>" +
+          "<div class='heatmap-head'><span>" + escapeClientHtml(item.label) + "</span><span class='heatmap-score'>" + Math.round(score) + "/100</span></div>" +
+          "<div class='heatmap-track'><div class='heatmap-fill' style='width:" + score + "%'></div></div>" +
+          "<div class='heatmap-status'>" + escapeClientHtml(item.status_label || status) + "</div>" +
+          "<p class='heatmap-copy'>" + escapeClientHtml(item.evidence || "") + "</p>" +
+          "<p class='heatmap-copy'><strong>Improve:</strong> " + escapeClientHtml(item.recommendation || "") + "</p>" +
+        "</div>";
+      }).join("") + "</div>";
+    }
+
+    function timingRows(items = []) {
+      if (!items.length) return "";
+      return "<strong class='score-label'>Section timing</strong>" + items.slice(0, 10).map((item) => {
+        const risk = item.pacing_risk || "low";
+        const score = risk === "high" ? 35 : risk === "medium" ? 62 : 88;
+        return "<div class='heatmap-item " + heatmapClass(score) + "'>" +
+          "<div class='heatmap-head'><span>" + escapeClientHtml(item.segment) + "</span><span class='heatmap-score'>" + escapeClientHtml(item.estimated_minutes) + " min</span></div>" +
+          "<div class='heatmap-status'>" + escapeClientHtml(risk) + " pacing risk</div>" +
+          "<p class='heatmap-copy'>" + escapeClientHtml(item.basis || "") + "</p>" +
+        "</div>";
+      }).join("");
     }
 
     function coverageRows(items = []) {
