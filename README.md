@@ -51,8 +51,9 @@ From the control panel you can:
 - switch between light mode and night mode
 - create a manifest draft
 - edit the manifest directly
-- read three SC guide outputs: normal demo flow, personalized experience flow, and required NetSuite customization prompts
-- generate a guarded NetSuite setup prompt when demo data/configuration may need to be created
+- read one combined personalized SC story and runbook with the exact live-demo steps
+- generate a demo asset / PowerPoint prompt for persona images, slide structure, and supporting visuals
+- generate one guarded NetSuite setup prompt when demo data/configuration may need to be created
 - restore earlier manifest versions
 - open the reusable NetSuite browser
 - dry run, rehearse with account prep buffering, or run the live narrated demo

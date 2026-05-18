@@ -193,7 +193,7 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "GET" && request.url === "/api/sc-guide") {
       const manifest = await readManifest();
-      const guide = await readScGuide();
+      const guide = await readOrGenerateScGuide(manifest);
       return json(response, { guide, guideOutputs: guideOutputsPayload(manifest, guide) });
     }
     if (request.method === "GET" && request.url === "/api/setup-prompt") {
@@ -215,7 +215,7 @@ const server = http.createServer(async (request, response) => {
       await saveVersion("before-manual-edit");
       await writeFile(manifestPath, `${nextManifest}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(parsedManifest);
-      const guide = await readScGuide();
+      const guide = await readOrGenerateScGuide(parsedManifest);
       return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest) });
     }
 
@@ -237,7 +237,7 @@ const server = http.createServer(async (request, response) => {
       const source = safeVersionPath(body.file);
       await writeFile(manifestPath, await readFile(source, "utf8"), "utf8");
       const manifest = await readManifest();
-      const guide = await readScGuide();
+      const guide = await readOrGenerateScGuide(manifest);
       return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest) });
     }
 
@@ -277,7 +277,7 @@ server.listen(port, () => {
 
 async function manifestPayload() {
   const manifest = await readManifest();
-  const guide = await readScGuide();
+  const guide = await readOrGenerateScGuide(manifest);
   return {
     manifest,
     versions: await listVersions(),
@@ -396,10 +396,22 @@ async function readScGuide() {
   }
 }
 
+async function readOrGenerateScGuide(manifest) {
+  const existing = await readScGuide();
+  if (existing.includes("## Personalized Demo Story And Runbook") && existing.includes("## Demo Asset Generation Prompt")) {
+    return existing;
+  }
+
+  const guide = generateScGuide(manifest, manifest.context?.demoRequest || {}, manifest.context?.company || {});
+  await mkdir(path.dirname(scGuidePath), { recursive: true });
+  await writeFile(scGuidePath, guide, "utf8");
+  return guide;
+}
+
 async function exportScGuideDocx() {
-  const guide = await readScGuide();
-  if (!guide.trim()) throw new Error("Create an SC guide before exporting to Word.");
   const manifest = await readManifest();
+  const guide = await readOrGenerateScGuide(manifest);
+  if (!guide.trim()) throw new Error("Create an SC guide before exporting to Word.");
   const fileName = `${companyFileSlug(manifest)}-sc-demo-guide.docx`;
   const outputPath = path.join(projectRoot, "artifacts", fileName);
 
@@ -1237,9 +1249,27 @@ function generateScGuide(manifest, body, company) {
   const priorities = company.likelyPriorities || [];
   const signals = company.industrySignals || [];
   const segments = manifest.segments || [];
-  const normalDemoFlow = normalDemoFlowText(segments);
-  const personalizedStoryFlow = personalizedStoryFlowText({ companyName, audience, marketSegment, playbook, priorities, segments });
-  const customizationPrompt = setupPromptPayload(manifest).prompt;
+  const storyRunbook = scStoryRunbookText({
+    companyName,
+    audience,
+    marketSegment,
+    playbook,
+    priorities,
+    segments,
+    outputLanguage
+  });
+  const assetPrompt = demoAssetPromptText({
+    companyName,
+    audience,
+    marketSegment,
+    playbook,
+    priorities,
+    signals,
+    segments,
+    outputLanguage,
+    notes,
+    demoRequest: manifest.context?.demoRequest?.topic || "Not provided"
+  });
 
   return `# SC Demo Guide: ${companyName}
 
@@ -1264,27 +1294,11 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 - Context variables to consider: ${playbook.recommendedContextVariables.join(", ")}
 - Recommended demo goals: ${playbook.recommendedDemoGoals.join(", ")}
 
-## Normal Demo Flow
+## Personalized Demo Story And Runbook
 
 ${outputLanguageInstruction(outputLanguage)}
 
-${normalDemoFlow}
-
-## Personalized Experience Flow
-
-${outputLanguageInstruction(outputLanguage)}
-
-${personalizedStoryFlow}
-
-## Customization Prompts For NetSuite
-
-${customizationPrompt}
-
-## Personalized Demo Story
-
-Open the demo as a story about ${companyName || "the prospect"} getting from uncertain finance visibility to a more controlled way of running performance and cash. Start with the standard income statement because it is familiar, then prove that the number is trusted by showing filters and drilldown. Move from profitability into Cash 360 so the audience sees that NetSuite is not only reporting history, but helping the finance team manage what happens next.
-
-For a ${marketSegment.label.toLowerCase()} ${audience.label.toLowerCase()} audience, keep the story anchored in ${joinHuman(playbook.interests.slice(0, 3))}. Use the first screen to build confidence, the middle of the demo to prove control, and the Cash 360 section to create the "this changes our operating rhythm" moment.
+${storyRunbook}
 
 ## Tips And Tricks For The SC
 
@@ -1295,13 +1309,6 @@ For a ${marketSegment.label.toLowerCase()} ${audience.label.toLowerCase()} audie
 - For ${marketSegment.label.toLowerCase()} teams, emphasize ${joinHuman(marketSegment.interests.slice(0, 2))}.
 - For ${audience.label.toLowerCase()}, frame the proof around ${audience.guideAngle}
 - If setup data is missing, pause and use the NetSuite prep prompt instead of improvising live.
-
-## SC Instructions
-
-${instructions
-  .split("\n")
-  .map((line) => `- ${line.trim()}`)
-  .join("\n")}
 
 ## Company Context
 
@@ -1314,7 +1321,11 @@ ${instructions
 
 ${notes}
 
-## NetSuite Prep And Creation Plan
+## Demo Asset Generation Prompt
+
+${assetPrompt}
+
+## NetSuite Prep Summary
 
 - Target account: ${account.account} (${account.host})
 - Role: ${account.role}
@@ -1327,38 +1338,32 @@ ${setupPlan.items?.length
 
 Use the setup prompt in the app if these items need to be created. It always requires front-end browser access, back-end NetSuite access, account confirmation, and approval before writes.
 
-## Light Demo Script For The SC
-
-${segments
-  .map((segment, index) => {
-    const navigation = (segment.actions || [])
-      .filter((action) => ["globalSearchOpen", "goto", "clickText", "clickRole"].includes(action.type))
-      .map(describeNavigationAction)
-      .filter(Boolean)
-      .join(" -> ") || "Stay on the current view";
-    return `${index + 1}. ${segment.title}
-   - Show: ${segment.objective || segment.title}
-   - Why it matters: ${segment.valueStatement}
-   - Navigation: ${navigation}
-   - Talk track: ${segment.narration}`;
-  })
-  .join("\n\n")}
-
 ## Discovery Hooks During The Demo
 
 - "Is this the level of reporting your finance team starts with today?"
 - "Where do teams currently go when someone challenges a number?"
 - "How often does cash forecasting live outside the ERP?"
 - "Which view would your CFO want first: consolidated performance, entity-level detail, or working capital?"
+
+## SC Instructions Used By The Generator
+
+${instructions
+  .split("\n")
+  .map((line) => `- ${line.trim()}`)
+  .join("\n")}
 `;
 }
 
 function guideOutputsPayload(manifest, guide = "") {
   const context = guideContextFromManifest(manifest);
   const setupPrompt = setupPromptPayload(manifest).prompt;
+  const scRunbook = markdownSection(guide, "Personalized Demo Story And Runbook") || scStoryRunbookText(context);
+  const assetPrompt = markdownSection(guide, "Demo Asset Generation Prompt") || demoAssetPromptText(context);
   return {
-    normalDemoFlow: markdownSection(guide, "Normal Demo Flow") || normalDemoFlowText(context.segments),
-    personalizedExperienceFlow: markdownSection(guide, "Personalized Experience Flow") || personalizedStoryFlowText(context),
+    scRunbook,
+    assetGenerationPrompt: assetPrompt,
+    personalizedExperienceFlow: scRunbook,
+    normalDemoFlow: scRunbook,
     customizationPrompts: markdownSection(guide, "Customization Prompts For NetSuite") || setupPrompt
   };
 }
@@ -1376,6 +1381,9 @@ function guideContextFromManifest(manifest) {
     outputLanguage,
     playbook,
     priorities: company.likelyPriorities || [],
+    signals: company.industrySignals || [],
+    notes: manifest.context?.preDemoNotes || "No additional pre-demo notes were provided.",
+    demoRequest: manifest.context?.demoRequest?.topic || "Not provided",
     segments: manifest.segments || []
   };
 }
@@ -1407,6 +1415,94 @@ function normalDemoFlowText(segments) {
    - Talk track: ${segment.narration}`;
     })
     .join("\n\n");
+}
+
+function scStoryRunbookText({ companyName, audience, marketSegment, playbook, priorities, segments, outputLanguage }) {
+  const story = personalizedStoryFlowText({ companyName, audience, marketSegment, playbook, priorities, segments });
+  const runbook = segments
+    .map((segment, index) => {
+      const navigation = (segment.actions || [])
+        .filter((action) => ["globalSearchOpen", "goto", "clickText", "clickRole"].includes(action.type))
+        .map(describeNavigationAction)
+        .filter(Boolean)
+        .join(" -> ") || "Stay on the current view and explain what the audience should notice.";
+      const proof = segment.valueStatement || "Tie the screen back to the business outcome for this audience.";
+      const talkTrack = segment.narration || "Explain the business reason for this step before clicking.";
+      return `${index + 1}. ${segment.title}
+   - Story purpose: ${segment.objective || segment.title}
+   - What to do: ${navigation}
+   - What to say: ${talkTrack}
+   - Proof point to land: ${proof}
+   - SC tip: Keep this step aligned to ${joinHuman(playbook.interests.slice(0, 3)) || "the audience priorities"}.`;
+    })
+    .join("\n\n");
+
+  return `Story arc:
+
+${story}
+
+Exact runbook:
+
+${runbook}
+
+Closing move:
+
+Bring the audience back to the main business question. For ${companyName || "the prospect"}, the thread is not just that NetSuite has reports and Cash 360. The thread is that finance can start with a trusted performance view, prove the details, and then move into cash decisions without leaving the operating system.
+
+Language note:
+
+${outputLanguageInstruction(outputLanguage)}`;
+}
+
+function demoAssetPromptText({ companyName, audience, marketSegment, playbook, priorities, signals, segments, outputLanguage, notes, demoRequest }) {
+  const persona = demoPersonaFor(audience, marketSegment);
+  const keySegments = segments
+    .filter((segment) => ["open-pl", "pl-drilldown", "open-cash360-dashboard", "cash360-forecast", "close"].includes(segment.id))
+    .map((segment) => `- ${segment.title}: ${segment.valueStatement || segment.objective || segment.title}`)
+    .join("\n");
+
+  return `Use this prompt to create supporting demo assets or a PowerPoint section for the SC.
+
+PROMPT
+
+You are creating demo support assets for a NetSuite finance demo.
+
+Context:
+- Company/prospect: ${companyName || "The prospect"}
+- Audience type: ${audience.label}
+- Target audience: ${marketSegment.label}
+- Persona: ${persona.name}, ${persona.role}
+- Persona question: ${persona.question}
+- Demo request: ${demoRequest || "Finance demo from P&L to Cash 360"}
+- Likely priorities: ${joinHuman((priorities || []).slice(0, 5)) || "trusted reporting, faster finance decisions, and cash visibility"}
+- Industry signals: ${(signals || []).join(", ") || "financial visibility and operational control"}
+- Pre-demo notes: ${notes || "No pre-demo notes provided"}
+- Output language: ${normalizeOutputLanguage(outputLanguage?.value || outputLanguage).label}
+
+Create a 5 to 7 slide mini-deck or reusable slide assets that support the live product demo. The deck should not replace the NetSuite demo. It should set up the story, introduce the persona, make the problem visible, and help the SC transition into the live system.
+
+Required slides:
+1. Persona slide: introduce ${persona.name}, their role, their pressure, and the question they need answered.
+2. Current-state pain slide: show the finance problem before NetSuite, using ${joinHuman(playbook.interests.slice(0, 3)) || "the audience priorities"}.
+3. Demo journey slide: map the live demo from standard income statement to filters, drilldown, export, Cash 360, and forecast controls.
+4. Proof moments slide: show what the SC must prove during the product demo.
+${keySegments || "- Use the manifest segments as the proof moments."}
+5. Outcome slide: summarize the operating rhythm after the demo: trusted performance reporting, traceable detail, and forward-looking cash visibility.
+
+Stock image and visual direction:
+- Persona image: professional, realistic business portrait for ${persona.name}, suitable for ${audience.label.toLowerCase()} stakeholders.
+- Team image: finance team reviewing performance and cash planning, realistic office or hybrid work setting.
+- Visual metaphor: connected finance flow from reporting to decisions, avoiding generic abstract gradients.
+- Screenshot placeholders: leave clearly marked placeholders for NetSuite screenshots captured during rehearsal. Do not invent product screenshots.
+- Icons: use simple finance, reporting, drilldown, export, and cash forecast icons.
+
+Design rules:
+- Keep it practical and SC-ready.
+- Match a ${marketSegment.label.toLowerCase()} audience and a ${audience.label.toLowerCase()} conversation.
+- Include what the audience should feel, what the SC should say, and where to transition into the live demo.
+- Avoid ${joinHuman(playbook.avoidInDemo.slice(0, 5)) || "feature dumping and generic claims"}.
+- Preserve NetSuite names and report labels exactly when they refer to UI elements.
+- ${outputLanguageInstruction(outputLanguage)}`;
 }
 
 function personalizedStoryFlowText({ companyName, audience, marketSegment, playbook, priorities, segments }) {
@@ -2537,6 +2633,8 @@ function html(response) {
       min-height: 260px;
       font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
+    #scRunbook { min-height: 460px; }
+    #assetGenerationPrompt { min-height: 340px; }
     #setupPrompt {
       min-height: 280px;
       font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -2670,7 +2768,7 @@ function html(response) {
             <div class="step"><strong>1. Prep</strong><span>You choose the audience, input mode, voice, and demo value emphasis.</span></div>
             <div class="step"><strong>2. Interpret</strong><span>Codex-style logic reads the company site and notes to infer likely ERP priorities.</span></div>
             <div class="step"><strong>3. Generate</strong><span>The helper creates an editable manifest with navigation, narration, proof points, and safe actions.</span></div>
-            <div class="step"><strong>4. Guide</strong><span>It also creates a lighter SC guide that a consultant can use manually.</span></div>
+            <div class="step"><strong>4. Guide</strong><span>It creates a personalized SC story, runbook, and asset prompt for demo prep.</span></div>
             <div class="step"><strong>5. Rehearse</strong><span>Rehearsal buffers account prep, checks routes, timing, screenshots, and caches useful information.</span></div>
             <div class="step"><strong>6. Run</strong><span>The final demo drives NetSuite and narrates the story with the selected voice engine.</span></div>
           </div>
@@ -2701,24 +2799,17 @@ function html(response) {
       </div>
       <div class="guide-outputs">
         <div>
-          <label for="normalDemoFlow">1. Normal demo flow</label>
-          <textarea id="normalDemoFlow" spellcheck="false" readonly></textarea>
+          <label for="scRunbook">Personalized SC story and runbook</label>
+          <textarea id="scRunbook" spellcheck="false" readonly></textarea>
         </div>
         <div>
-          <label for="personalizedExperienceFlow">2. Personalized experience flow</label>
-          <textarea id="personalizedExperienceFlow" spellcheck="false" readonly></textarea>
-        </div>
-        <div>
-          <label for="customizationPromptFlow">3. Required NetSuite customization prompts</label>
-          <textarea id="customizationPromptFlow" spellcheck="false" readonly></textarea>
+          <label for="assetGenerationPrompt">Demo asset / PowerPoint generation prompt</label>
+          <textarea id="assetGenerationPrompt" spellcheck="false" readonly></textarea>
         </div>
       </div>
+      <textarea id="scGuide" spellcheck="false" readonly hidden></textarea>
       <div class="band">
-        <label for="scGuide">Full SC guide export text</label>
-        <textarea id="scGuide" spellcheck="false" readonly></textarea>
-      </div>
-      <div class="band">
-        <h2>NetSuite Setup Prompt</h2>
+        <h2>NetSuite Customization / Setup Prompt</h2>
         <p class="hint" id="setupAccountSummary">Target account will appear after a demo is generated.</p>
         <p class="hint" id="setupItemSummary">Setup items will appear here when the helper detects data or configuration that may need to be created.</p>
         <label for="setupPrompt">Prompt for Codex account setup</label>
@@ -2766,9 +2857,8 @@ function html(response) {
     const statusBox = document.getElementById("status");
     const versions = document.getElementById("versions");
     const scGuide = document.getElementById("scGuide");
-    const normalDemoFlow = document.getElementById("normalDemoFlow");
-    const personalizedExperienceFlow = document.getElementById("personalizedExperienceFlow");
-    const customizationPromptFlow = document.getElementById("customizationPromptFlow");
+    const scRunbook = document.getElementById("scRunbook");
+    const assetGenerationPrompt = document.getElementById("assetGenerationPrompt");
     const setupPrompt = document.getElementById("setupPrompt");
     const setupAccountSummary = document.getElementById("setupAccountSummary");
     const setupItemSummary = document.getElementById("setupItemSummary");
@@ -2933,9 +3023,8 @@ function html(response) {
     }
 
     function renderGuideOutputs(guide, outputs = {}) {
-      normalDemoFlow.value = outputs.normalDemoFlow || sectionFromGuide(guide, "Normal Demo Flow") || "";
-      personalizedExperienceFlow.value = outputs.personalizedExperienceFlow || sectionFromGuide(guide, "Personalized Experience Flow") || "";
-      customizationPromptFlow.value = outputs.customizationPrompts || sectionFromGuide(guide, "Customization Prompts For NetSuite") || "";
+      scRunbook.value = outputs.scRunbook || sectionFromGuide(guide, "Personalized Demo Story And Runbook") || outputs.personalizedExperienceFlow || "";
+      assetGenerationPrompt.value = outputs.assetGenerationPrompt || sectionFromGuide(guide, "Demo Asset Generation Prompt") || "";
     }
 
     function sectionFromGuide(guide, heading) {
