@@ -64,6 +64,27 @@ From the control panel you can:
 - open the reusable NetSuite browser
 - dry run, rehearse with account prep buffering, or run the live narrated demo
 
+## Manager Showcase
+
+To demo NetSuite Demo Helper itself for SC leadership, start the local control panel first:
+
+```bash
+npm run control
+```
+
+Then run the narrated browser showcase with the Samantha voice:
+
+```bash
+npm run showcase
+```
+
+You can test it without audio:
+
+```bash
+npm run showcase:dry
+npm run showcase:rehearse
+```
+
 ## Command Line Flow
 
 Open the reusable demo browser and log in:

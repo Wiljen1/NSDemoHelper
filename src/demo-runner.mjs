@@ -301,7 +301,11 @@ async function waitForLogin(page, demoManifest) {
   try {
     await waitForText(page, readyText, 5000);
   } catch {
-    console.log("Waiting for the logged-in NetSuite page. Finish login in the browser window when prompted.");
+    const application = demoManifest.context.application || "demo page";
+    const loginMode = demoManifest.context.login?.mode || "manual";
+    console.log(loginMode === "none"
+      ? `Waiting for ${application} to be ready.`
+      : `Waiting for the logged-in ${application} page. Finish login in the browser window when prompted.`);
     await page.goto(startUrl, { waitUntil: "domcontentloaded" });
     await waitForText(page, readyText, 180000);
   }
@@ -499,6 +503,8 @@ async function firstVisibleLabel(page, text, options = {}) {
 function labelLocators(page, text, options = {}) {
   const exact = Boolean(options.exact);
   return [
+    page.getByRole("heading", { name: text, exact }).first(),
+    page.getByLabel(text, { exact }).first(),
     page.getByText(text, { exact }).first(),
     page.getByRole("button", { name: text, exact }).first(),
     page.getByRole("link", { name: text, exact }).first(),

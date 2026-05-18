@@ -1,0 +1,361 @@
+{
+  "version": 1,
+  "id": "netsuite-demo-helper-manager-showcase",
+  "name": "NetSuite Demo Helper: Manager Showcase",
+  "audience": "Senior sales and solution consulting leadership",
+  "context": {
+    "application": "NetSuite Demo Helper",
+    "role": "Solution Consulting demo leader",
+    "baseUrl": "http://localhost:4173",
+    "login": {
+      "mode": "none",
+      "startPath": "/",
+      "readyText": "NetSuite Demo Helper",
+      "instructions": "Start the local control panel with npm run control before running this showcase."
+    }
+  },
+  "defaults": {
+    "valueStatementIntensity": "balanced",
+    "pace": {
+      "beforeSegmentMs": 450,
+      "afterActionMs": 650,
+      "afterSegmentMs": 700
+    },
+    "audio": {
+      "provider": "say",
+      "voice": "Samantha",
+      "rate": 168
+    },
+    "browser": {
+      "mode": "reuse",
+      "cdpUrl": "http://127.0.0.1:9222",
+      "profileDirectory": ".auth/showcase-profile"
+    },
+    "screenshots": {
+      "directory": "artifacts/screenshots/showcase",
+      "onSegmentEnd": true,
+      "onFailure": true
+    },
+    "cache": {
+      "file": "artifacts/cache/netsuite-demo-helper-showcase-cache.json"
+    }
+  },
+  "controls": {
+    "valueStatementIntensity": {
+      "label": "Showcase emphasis",
+      "default": "balanced"
+    }
+  },
+  "segments": [
+    {
+      "id": "showcase-open",
+      "title": "Open With The SC Problem",
+      "objective": "Position the tool as a practical way for SC teams to prepare stronger demos with less risk.",
+      "valueMoment": "major",
+      "valueStatement": "Leaders can see how the helper improves demo quality, consistency, and readiness without asking every SC to start from a blank page.",
+      "narration": "This is NetSuite Demo Helper. The purpose is not just to generate a demo. The purpose is to help Solution Consultants prepare like a senior SC: understand the audience, shape the story, avoid weak demo habits, and go into the meeting with a clearer plan. For managers, the important point is consistency. The tool gives every SC a structured way to prepare, while still leaving room for judgment and personalization.",
+      "actions": [
+        {
+          "type": "goto",
+          "url": "/",
+          "timeoutMs": 20000
+        },
+        {
+          "type": "waitForText",
+          "text": "NetSuite Demo Helper",
+          "timeoutMs": 15000
+        },
+        {
+          "type": "highlightText",
+          "text": "SC Demo Instructions",
+          "durationMs": 1100
+        },
+        {
+          "type": "highlightText",
+          "text": "Demo Audience",
+          "durationMs": 1100
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "NetSuite Demo Helper"
+        }
+      ]
+    },
+    {
+      "id": "showcase-prep",
+      "title": "Show Audience And Strategy Setup",
+      "objective": "Show that the SC can tailor the demo to the audience, market segment, strategy, industry, language, and notes.",
+      "valueMoment": "page",
+      "valueStatement": "The SC is guided to demo to the right audience and the right buying moment instead of running a generic feature tour.",
+      "narration": "The Prep screen is where the SC shapes the demo before anything is generated. In this example we can choose Prospect, Mid-Market, Standard Platform Demo, General Business, English, and pre-demo notes only. That matters because the same product demo should not sound the same for a CFO, IT director, finance controller, or operational stakeholder. The helper makes those choices explicit, so the SC is less likely to miss the real audience in the room.",
+      "actions": [
+        {
+          "type": "highlightText",
+          "text": "Audience type",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Target audience",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Demo strategy",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Industry playbook",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Pre-demo notes",
+          "durationMs": 900
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Demo strategy"
+        }
+      ]
+    },
+    {
+      "id": "showcase-generate",
+      "title": "Explain Learn And Generate",
+      "objective": "Show the moment where the helper turns company context and notes into demo assets.",
+      "valueMoment": "page",
+      "valueStatement": "The SC gets a repeatable prep workflow that turns discovery into a manifest, guide, setup prompt, and coaching view.",
+      "narration": "Once the inputs are ready, the SC uses Learn and Create Demo. The helper reads the company context, combines it with discovery notes, and creates a demo manifest and SC guide. For a prospect like Air Charter Service, the notes point to multi-country consolidation, local reporting, approvals, integrations, project-style flight tracking, cash visibility, and finance transformation. Instead of relying on memory, the tool turns those signals into a structured demo plan.",
+      "actions": [
+        {
+          "type": "highlightText",
+          "text": "Learn / Create Demo",
+          "durationMs": 1400
+        },
+        {
+          "type": "highlightText",
+          "text": "How NetSuite Demo Helper Works",
+          "durationMs": 1100
+        },
+        {
+          "type": "highlightText",
+          "text": "5. Check",
+          "durationMs": 1000
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "How NetSuite Demo Helper Works"
+        }
+      ]
+    },
+    {
+      "id": "showcase-manifest",
+      "title": "Show The Automation Manifest",
+      "objective": "Show the detailed run plan that can drive or guide the product demo.",
+      "valueMoment": "page",
+      "valueStatement": "The manifest gives the SC a concrete route through the demo, reducing wandering, dead clicks, and last-minute improvisation.",
+      "narration": "The Manifest tab is the detailed plan. It contains the segments, navigation, narration, proof points, and safe actions. A manager does not need every SC to run this automatically every time. The value is that the team now has a structured demo artifact that can be reviewed, amended, versioned, and rehearsed. It turns demo prep into something visible instead of something hidden inside one person's notes.",
+      "actions": [
+        {
+          "type": "clickRole",
+          "role": "button",
+          "name": "Manifest",
+          "exact": true,
+          "timeoutMs": 10000
+        },
+        {
+          "type": "waitForText",
+          "text": "Editable manifest",
+          "timeoutMs": 10000
+        },
+        {
+          "type": "highlightText",
+          "text": "Save Manifest",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Earlier versions",
+          "durationMs": 900
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Editable manifest"
+        }
+      ]
+    },
+    {
+      "id": "showcase-sc-guide",
+      "title": "Show The SC Guide",
+      "objective": "Show the human-readable story, runbook, setup prompt, and asset prompt.",
+      "valueMoment": "major",
+      "valueStatement": "The SC guide translates the technical manifest into a practical story the consultant can actually use in preparation.",
+      "narration": "The SC Guide is the human side of the workflow. It gives the personalized story, the talk track, what to show, why it matters, and what setup may be needed before the meeting. It also creates an asset prompt for supporting slides and persona visuals. This helps newer SCs learn what good looks like, and it helps experienced SCs save time without lowering quality.",
+      "actions": [
+        {
+          "type": "clickRole",
+          "role": "button",
+          "name": "SC Guide",
+          "exact": true,
+          "timeoutMs": 10000
+        },
+        {
+          "type": "waitForText",
+          "text": "Personalized SC story and runbook",
+          "timeoutMs": 10000
+        },
+        {
+          "type": "highlightText",
+          "text": "Personalized SC story and runbook",
+          "durationMs": 1000
+        },
+        {
+          "type": "highlightText",
+          "text": "Demo asset / PowerPoint generation prompt",
+          "durationMs": 1000
+        },
+        {
+          "type": "highlightText",
+          "text": "NetSuite Customization / Setup Prompt",
+          "durationMs": 1000
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Personalized SC story and runbook"
+        }
+      ]
+    },
+    {
+      "id": "showcase-intelligence",
+      "title": "Show Demo Intelligence",
+      "objective": "Show the coaching layer: risk, discovery gaps, stakeholder coverage, winning moments, and pacing.",
+      "valueMoment": "major",
+      "valueStatement": "The Intelligence tab helps managers raise demo quality by making risks and coaching opportunities visible before the customer meeting.",
+      "narration": "The Intelligence tab is where this becomes a coaching platform. It checks demo quality, demo risk, discovery gaps, stakeholder coverage, what not to demo, timing risk, and winning moments. This is useful for competitive readiness as well. The tool does not invent competitive claims. It helps the SC prepare the strongest proof moments, stay aligned to the audience, and avoid losing the room through weak pacing or irrelevant detail.",
+      "actions": [
+        {
+          "type": "clickRole",
+          "role": "button",
+          "name": "Intelligence",
+          "exact": true,
+          "timeoutMs": 10000
+        },
+        {
+          "type": "waitForText",
+          "text": "Demo Intelligence Overview",
+          "timeoutMs": 10000
+        },
+        {
+          "type": "waitForText",
+          "text": "Risk Analyzer",
+          "timeoutMs": 10000
+        },
+        {
+          "type": "highlightText",
+          "text": "Risk Analyzer",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Discovery Gaps",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Stakeholder Coverage",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Winning Moments",
+          "durationMs": 900
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Demo Intelligence Overview"
+        }
+      ]
+    },
+    {
+      "id": "showcase-run",
+      "title": "Show Rehearsal And Live Readiness",
+      "objective": "Show how the SC can rehearse, dry run, prep the account, and then run with narration.",
+      "valueMoment": "page",
+      "valueStatement": "The run controls reduce customer-facing risk by separating dry run, rehearsal, account prep, and live execution.",
+      "narration": "Finally, the Run screen separates preparation from performance. The SC can dry run the plan, rehearse with account prep, and only then run the live narrated demo. This matters because many demos fail before they start: missing setup, unclear routes, weak pacing, or a story that does not match the audience. NetSuite Demo Helper gives the SC a safer path from discovery to a confident customer-facing demo.",
+      "actions": [
+        {
+          "type": "clickRole",
+          "role": "button",
+          "name": "Run",
+          "exact": true,
+          "timeoutMs": 10000
+        },
+        {
+          "type": "waitForText",
+          "text": "Run Controls",
+          "timeoutMs": 10000
+        },
+        {
+          "type": "highlightText",
+          "text": "Dry Run",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Rehearse + Prep Account",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Live Demo",
+          "durationMs": 900
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Run Controls"
+        }
+      ]
+    },
+    {
+      "id": "showcase-close",
+      "title": "Close With Management Value",
+      "objective": "Summarize why the tool matters to SC leadership.",
+      "valueMoment": "major",
+      "valueStatement": "Managers get a scalable way to improve demo consistency, coach SC behavior, and reduce the risk of missed value in customer meetings.",
+      "narration": "The management story is simple. This tool helps SCs prepare faster, but more importantly it helps them prepare better. It encourages the right audience focus, stronger business storytelling, clearer value moments, safer rehearsal, and better consistency across the team. For leaders, that means fewer weak demos, better coaching for junior SCs, more confidence against competitors, and a clearer way to make every demo feel purposeful instead of improvised.",
+      "actions": [
+        {
+          "type": "highlightText",
+          "text": "Run Controls",
+          "durationMs": 800
+        },
+        {
+          "type": "screenshot",
+          "name": "manager-showcase-close"
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Run Controls"
+        }
+      ]
+    }
+  ]
+}
