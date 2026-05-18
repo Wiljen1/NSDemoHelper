@@ -30,6 +30,8 @@
       "marketSegment": "mid_market",
       "targetAudience": "mid_market",
       "outputLanguage": "en",
+      "demoStrategy": "vision_demo",
+      "industry": "general_business",
       "inputMode": "request-and-notes",
       "source": "demo-request-and-pre-demo-notes",
       "instructions": "Lead with the audience's business problem and desired outcome before showing screens.\nOpen with the biggest business hitters first: executive visibility, trusted numbers, cash control, close speed, auditability, and fewer spreadsheets.\nUse a crisp tell-show-tell rhythm: frame the point, show the shortest proof path, then land why it matters in plain language.\nUse NetSuite global search and the navigation bar as the primary way to move through the product.\nUse standard NetSuite reports for finance demos unless the audience explicitly asks for custom reporting.\nChoose the optimal demo flow, even if the product can do more. Show the path an excellent SC would choose in a live meeting.\nConnect each screen to the audience's likely role, pressure, and decision criteria. Make the story feel specific, not generic.\nKeep the demo read-only unless the SC intentionally chooses to create or edit a record.\nPause for smart discovery questions at natural decision points, especially before drilling into detail or switching modules.\nShow drilldown only when it proves trust, auditability, or actionability. Do not drill for the sake of clicking.\nUse realistic business language. Avoid NetSuite jargon unless the audience already uses it.\nNever announce internal labels such as 'value statement' during narration.\nAvoid feature tours, menu wandering, slow setup, dead clicks, custom report shortcuts, and explaining every field on the page.\nAvoid showing unconfigured areas, risky transactions, preference saves, or anything that could distract from the core story.\nIf a page takes time to load, narrate the business reason for the next step instead of filling the silence with product trivia.",
@@ -85,6 +87,16 @@
       ],
       "demoBias": "Assume first-time NetSuite viewers. Build confidence quickly, avoid jargon, prove the main business outcomes first, and show enough detail to create trust without turning the meeting into a system walkthrough. Lead with operational scale, month-end speed, cash visibility, and fewer manual handoffs. Show how standard NetSuite flows make the team more repeatable."
     },
+    "demoStrategy": {
+      "id": "vision_demo",
+      "label": "Vision Demo",
+      "description": "Show the future operating model and help the audience picture a better way of working."
+    },
+    "industry": {
+      "id": "general_business",
+      "label": "General Business",
+      "description": "Use when no specific industry has been identified yet."
+    },
     "setupPlan": {
       "needsSetup": false,
       "status": "read-only-demo-ready",
@@ -97,6 +109,8 @@
     "valueStatementIntensity": "balanced",
     "outputLanguage": "en",
     "manifestDemoMode": "customer_story",
+    "demoStrategy": "vision_demo",
+    "industry": "general_business",
     "pace": {
       "beforeSegmentMs": 500,
       "afterActionMs": 650,

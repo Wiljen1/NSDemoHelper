@@ -41,6 +41,234 @@ const outputLanguages = {
 const defaultAudienceType = "prospect";
 const defaultTargetAudience = "mid_market";
 const defaultOutputLanguage = "en";
+const defaultDemoStrategy = "vision_demo";
+const defaultIndustry = "general_business";
+
+const demoStrategies = [
+  {
+    id: "discovery_demo",
+    label: "Discovery Demo",
+    description: "Use the demo to validate pain, clarify priorities, and open better discovery questions.",
+    tone: "curious and consultative",
+    pacing: "moderate, with pauses for questions",
+    technicalDepth: "light",
+    storytelling: "problem-led with frequent validation",
+    includeWorkflows: ["short proof moments", "diagnostic questions", "before/after examples"],
+    avoid: ["long monologues", "deep configuration", "assuming the pain is already confirmed"]
+  },
+  {
+    id: "vision_demo",
+    label: "Vision Demo",
+    description: "Show the future operating model and help the audience picture a better way of working.",
+    tone: "confident and outcome-led",
+    pacing: "crisp with slower emphasis on memorable proof moments",
+    technicalDepth: "light to moderate",
+    storytelling: "future-state story with clear business outcomes",
+    includeWorkflows: ["executive view", "core process proof", "winning moments", "business close"],
+    avoid: ["feature tours", "admin setup", "too many edge cases"]
+  },
+  {
+    id: "executive_alignment",
+    label: "Executive Alignment Demo",
+    description: "Focus senior leaders on financial impact, risk reduction, and strategic outcomes.",
+    tone: "concise and strategic",
+    pacing: "fast, minimal clicks",
+    technicalDepth: "very light",
+    storytelling: "board-level narrative with measurable outcomes",
+    includeWorkflows: ["executive KPIs", "risk and control proof", "summary-to-action moments"],
+    avoid: ["field-by-field explanation", "configuration walkthroughs", "low-level navigation"]
+  },
+  {
+    id: "technical_validation",
+    label: "Technical Validation Demo",
+    description: "Prove fit for IT, administrators, architects, security, integration, and extensibility stakeholders.",
+    tone: "transparent and precise",
+    pacing: "methodical",
+    technicalDepth: "high",
+    storytelling: "capability proof with clear constraints",
+    includeWorkflows: ["permissions", "integration touchpoints", "auditability", "configuration flexibility"],
+    avoid: ["marketing-only claims", "hiding complexity", "unsupported technical promises"]
+  },
+  {
+    id: "competitive_defense",
+    label: "Competitive Defense Demo",
+    description: "Position the demo around approved differentiators without inventing competitor claims.",
+    tone: "careful and evidence-led",
+    pacing: "focused on contrast moments",
+    technicalDepth: "moderate",
+    storytelling: "customer pain to approved differentiation",
+    includeWorkflows: ["cross-functional proof", "suite-level story", "migration or simplification moments"],
+    avoid: ["unverified competitor claims", "negative selling", "generic superiority statements"]
+  },
+  {
+    id: "expansion_demo",
+    label: "Expansion Demo",
+    description: "Show existing customers additional capabilities, adoption paths, and optimization opportunities.",
+    tone: "consultative and practical",
+    pacing: "moderate",
+    technicalDepth: "moderate",
+    storytelling: "evolution from current usage to next outcome",
+    includeWorkflows: ["new capabilities", "optimization opportunities", "best-practice flows"],
+    avoid: ["re-explaining basics", "competitive displacement messaging", "generic prospect intros"]
+  },
+  {
+    id: "renewal_demo",
+    label: "Renewal Demo",
+    description: "Reinforce business impact, adoption, risk reduction, and roadmap confidence for renewal conversations.",
+    tone: "reassuring and evidence-led",
+    pacing: "concise",
+    technicalDepth: "light to moderate",
+    storytelling: "proof of realized and future impact",
+    includeWorkflows: ["adoption wins", "new release highlights", "risk-reduction proof"],
+    avoid: ["overpromising roadmap", "generic feature lists", "ignoring current pain"]
+  },
+  {
+    id: "workshop_session",
+    label: "Workshop Session",
+    description: "Make the demo interactive and collaborative, with decision points and configurable paths.",
+    tone: "facilitative",
+    pacing: "flexible",
+    technicalDepth: "variable",
+    storytelling: "shared solution design",
+    includeWorkflows: ["decision checkpoints", "whiteboard prompts", "alternate flows"],
+    avoid: ["single-threaded monologue", "rushing decisions", "unstructured wandering"]
+  },
+  {
+    id: "proof_of_concept",
+    label: "Proof Of Concept",
+    description: "Prove agreed success criteria with controlled scope and evidence.",
+    tone: "evidence-led",
+    pacing: "measured",
+    technicalDepth: "moderate to high",
+    storytelling: "success-criteria proof",
+    includeWorkflows: ["test criteria", "validation evidence", "known limitations", "next-step decision"],
+    avoid: ["scope creep", "unvalidated claims", "unplanned workflows"]
+  },
+  {
+    id: "training_session",
+    label: "Training Session",
+    description: "Teach users how to complete work clearly and repeatably.",
+    tone: "clear and patient",
+    pacing: "slower and instructional",
+    technicalDepth: "role-appropriate",
+    storytelling: "task completion and confidence",
+    includeWorkflows: ["step-by-step work", "common mistakes", "practice prompts"],
+    avoid: ["executive-only framing", "rushing", "too much strategy"]
+  }
+];
+
+const industryPlaybooks = [
+  {
+    id: "general_business",
+    label: "General Business",
+    description: "Use when no specific industry has been identified yet.",
+    terminology: ["finance visibility", "operational control", "growth readiness"],
+    kpis: ["cash position", "profitability", "close speed", "forecast accuracy"],
+    workflows: ["standard reporting", "drilldown", "cash forecasting", "controlled export"],
+    painPoints: ["spreadsheet dependency", "slow reporting", "limited cash visibility"],
+    emotionalDrivers: ["confidence in the numbers", "less firefighting", "clearer decisions"],
+    avoid: ["industry-specific claims without discovery", "unsupported benchmark statements"]
+  },
+  {
+    id: "manufacturing",
+    label: "Manufacturing",
+    description: "Manufacturers balancing production, inventory, margin, and supply constraints.",
+    terminology: ["production", "inventory", "plant", "work orders", "supply chain"],
+    kpis: ["gross margin", "inventory turns", "production variance", "cash tied in stock"],
+    workflows: ["inventory visibility", "cost control", "forecasting demand", "supplier exposure"],
+    painPoints: ["inventory surprises", "margin pressure", "manual planning", "supplier delays"],
+    emotionalDrivers: ["control over complexity", "fewer surprises", "confidence in margin"],
+    avoid: ["pure services language", "ignoring inventory and cost flow"]
+  },
+  {
+    id: "wholesale_distribution",
+    label: "Wholesale Distribution",
+    description: "Distribution businesses focused on inventory, fulfillment, margin, and working capital.",
+    terminology: ["warehouse", "fulfillment", "stock", "orders", "supplier"],
+    kpis: ["fill rate", "inventory turns", "gross margin", "cash conversion cycle"],
+    workflows: ["order flow", "inventory availability", "AR/AP aging", "cash forecast"],
+    painPoints: ["stockouts", "slow collections", "supplier pressure", "manual allocation"],
+    emotionalDrivers: ["better promises to customers", "working-capital control", "operational trust"],
+    avoid: ["abstract finance-only story", "ignoring inventory and order flow"]
+  },
+  {
+    id: "retail",
+    label: "Retail",
+    description: "Retailers balancing channels, inventory, demand, margin, and customer experience.",
+    terminology: ["stores", "channels", "commerce", "assortment", "demand"],
+    kpis: ["same-store sales", "gross margin", "inventory turns", "cash position"],
+    workflows: ["channel performance", "inventory planning", "cash visibility", "reporting by entity"],
+    painPoints: ["channel fragmentation", "inventory risk", "promotion pressure", "manual reporting"],
+    emotionalDrivers: ["speed in seasonal decisions", "confidence across channels", "margin protection"],
+    avoid: ["B2B-only language", "ignoring seasonality and channels"]
+  },
+  {
+    id: "saas",
+    label: "SaaS",
+    description: "Software companies focused on recurring revenue, renewals, growth efficiency, and investor visibility.",
+    terminology: ["ARR", "MRR", "renewals", "subscriptions", "customer retention"],
+    kpis: ["ARR", "gross retention", "net revenue retention", "cash runway"],
+    workflows: ["revenue visibility", "subscription reporting", "renewal risk", "cash runway"],
+    painPoints: ["spreadsheet revenue tracking", "renewal visibility", "investor reporting", "forecast uncertainty"],
+    emotionalDrivers: ["board confidence", "predictable growth", "clean investor story"],
+    avoid: ["inventory-heavy examples", "ignoring recurring revenue metrics"]
+  },
+  {
+    id: "services",
+    label: "Services",
+    description: "Services organizations focused on project profitability, utilization, billing, and client delivery.",
+    terminology: ["projects", "utilization", "billable work", "client delivery", "margin"],
+    kpis: ["project margin", "utilization", "DSO", "cash forecast"],
+    workflows: ["project profitability", "billing visibility", "collections", "forecasting"],
+    painPoints: ["margin leakage", "late billing", "manual project reporting", "cash uncertainty"],
+    emotionalDrivers: ["profitable delivery", "fewer billing surprises", "control over client work"],
+    avoid: ["product inventory examples", "ignoring people and project economics"]
+  },
+  {
+    id: "nonprofit",
+    label: "Nonprofit",
+    description: "Nonprofits focused on stewardship, transparency, funding, compliance, and impact reporting.",
+    terminology: ["funding", "grants", "donors", "programs", "stewardship"],
+    kpis: ["program spend", "fund balance", "grant utilization", "cash position"],
+    workflows: ["fund reporting", "grant visibility", "approval controls", "cash planning"],
+    painPoints: ["restricted funds", "manual compliance reporting", "grant visibility", "audit pressure"],
+    emotionalDrivers: ["trust with stakeholders", "mission continuity", "transparent stewardship"],
+    avoid: ["aggressive sales language", "for-profit-only margin framing"]
+  },
+  {
+    id: "healthcare",
+    label: "Healthcare",
+    description: "Healthcare organizations focused on compliance, operational cost, reporting, and stability.",
+    terminology: ["care operations", "compliance", "audit", "cost centers", "controls"],
+    kpis: ["operating margin", "cash position", "cost center performance", "audit readiness"],
+    workflows: ["cost reporting", "approval controls", "audit trails", "cash planning"],
+    painPoints: ["compliance burden", "cost pressure", "manual reporting", "system fragmentation"],
+    emotionalDrivers: ["trust and safety", "operational resilience", "audit confidence"],
+    avoid: ["unverified regulatory claims", "casual treatment of sensitive data"]
+  },
+  {
+    id: "construction",
+    label: "Construction",
+    description: "Construction firms focused on project controls, cash flow, commitments, and margin protection.",
+    terminology: ["jobs", "projects", "commitments", "change orders", "cash flow"],
+    kpis: ["job margin", "WIP", "cash forecast", "commitment exposure"],
+    workflows: ["project profitability", "commitment visibility", "billing and collections", "cash forecasting"],
+    painPoints: ["project overruns", "cash timing gaps", "manual WIP reporting", "change-order risk"],
+    emotionalDrivers: ["project control", "fewer surprises", "protecting margin and cash"],
+    avoid: ["generic office-only scenarios", "ignoring project and cash timing"]
+  },
+  {
+    id: "financial_services",
+    label: "Financial Services",
+    description: "Financial services organizations focused on controls, auditability, compliance, and risk.",
+    terminology: ["controls", "risk", "audit", "entities", "compliance"],
+    kpis: ["close speed", "risk exposure", "audit findings", "cash position"],
+    workflows: ["audit trails", "role permissions", "entity reporting", "cash visibility"],
+    painPoints: ["control gaps", "audit pressure", "manual consolidation", "regulatory scrutiny"],
+    emotionalDrivers: ["confidence under scrutiny", "risk reduction", "governed growth"],
+    avoid: ["unverified compliance claims", "informal control language"]
+  }
+];
 
 const manifestDemoModes = [
   {
@@ -200,6 +428,7 @@ const server = http.createServer(async (request, response) => {
   try {
     if (request.method === "GET" && request.url === "/") return html(response);
     if (request.method === "GET" && request.url === "/api/manifest") return json(response, await manifestPayload());
+    if (request.method === "GET" && request.url === "/api/intelligence") return json(response, { ok: true, intelligence: demoIntelligencePayload(await readManifest()) });
     if (request.method === "GET" && request.url === "/api/versions") return json(response, { versions: await listVersions() });
     if (request.method === "GET" && request.url === "/api/run-state") return json(response, runState());
     if (request.method === "GET" && request.url?.startsWith("/api/voices")) {
@@ -235,7 +464,7 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${nextManifest}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(parsedManifest);
       const guide = await readOrGenerateScGuide(parsedManifest);
-      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest) });
+      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest), intelligence: demoIntelligencePayload(parsedManifest) });
     }
 
     if (request.method === "POST" && request.url === "/api/learn") {
@@ -247,7 +476,7 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${JSON.stringify(learned, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(learned);
       const guide = await writeScGuide(learned, body, company);
-      return json(response, { ok: true, manifest: learned, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(learned, guide), namedManifestPath, setupPrompt: setupPromptPayload(learned) });
+      return json(response, { ok: true, manifest: learned, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(learned, guide), namedManifestPath, setupPrompt: setupPromptPayload(learned), intelligence: demoIntelligencePayload(learned) });
     }
 
     if (request.method === "POST" && request.url === "/api/restore") {
@@ -257,7 +486,7 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, await readFile(source, "utf8"), "utf8");
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
-      return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest) });
+      return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest), intelligence: demoIntelligencePayload(manifest) });
     }
 
     if (request.method === "POST" && request.url === "/api/run") {
@@ -302,7 +531,8 @@ async function manifestPayload() {
     versions: await listVersions(),
     guide,
     guideOutputs: guideOutputsPayload(manifest, guide),
-    setupPrompt: setupPromptPayload(manifest)
+    setupPrompt: setupPromptPayload(manifest),
+    intelligence: demoIntelligencePayload(manifest)
   };
 }
 
@@ -654,6 +884,8 @@ function applyLearningRequest(manifest, body, company) {
   const marketSegment = normalizeMarketSegment(body.marketSegment);
   const outputLanguage = normalizeOutputLanguage(body.outputLanguage);
   const manifestDemoMode = normalizeManifestDemoMode(body.manifestDemoMode || body.demoMode);
+  const demoStrategy = normalizeDemoStrategy(body.demoStrategy || body.strategy);
+  const industry = normalizeIndustry(body.industry);
 
   const next = structuredClone(manifest);
   next.audience = `${audience.label} - ${marketSegment.label}`;
@@ -661,6 +893,8 @@ function applyLearningRequest(manifest, body, company) {
   next.defaults.valueStatementIntensity = valueIntensity;
   next.defaults.outputLanguage = outputLanguage.value;
   next.defaults.manifestDemoMode = manifestDemoMode.id;
+  next.defaults.demoStrategy = demoStrategy.id;
+  next.defaults.industry = industry.id;
   next.defaults.audio = next.defaults.audio || {};
   next.defaults.audio.provider = voiceProvider;
   next.defaults.audio.voice = voice;
@@ -671,6 +905,8 @@ function applyLearningRequest(manifest, body, company) {
   next.context.marketSegment = marketSegment;
   next.context.targetAudience = marketSegment;
   next.context.manifestDemoMode = manifestDemoMode;
+  next.context.demoStrategy = demoStrategy;
+  next.context.industry = industry;
   next.context.outputLanguage = {
     ...outputLanguage,
     instruction: outputLanguageInstruction(outputLanguage)
@@ -686,13 +922,19 @@ function applyLearningRequest(manifest, body, company) {
     manifestDemoMode: manifestDemoMode.id,
     manifestDemoModeLabel: manifestDemoMode.label,
     manifestDemoModeInstruction: manifestDemoMode.instruction,
+    demoStrategy: demoStrategy.id,
+    demoStrategyLabel: demoStrategy.label,
+    demoStrategyInstruction: demoStrategyInstruction(demoStrategy, industry),
+    industry: industry.id,
+    industryLabel: industry.label,
+    industryInstruction: industryInstruction(industry),
     outputLanguageInstruction: outputLanguageInstruction(outputLanguage),
     audienceInstruction: audienceExecutionInstruction(audience, marketSegment),
     inputMode,
     source: inputModeSource(inputMode),
     instructions,
     learnedAt: new Date().toISOString(),
-    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. ${audienceExecutionInstruction(audience, marketSegment)}`
+    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. ${audienceExecutionInstruction(audience, marketSegment)} ${demoStrategyInstruction(demoStrategy, industry)}`
   };
   next.context.navigationPolicy = {
     preferred: ["NetSuite global search", "NetSuite navigation bar"],
@@ -846,6 +1088,56 @@ function normalizeManifestDemoMode(value) {
   return manifestDemoModes[1];
 }
 
+function normalizeDemoStrategy(value) {
+  return resolveNamedConfig(demoStrategies, value, defaultDemoStrategy, {
+    discovery: "discovery_demo",
+    vision: "vision_demo",
+    executive: "executive_alignment",
+    "executive-demo": "executive_alignment",
+    "executive-alignment-demo": "executive_alignment",
+    technical: "technical_validation",
+    "technical-demo": "technical_validation",
+    competitive: "competitive_defense",
+    "competitive-demo": "competitive_defense",
+    expansion: "expansion_demo",
+    renewal: "renewal_demo",
+    workshop: "workshop_session",
+    poc: "proof_of_concept",
+    "proof-of-concept": "proof_of_concept",
+    training: "training_session"
+  });
+}
+
+function normalizeIndustry(value) {
+  return resolveNamedConfig(industryPlaybooks, value, defaultIndustry, {
+    general: "general_business",
+    "general-business": "general_business",
+    unknown: "general_business",
+    wholesale: "wholesale_distribution",
+    distribution: "wholesale_distribution",
+    "wholesale-distribution": "wholesale_distribution",
+    software: "saas",
+    "professional-services": "services",
+    nonprofit: "nonprofit",
+    "non-profit": "nonprofit",
+    healthcare: "healthcare",
+    health: "healthcare",
+    construction: "construction",
+    finance: "financial_services",
+    "financial-services": "financial_services"
+  });
+}
+
+function resolveNamedConfig(items, value, fallbackId, aliases = {}) {
+  const raw = String(value || "").trim().toLowerCase();
+  const compact = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const underscored = compact.replaceAll("-", "_");
+  const aliasId = aliases[raw] || aliases[compact] || aliases[underscored] || aliases[raw.replace(/[^a-z0-9]+/g, "")];
+  return items.find((item) => item.id === raw || item.id === compact || item.id === underscored || item.id === aliasId || item.label.toLowerCase() === raw)
+    || items.find((item) => item.id === fallbackId)
+    || items[0];
+}
+
 function outputLanguageInstruction(language) {
   const normalized = normalizeOutputLanguage(language?.value || language);
   if (normalized.value === "en") {
@@ -989,6 +1281,17 @@ function audiencePlaybookFor(manifest, audience, marketSegment) {
 
 function audienceExecutionInstruction(audience, marketSegment) {
   return `Demo to the ${audience.label} audience type in a ${marketSegment.label} target audience context. ${audience.guideAngle} ${marketSegment.demoBias}`;
+}
+
+function demoStrategyInstruction(strategy, industry) {
+  const normalizedStrategy = normalizeDemoStrategy(strategy?.id || strategy);
+  const normalizedIndustry = normalizeIndustry(industry?.id || industry);
+  return `Demo strategy: ${normalizedStrategy.label}. Keep the tone ${normalizedStrategy.tone}, pacing ${normalizedStrategy.pacing}, technical depth ${normalizedStrategy.technicalDepth}, and story style ${normalizedStrategy.storytelling}. Adapt the examples to ${normalizedIndustry.label} using ${joinHuman(normalizedIndustry.terminology.slice(0, 4)) || "industry-relevant language"}.`;
+}
+
+function industryInstruction(industry) {
+  const normalized = normalizeIndustry(industry?.id || industry);
+  return `Industry playbook: ${normalized.label}. Use terminology such as ${joinHuman(normalized.terminology.slice(0, 4))}, emphasize KPIs such as ${joinHuman(normalized.kpis.slice(0, 4))}, and avoid ${joinHuman(normalized.avoid.slice(0, 3)) || "unverified industry claims"}.`;
 }
 
 function uniqueItems(items) {
@@ -1229,6 +1532,8 @@ function generateSetupPrompt(manifest, account, setupPlan) {
   const marketSegment = normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
   const manifestDemoMode = normalizeManifestDemoMode(manifest.context?.manifestDemoMode?.id || manifest.context?.demoRequest?.manifestDemoMode || manifest.defaults?.manifestDemoMode);
   const outputLanguage = normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
+  const demoStrategy = normalizeDemoStrategy(manifest.context?.demoStrategy?.id || manifest.context?.demoRequest?.demoStrategy || manifest.defaults?.demoStrategy);
+  const industry = normalizeIndustry(manifest.context?.industry?.id || manifest.context?.demoRequest?.industry || manifest.defaults?.industry);
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   const items = setupPlan.items?.length
     ? setupPlan.items.map((item, index) => `${index + 1}. ${item.label} (${item.type}, ${item.risk} risk): ${item.reason}`).join("\n")
@@ -1257,6 +1562,10 @@ DEMO CONTEXT
 - Target audience: ${marketSegment.label}
 - Target audience description: ${marketSegment.description}
 - Manifest demo option: ${manifestDemoMode.label}
+- Demo strategy: ${demoStrategy.label}
+- Strategy instruction: ${demoStrategyInstruction(demoStrategy, industry)}
+- Industry playbook: ${industry.label}
+- Industry instruction: ${industryInstruction(industry)}
 - Output language: ${outputLanguage.label}
 - Audience interests: ${playbook.interests?.join(", ") || "trusted reporting and cash visibility"}
 - Include in demo: ${playbook.includeInDemo?.join(", ") || "strong proof points"}
@@ -1302,6 +1611,8 @@ function generateScGuide(manifest, body, company) {
   const marketSegment = normalizeMarketSegment(body.marketSegment || manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
   const outputLanguage = normalizeOutputLanguage(body.outputLanguage || manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
   const manifestDemoMode = normalizeManifestDemoMode(body.manifestDemoMode || manifest.context?.manifestDemoMode?.id || manifest.context?.demoRequest?.manifestDemoMode || manifest.defaults?.manifestDemoMode);
+  const demoStrategy = normalizeDemoStrategy(body.demoStrategy || manifest.context?.demoStrategy?.id || manifest.context?.demoRequest?.demoStrategy || manifest.defaults?.demoStrategy);
+  const industry = normalizeIndustry(body.industry || manifest.context?.industry?.id || manifest.context?.demoRequest?.industry || manifest.defaults?.industry);
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   const setupPlan = manifest.context?.setupPlan || inferSetupPlan({
     topic: manifest.context?.demoRequest?.topic,
@@ -1326,7 +1637,9 @@ function generateScGuide(manifest, body, company) {
     priorities,
     segments,
     outputLanguage,
-    manifestDemoMode
+    manifestDemoMode,
+    demoStrategy,
+    industry
   });
   const assetPrompt = demoAssetPromptText({
     companyName,
@@ -1339,6 +1652,8 @@ function generateScGuide(manifest, body, company) {
     outputLanguage,
     notes,
     manifestDemoMode,
+    demoStrategy,
+    industry,
     demoRequest: manifest.context?.demoRequest?.topic || "Not provided"
   });
 
@@ -1355,6 +1670,10 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 - Target audience: ${marketSegment.label}
 - Target audience description: ${marketSegment.description}
 - Manifest demo option: ${manifestDemoMode.label}
+- Demo strategy: ${demoStrategy.label}
+- Strategy guidance: ${demoStrategyInstruction(demoStrategy, industry)}
+- Industry playbook: ${industry.label}
+- Industry guidance: ${industryInstruction(industry)}
 - Output language: ${outputLanguage.label}
 - Language guidance: ${outputLanguageInstruction(outputLanguage)}
 - Demo input: ${inputMode}
@@ -1447,12 +1766,16 @@ function guideContextFromManifest(manifest) {
   const marketSegment = normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
   const outputLanguage = normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
   const manifestDemoMode = normalizeManifestDemoMode(manifest.context?.manifestDemoMode?.id || manifest.context?.demoRequest?.manifestDemoMode || manifest.defaults?.manifestDemoMode);
+  const demoStrategy = normalizeDemoStrategy(manifest.context?.demoStrategy?.id || manifest.context?.demoRequest?.demoStrategy || manifest.defaults?.demoStrategy);
+  const industry = normalizeIndustry(manifest.context?.industry?.id || manifest.context?.demoRequest?.industry || manifest.defaults?.industry);
   const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   return {
     companyName: company.companyName || "The prospect",
     audience,
     marketSegment,
     manifestDemoMode,
+    demoStrategy,
+    industry,
     outputLanguage,
     playbook,
     priorities: company.likelyPriorities || [],
@@ -1492,8 +1815,10 @@ function normalDemoFlowText(segments) {
     .join("\n\n");
 }
 
-function scStoryRunbookText({ companyName, audience, marketSegment, playbook, priorities, segments, outputLanguage, manifestDemoMode }) {
+function scStoryRunbookText({ companyName, audience, marketSegment, playbook, priorities, segments, outputLanguage, manifestDemoMode, demoStrategy, industry }) {
   const mode = normalizeManifestDemoMode(manifestDemoMode?.id || manifestDemoMode);
+  const strategy = normalizeDemoStrategy(demoStrategy?.id || demoStrategy);
+  const industryPlaybook = normalizeIndustry(industry?.id || industry);
   const story = mode.id === "plain_demo"
     ? plainDemoFlowText({ companyName, audience, marketSegment, playbook, priorities })
     : personalizedStoryFlowText({ companyName, audience, marketSegment, playbook, priorities, segments });
@@ -1535,7 +1860,15 @@ ${outputLanguageInstruction(outputLanguage)}
 
 Manifest mode:
 
-${mode.label}: ${mode.instruction}`;
+${mode.label}: ${mode.instruction}
+
+Demo strategy:
+
+${strategy.label}: ${demoStrategyInstruction(strategy, industryPlaybook)}
+
+Industry lens:
+
+${industryPlaybook.label}: ${industryInstruction(industryPlaybook)}`;
 }
 
 function plainDemoFlowText({ audience, marketSegment, playbook, priorities }) {
@@ -1544,8 +1877,10 @@ function plainDemoFlowText({ audience, marketSegment, playbook, priorities }) {
 The audience is still ${audience.label.toLowerCase()} in a ${marketSegment.label.toLowerCase()} context, so emphasize ${joinHuman(playbook.interests.slice(0, 4)) || joinHuman((priorities || []).slice(0, 4)) || "trusted reporting, usable workflows, and cash visibility"}. Keep persona references light. The aim is a clean, reusable demo path an SC can run for many customers without rewriting the manifest.`;
 }
 
-function demoAssetPromptText({ companyName, audience, marketSegment, playbook, priorities, signals, segments, outputLanguage, notes, manifestDemoMode, demoRequest }) {
+function demoAssetPromptText({ companyName, audience, marketSegment, playbook, priorities, signals, segments, outputLanguage, notes, manifestDemoMode, demoStrategy, industry, demoRequest }) {
   const mode = normalizeManifestDemoMode(manifestDemoMode?.id || manifestDemoMode);
+  const strategy = normalizeDemoStrategy(demoStrategy?.id || demoStrategy);
+  const industryPlaybook = normalizeIndustry(industry?.id || industry);
   const persona = demoPersonaFor(audience, marketSegment);
   const keySegments = segments
     .filter((segment) => ["open-pl", "pl-drilldown", "open-cash360-dashboard", "cash360-forecast", "close"].includes(segment.id))
@@ -1563,11 +1898,16 @@ Context:
 - Audience type: ${audience.label}
 - Target audience: ${marketSegment.label}
 - Manifest demo option: ${mode.label}
+- Demo strategy: ${strategy.label}
+- Industry playbook: ${industryPlaybook.label}
 - Persona: ${mode.id === "plain_demo" ? "Optional. Use a light finance-team persona only if it helps the slide story." : `${persona.name}, ${persona.role}`}
 - Persona question: ${mode.id === "plain_demo" ? "How does the standard NetSuite finance flow prove reporting, drilldown, export, and cash visibility?" : persona.question}
 - Demo request: ${demoRequest || "Finance demo from P&L to Cash 360"}
 - Likely priorities: ${joinHuman((priorities || []).slice(0, 5)) || "trusted reporting, faster finance decisions, and cash visibility"}
 - Industry signals: ${(signals || []).join(", ") || "financial visibility and operational control"}
+- Industry terms to weave in: ${joinHuman(industryPlaybook.terminology.slice(0, 5))}
+- Industry KPIs to consider: ${joinHuman(industryPlaybook.kpis.slice(0, 5))}
+- Strategy tone: ${strategy.tone}; pacing: ${strategy.pacing}; technical depth: ${strategy.technicalDepth}
 - Pre-demo notes: ${notes || "No pre-demo notes provided"}
 - Output language: ${normalizeOutputLanguage(outputLanguage?.value || outputLanguage).label}
 
@@ -1726,6 +2066,429 @@ function describeNavigationAction(action) {
   if (url.includes("cash360")) return "Open Cash 360";
   if (url.includes("reportrunner")) return "Open standard report";
   return url;
+}
+
+function demoIntelligencePayload(manifest) {
+  const context = demoIntelligenceContext(manifest);
+  const discovery = discoveryGapAnalysis(context);
+  const stakeholderCoverage = stakeholderCoverageAnalysis(context);
+  const winning = winningMomentAnalysis(context);
+  const avoid = whatNotToDemoAnalysis(context);
+  const timing = timingAndPacingAnalysis(context);
+  const risk = demoRiskAnalysis(context, discovery, stakeholderCoverage, timing, winning);
+  const rehearsalCoach = rehearsalCoachAnalysis(context, risk, timing, stakeholderCoverage);
+  const competitive = competitivePositioningGuidance(context);
+
+  return {
+    generated_at: new Date().toISOString(),
+    positioning: "AI-powered Demo Intelligence and Demo Coaching Platform for Solution Consulting",
+    demo_strategy: {
+      id: context.strategy.id,
+      label: context.strategy.label,
+      description: context.strategy.description,
+      tone: context.strategy.tone,
+      pacing: context.strategy.pacing,
+      technical_depth: context.strategy.technicalDepth,
+      storytelling_style: context.strategy.storytelling
+    },
+    industry_playbook: {
+      id: context.industry.id,
+      label: context.industry.label,
+      description: context.industry.description,
+      terminology: context.industry.terminology,
+      kpis: context.industry.kpis,
+      workflows: context.industry.workflows,
+      pain_points: context.industry.painPoints,
+      emotional_drivers: context.industry.emotionalDrivers
+    },
+    demo_risk_analyzer: risk,
+    discovery_gap_analyzer: discovery,
+    stakeholder_coverage_analyzer: stakeholderCoverage,
+    winning_moment_detection: winning,
+    what_not_to_demo_engine: avoid,
+    demo_timing_pacing_analyzer: timing,
+    ai_rehearsal_coach: rehearsalCoach,
+    competitive_positioning_mode: competitive,
+    internal_best_practices_library: bestPracticeRecommendations(context, winning)
+  };
+}
+
+function demoIntelligenceContext(manifest) {
+  const audience = normalizeAudience(manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
+  const marketSegment = normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
+  const strategy = normalizeDemoStrategy(manifest.context?.demoStrategy?.id || manifest.context?.demoRequest?.demoStrategy || manifest.defaults?.demoStrategy);
+  const industry = normalizeIndustry(manifest.context?.industry?.id || manifest.context?.demoRequest?.industry || manifest.defaults?.industry);
+  const company = manifest.context?.company || {};
+  const segments = manifest.segments || [];
+  const actions = segments.flatMap((segment) => (segment.actions || []).map((action) => ({ ...action, segmentId: segment.id, segmentTitle: segment.title })));
+  const text = [
+    manifest.name,
+    manifest.audience,
+    manifest.context?.demoRequest?.topic,
+    manifest.context?.demoRequest?.instructions,
+    manifest.context?.preDemoNotes,
+    company.companyName,
+    company.description,
+    ...(company.likelyPriorities || []),
+    ...(company.industrySignals || []),
+    ...segments.flatMap((segment) => [
+      segment.title,
+      segment.objective,
+      segment.valueStatement,
+      segment.narration,
+      ...(segment.actions || []).flatMap((action) => [action.type, action.query, action.text, action.name, action.url])
+    ])
+  ].filter(Boolean).join("\n").toLowerCase();
+
+  return {
+    manifest,
+    audience,
+    marketSegment,
+    strategy,
+    industry,
+    company,
+    segments,
+    actions,
+    text,
+    notes: String(manifest.context?.preDemoNotes || ""),
+    topic: String(manifest.context?.demoRequest?.topic || ""),
+    playbook: audiencePlaybookFor(manifest, audience, marketSegment),
+    navigationActions: actions.filter((action) => ["globalSearchOpen", "goto", "clickText", "clickRole"].includes(action.type)),
+    clickLikeActions: actions.filter((action) => !["waitForText", "waitForAnyText", "screenshot"].includes(action.type)),
+    valueStatementCount: segments.filter((segment) => String(segment.valueStatement || "").trim()).length,
+    technicalSignalCount: countKeywordHits(text, ["api", "script", "suitelet", "backend", "configuration", "permission", "role", "workflow", "integration", "saved search", "field", "preference", "setup"]),
+    businessSignalCount: countKeywordHits(text, ["roi", "cost", "margin", "cash", "working capital", "risk", "control", "close", "forecast", "faster", "time", "efficiency", "productivity", "visibility", "outcome"])
+  };
+}
+
+function demoRiskAnalysis(context, discovery, stakeholderCoverage, timing, winning) {
+  const warnings = [];
+  const recommendations = [];
+  const { text, segments, actions, audience, strategy, businessSignalCount, technicalSignalCount, valueStatementCount } = context;
+
+  const addRisk = (warning, recommendation) => {
+    if (!warnings.includes(warning)) warnings.push(warning);
+    if (recommendation && !recommendations.includes(recommendation)) recommendations.push(recommendation);
+  };
+
+  if (discovery.missing_discovery_items.length >= 6) {
+    addRisk("Discovery context is thin for a highly tailored demo.", "Ask for current system, success metrics, executive sponsor, timeline, and competitive context before finalizing the story.");
+  }
+  if (segments.length > 12 || actions.length > 70) {
+    addRisk("Too many workflows or actions may turn the demo into a feature tour.", "Cut lower-priority sections and keep only the proof moments that support the selected strategy.");
+  }
+  if (context.navigationActions.length > 18) {
+    addRisk("Navigation path is long enough to create pacing risk.", "Use NetSuite search/navigation for the shortest route and remove non-essential page transitions.");
+  }
+  if (valueStatementCount < Math.ceil(segments.length * 0.55)) {
+    addRisk("Several segments do not clearly land a business outcome.", "Add a short outcome sentence to each major page and transition.");
+  }
+  if (businessSignalCount < 7) {
+    addRisk("Business impact language is light.", "Mention measurable outcomes earlier, such as close speed, cash visibility, margin control, risk reduction, or fewer spreadsheet handoffs.");
+  }
+  if (!/(roi|return|cost|margin|cash|working capital|time savings|efficiency|risk reduction|faster close|forecast accuracy)/.test(text)) {
+    addRisk("No measurable outcome or ROI discussion is visible.", "Add one quantified or measurable outcome to the opening and closing talk track.");
+  }
+  if (strategy.id === "executive_alignment" && technicalSignalCount > 8) {
+    addRisk("Technical depth is too high for an executive alignment demo.", "Move configuration, setup, and integration details into appendix or Q&A.");
+  }
+  if (audience.value === "prospect" && /(setup|preference|configuration|custom|saved search|script|field)/.test(text) && technicalSignalCount > 7) {
+    addRisk("Prospect-facing flow may show too much setup or internal product detail.", "Keep the live path centered on standard reports, proof moments, and business outcomes.");
+  }
+  if (context.manifest.context?.manifestDemoMode?.id === "customer_story" && !/(persona|story|pressure|pain|challenge|current state|before|after)/.test(text)) {
+    addRisk("Customer story mode is selected, but the story arc is weak.", "Name the persona pressure, current-state pain, turning point, and outcome.");
+  }
+  if (stakeholderCoverage.low_coverage_roles.length >= 3) {
+    addRisk("Stakeholder coverage is imbalanced.", `Add one proof point for ${stakeholderCoverage.low_coverage_roles.slice(0, 2).join(" and ")}.`);
+  }
+  if (timing.overrun_risk === "high") {
+    addRisk("Estimated runtime has high overrun risk.", "Pre-select cuts before the meeting and slow down only during the winning moments.");
+  }
+  if (!/(close|summary|next step|recap|takeaway|decision|outcome)/.test(String(segments.at(-1)?.narration || segments.at(-1)?.valueStatement || "").toLowerCase())) {
+    addRisk("Close or summary may not land strongly enough.", "End by restating the business problem, proof shown, and the next decision.");
+  }
+  if (!winning.winning_moments.length) {
+    addRisk("No strong winning moment was detected.", "Create at least one memorable proof moment that the SC can slow down and reinforce.");
+  }
+
+  const demoQualityScore = boundedScore(92 - warnings.length * 5 - Math.max(0, timing.estimated_minutes - 35) + Math.min(8, winning.winning_moments.length * 2));
+  const demoRiskScore = boundedScore(18 + warnings.length * 8 + Math.max(0, timing.estimated_minutes - 30) + Math.max(0, context.navigationActions.length - 14) * 2);
+
+  return {
+    demo_quality_score: demoQualityScore,
+    demo_risk_score: demoRiskScore,
+    warnings,
+    recommendations,
+    score_explanation: `Quality reflects audience fit, discovery strength, business outcome density, pacing, stakeholder coverage, and memorable proof moments. Risk increases with missing discovery, long navigation, technical depth, weak close, and overrun exposure.`
+  };
+}
+
+function discoveryGapAnalysis(context) {
+  const source = `${context.notes}\n${context.topic}\n${context.company.description || ""}\n${(context.company.likelyPriorities || []).join(" ")}`.toLowerCase();
+  const checks = [
+    ["Current ERP system", /(current system|erp|quickbooks|sage|sap|dynamics|xero|excel|spreadsheet|netsuite|oracle|workday)/],
+    ["Biggest operational challenge", /(challenge|pain|problem|manual|slow|broken|issue|bottleneck|risk|struggle)/],
+    ["Executive sponsor", /(cfo|ceo|coo|sponsor|executive|vp finance|controller|leadership)/],
+    ["Success metrics", /(success metric|kpi|measure|target|goal|roi|reduce|improve|faster|days|percentage|accuracy)/],
+    ["Implementation timeline", /(timeline|go live|deadline|quarter|month|implementation|rollout|by q[1-4]|urgent)/],
+    ["Primary business driver", /(driver|why now|growth|scale|audit|ipo|funding|cost|cash|close|compliance|acquisition)/],
+    ["Budget indicators", /(budget|funding|approved|business case|investment|cost range|spend)/],
+    ["Technical constraints", /(integration|api|security|permission|data migration|technical|architecture|sso|compliance)/],
+    ["Stakeholder roles", /(stakeholder|cfo|finance|operations|it|sales|marketing|procurement|hr|supply chain)/],
+    ["Competitive situation", /(competitor|competing|shortlist|sap|dynamics|sage|workday|quickbooks|acumatica|odoo)/],
+    ["Industry priorities", /(manufactur|distribution|retail|saas|services|nonprofit|healthcare|construction|financial services|inventory|project|subscription)/]
+  ];
+  const found = [];
+  const missing = [];
+  for (const [label, pattern] of checks) {
+    if (pattern.test(source)) found.push(label);
+    else missing.push(label);
+  }
+  return {
+    missing_discovery_items: missing,
+    found_discovery_items: found,
+    recommended_follow_up_questions: missing.slice(0, 6).map((item) => discoveryQuestionFor(item))
+  };
+}
+
+function discoveryQuestionFor(item) {
+  const questions = {
+    "Current ERP system": "What system or spreadsheets are they using today, and what breaks first?",
+    "Biggest operational challenge": "What is the single problem the demo must prove we can improve?",
+    "Executive sponsor": "Who owns the business outcome and what do they personally care about?",
+    "Success metrics": "How will they judge whether this project was worth doing?",
+    "Implementation timeline": "Is there a date, event, audit, renewal, or growth milestone driving urgency?",
+    "Primary business driver": "Why is this being evaluated now instead of later?",
+    "Budget indicators": "Is there an approved initiative, business case, or expected investment range?",
+    "Technical constraints": "Are there security, integration, data, or architecture constraints the demo must respect?",
+    "Stakeholder roles": "Which roles will attend, and who can block or sponsor the decision?",
+    "Competitive situation": "What other options are they comparing against, if any?",
+    "Industry priorities": "Which industry-specific pressures should shape the language and proof moments?"
+  };
+  return questions[item] || `Clarify ${item.toLowerCase()} before demo generation.`;
+}
+
+function stakeholderCoverageAnalysis(context) {
+  const roleRules = [
+    ["CFO", ["cfo", "margin", "profit", "cash", "forecast", "close", "risk", "kpi", "executive"]],
+    ["Finance", ["finance", "income statement", "p&l", "report", "ledger", "close", "cash", "drilldown", "export"]],
+    ["Operations", ["operations", "workflow", "fulfillment", "inventory", "order", "process", "handoff"]],
+    ["IT", ["it", "api", "integration", "security", "permission", "role", "architecture", "admin"]],
+    ["Sales", ["sales", "customer", "order", "quote", "pipeline", "revenue"]],
+    ["Marketing", ["marketing", "story", "brand", "campaign", "differentiation", "experience"]],
+    ["HR", ["hr", "employee", "workforce", "people", "payroll"]],
+    ["Supply Chain", ["supply chain", "supplier", "inventory", "warehouse", "purchase order", "stock"]],
+    ["Procurement", ["procurement", "vendor", "supplier", "purchase", "bill", "approval"]],
+    ["Executive Leadership", ["executive", "leadership", "board", "strategy", "risk", "growth", "outcome"]]
+  ];
+  const rawScores = roleRules.map(([role, terms]) => {
+    let score = countKeywordHits(context.text, terms);
+    if (role === "Finance") score += Math.max(4, context.segments.length > 0 ? 3 : 0);
+    if (role === "CFO" && /(cash|profit|margin|forecast|income statement)/.test(context.text)) score += 3;
+    if (context.audience.value === "technical" && role === "IT") score += 4;
+    if (context.audience.value === "executive" && role === "Executive Leadership") score += 4;
+    return { role, score };
+  });
+  const maxScore = Math.max(1, ...rawScores.map((item) => item.score));
+  const stakeholderCoverage = rawScores
+    .map((item) => ({ role: item.role, coverage: Math.min(100, Math.round((item.score / maxScore) * 100)) }))
+    .sort((a, b) => b.coverage - a.coverage);
+  const lowCoverageRoles = stakeholderCoverage.filter((item) => item.coverage > 0 && item.coverage < 35).map((item) => item.role);
+  const uncoveredRoles = stakeholderCoverage.filter((item) => item.coverage === 0).map((item) => item.role);
+  const recommendation = lowCoverageRoles.length
+    ? `Add a short proof point or discovery question for ${joinHuman(lowCoverageRoles.slice(0, 3))}.`
+    : uncoveredRoles.length
+      ? `If ${uncoveredRoles[0]} will attend, add one relevant proof point.`
+      : "Coverage is reasonably balanced for the selected flow.";
+
+  return {
+    stakeholder_coverage: stakeholderCoverage,
+    low_coverage_roles: lowCoverageRoles,
+    uncovered_roles: uncoveredRoles,
+    recommendation
+  };
+}
+
+function winningMomentAnalysis(context) {
+  const momentRules = [
+    ["standard income statement", "Trusted performance view", "Slow down here to anchor the audience in the source of truth."],
+    ["filter", "Controlled reporting lens", "Use this as the moment where finance changes the view without changing the numbers."],
+    ["drill", "Trust through drilldown", "Land that summary numbers can be defended when challenged."],
+    ["export", "Controlled sharing without spreadsheet dependency", "Keep this short and frame it as collaboration, not the main operating model."],
+    ["cash 360", "Cash 360 visibility", "Use this as the bridge from past performance to future liquidity."],
+    ["forecast", "Forward-looking cash planning", "Pause here because this is often the emotional win for finance leaders."],
+    ["approval", "Control and accountability", "Make the control story visible without going into setup."],
+    ["dashboard", "Executive visibility", "Connect the view to faster leadership decisions."]
+  ];
+  const details = [];
+  for (const segment of context.segments) {
+    const segmentText = `${segment.id} ${segment.title} ${segment.objective} ${segment.valueStatement} ${segment.narration}`.toLowerCase();
+    const rule = momentRules.find(([keyword]) => segmentText.includes(keyword));
+    if (rule || segment.valueMoment === "major") {
+      details.push({
+        segment: segment.title,
+        moment: rule?.[1] || segment.title,
+        why_it_lands: segment.valueStatement || rule?.[2] || "This is a memorable business proof point.",
+        coaching_tip: rule?.[2] || "Slow down, narrate the business reason, then show the proof."
+      });
+    }
+  }
+  const uniqueDetails = [];
+  for (const detail of details) {
+    if (!uniqueDetails.some((item) => item.moment === detail.moment)) uniqueDetails.push(detail);
+  }
+  return {
+    winning_moments: uniqueDetails.slice(0, 6).map((item) => item.moment),
+    details: uniqueDetails.slice(0, 6)
+  };
+}
+
+function whatNotToDemoAnalysis(context) {
+  const base = [
+    "Admin setup menus",
+    "Empty dashboards",
+    "Long report configurations",
+    "Unrelated modules",
+    "Deep accounting setup",
+    "Complex technical navigation"
+  ];
+  const strategyAvoid = context.strategy.avoid || [];
+  const industryAvoid = context.industry.avoid || [];
+  const audienceAvoid = context.playbook.avoidInDemo || [];
+  const conditional = [];
+  if (context.audience.value !== "technical") conditional.push("API or backend setup unless asked");
+  if (context.strategy.id !== "technical_validation") conditional.push("Permission configuration deep dives");
+  if (context.segments.length > 10) conditional.push("Optional sections after the main proof moments");
+  return {
+    avoid_showing: uniqueItems([...base, ...strategyAvoid, ...industryAvoid, ...audienceAvoid, ...conditional]).slice(0, 14),
+    rationale: "These items are likely to reduce clarity, pace, or audience alignment for the selected strategy and audience."
+  };
+}
+
+function timingAndPacingAnalysis(context) {
+  const segmentTimings = context.segments.map((segment) => {
+    const actions = segment.actions || [];
+    const actionMinutes = actions.reduce((total, action) => {
+      if (action.type === "globalSearchOpen" || action.type === "goto") return total + 1.1;
+      if (action.type === "clickText" || action.type === "clickRole") return total + 0.6;
+      if (action.type === "waitForText" || action.type === "waitForAnyText") return total + 0.4;
+      if (action.type === "highlightText") return total + 0.25;
+      return total + 0.3;
+    }, 0);
+    const narrationMinutes = segment.valueMoment === "major" ? 1.4 : 1.0;
+    const estimatedMinutes = Math.max(1.2, actionMinutes + narrationMinutes);
+    return {
+      segment: segment.title,
+      estimated_minutes: roundOne(estimatedMinutes),
+      pacing_risk: actions.length >= 7 || /(preference|setup|configuration|custom|admin)/i.test(segment.title) ? "high" : actions.length >= 5 ? "medium" : "low"
+    };
+  });
+  const estimatedMinutes = roundOne(segmentTimings.reduce((total, item) => total + item.estimated_minutes, 0));
+  const highRiskSections = segmentTimings.filter((item) => item.pacing_risk === "high").map((item) => item.segment);
+  const overrunRisk = estimatedMinutes > 45 || highRiskSections.length >= 3 ? "high" : estimatedMinutes > 30 || highRiskSections.length ? "medium" : "low";
+  const recommendedCuts = [];
+  if (estimatedMinutes > 35) recommendedCuts.push("Pre-cut optional preference/setup sections unless the audience asks.");
+  if (context.segments.some((segment) => /(export|print|word|csv)/i.test(segment.title))) recommendedCuts.push("Keep export options to a quick proof point; do not walk through every format.");
+  if (highRiskSections.length) recommendedCuts.push(`Shorten ${highRiskSections[0]} or move it to Q&A.`);
+
+  return {
+    estimated_runtime: `${Math.round(estimatedMinutes)} minutes`,
+    estimated_minutes: estimatedMinutes,
+    overrun_risk: overrunRisk,
+    section_timing: segmentTimings,
+    high_risk_sections: highRiskSections,
+    recommended_cuts: uniqueItems(recommendedCuts)
+  };
+}
+
+function rehearsalCoachAnalysis(context, risk, timing, stakeholderCoverage) {
+  const businessValueScore = boundedScore(68 + context.businessSignalCount * 3 + context.valueStatementCount * 2 - risk.warnings.length * 3);
+  const clarityScore = boundedScore(88 - Math.max(0, context.navigationActions.length - 12) * 2 - Math.max(0, context.segments.length - 10) * 3);
+  const executiveAlignmentScore = boundedScore(62 + countKeywordHits(context.text, ["cash", "risk", "margin", "forecast", "kpi", "executive", "outcome", "close"]) * 4);
+  const recommendations = uniqueItems([
+    timing.overrun_risk !== "low" ? "Rehearse with a visible timer and pre-select the first section to cut." : "",
+    businessValueScore < 80 ? "Mention the business outcome before the first product click." : "",
+    clarityScore < 80 ? "Reduce navigation time and keep transitions shorter." : "",
+    executiveAlignmentScore < 75 ? "Bring executive outcomes into the opening and close." : "",
+    stakeholderCoverage.low_coverage_roles.length ? `Add a question for ${stakeholderCoverage.low_coverage_roles[0]} during rehearsal.` : "",
+    "Practice slowing down during the winning moments instead of slowing down during navigation."
+  ]);
+
+  return {
+    status: "ready-for-rehearsal-feedback",
+    business_value_score: businessValueScore,
+    clarity_score: clarityScore,
+    executive_alignment_score: executiveAlignmentScore,
+    suggested_metrics_for_future_rehearsal_transcripts: [
+      "filler word count",
+      "average section duration",
+      "business outcome references",
+      "technical jargon density",
+      "stakeholder references",
+      "pacing consistency",
+      "confidence score"
+    ],
+    recommendations
+  };
+}
+
+function competitivePositioningGuidance(context) {
+  const guidance = [
+    {
+      topic: "Unified Suite",
+      why_it_matters: "Use only if the customer is struggling with disconnected systems or manual handoffs.",
+      recommended_demo_moment: "Move from standard reporting into Cash 360 to show connected finance visibility."
+    },
+    {
+      topic: "Standard reports and drilldown",
+      why_it_matters: "Use only if trust in numbers, auditability, or spreadsheet dependency is part of discovery.",
+      recommended_demo_moment: "Drill from the income statement into supporting detail, then return to the main report."
+    }
+  ];
+  if (context.strategy.id === "competitive_defense") {
+    guidance.unshift({
+      topic: "Approved competitive positioning required",
+      why_it_matters: "Competitive defense should use curated battlecards and approved differentiators only.",
+      recommended_demo_moment: "Choose one approved differentiator and tie it to a customer pain already discovered."
+    });
+  }
+  return {
+    warning: "Competitive insights are advisory only and may not always reflect current competitor capabilities. Validate important claims before customer use.",
+    guidance_only: true,
+    competitive_focus: guidance
+  };
+}
+
+function bestPracticeRecommendations(context, winning) {
+  return {
+    reusable_patterns_to_capture: [
+      "Opening story that names the business pressure before the first click",
+      "Tell-show-tell phrasing for each major page",
+      "One-click drilldown proof that builds trust without derailing",
+      "Clean close that restates pain, proof, and next decision"
+    ],
+    recommended_structures: [
+      `${context.strategy.label}: ${context.strategy.storytelling}`,
+      `${context.industry.label}: emphasize ${joinHuman(context.industry.kpis.slice(0, 3))}`,
+      `Winning moments to reuse: ${joinHuman(winning.winning_moments.slice(0, 3)) || "define one memorable proof moment during rehearsal"}`
+    ]
+  };
+}
+
+function countKeywordHits(text, keywords) {
+  const source = String(text || "").toLowerCase();
+  return keywords.reduce((total, keyword) => {
+    const escaped = String(keyword).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return total + (source.match(new RegExp(`\\b${escaped}\\b`, "g")) || []).length;
+  }, 0);
+}
+
+function boundedScore(value) {
+  return Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+}
+
+function roundOne(value) {
+  return Math.round((Number(value) || 0) * 10) / 10;
 }
 
 async function listVoices(provider = "say", apiKey = "") {
@@ -2399,6 +3162,90 @@ function html(response) {
       overflow: auto;
       font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
+    .score-grid,
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .score-card,
+    .analysis-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfd;
+    }
+    body.night .score-card,
+    body.night .analysis-item {
+      background: #0f1821;
+    }
+    .score-value {
+      display: block;
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 800;
+      margin: 4px 0 6px;
+    }
+    .score-label,
+    .analysis-item strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+    .pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 12px;
+      color: var(--accent-dark);
+      background: #eef8f8;
+    }
+    body.night .pill {
+      background: #102b31;
+      color: var(--accent-dark);
+    }
+    .compact-list {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .coverage-row {
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr) 44px;
+      gap: 8px;
+      align-items: center;
+      margin: 8px 0;
+      font-size: 13px;
+    }
+    .coverage-track {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--line);
+      overflow: hidden;
+    }
+    .coverage-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: var(--accent);
+    }
+    .advisory {
+      border-left: 4px solid var(--danger);
+      padding: 10px 12px;
+      background: #fff7f5;
+      color: var(--ink);
+      border-radius: 6px;
+    }
+    body.night .advisory {
+      background: #281713;
+    }
     .tabs {
       display: flex;
       gap: 8px;
@@ -2752,6 +3599,7 @@ function html(response) {
     <button class="tab active" data-tab="prep" data-help="Set up the audience, company context, demo input, notes, voice, and demo value emphasis.">Prep</button>
     <button class="tab" data-tab="manifest" data-help="Review or edit the detailed automation manifest that drives the demo.">Manifest</button>
     <button class="tab" data-tab="guide" data-help="Review the personalized SC demo story, setup prompt, and export it to Word.">SC Guide</button>
+    <button class="tab" data-tab="intelligence" data-help="Review demo quality, risks, discovery gaps, stakeholder coverage, winning moments, and coaching recommendations.">Intelligence</button>
     <button class="tab" data-tab="run" data-help="Open NetSuite, dry run, rehearse, run the live demo, or stop an active run.">Run</button>
   </nav>
   <main>
@@ -2776,6 +3624,18 @@ function html(response) {
             ${selectOptionsHtml(demoAudienceConfiguration.targetAudiences, defaultTargetAudience)}
           </select>
           <p class="hint" id="targetAudienceHint"></p>
+
+          <label for="demoStrategy">Demo strategy</label>
+          <select id="demoStrategy">
+            ${selectOptionsHtml(demoStrategies, defaultDemoStrategy)}
+          </select>
+          <p class="hint" id="demoStrategyHint"></p>
+
+          <label for="industry">Industry playbook</label>
+          <select id="industry">
+            ${selectOptionsHtml(industryPlaybooks, defaultIndustry)}
+          </select>
+          <p class="hint" id="industryHint"></p>
 
           <label for="companyUrl">Company website</label>
           <input id="companyUrl" placeholder="https://www.example.com">
@@ -2913,6 +3773,64 @@ function html(response) {
       </div>
     </section>
 
+    <section class="screen" id="screen-intelligence">
+      <div class="row">
+        <button class="secondary" id="refreshIntelligence" data-help="Re-analyzes the current manifest and refreshes the coaching view.">Refresh Intelligence</button>
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <div class="panel full">
+          <h2>Demo Intelligence Overview</h2>
+          <div class="score-grid" id="intelligenceScores"></div>
+          <p class="hint" id="intelligencePositioning"></p>
+        </div>
+
+        <div class="panel">
+          <h2>Risk Analyzer</h2>
+          <div id="riskAnalyzer"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Discovery Gaps</h2>
+          <div id="discoveryAnalyzer"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Strategy And Industry</h2>
+          <div id="strategyIndustryAnalyzer"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Stakeholder Coverage</h2>
+          <div id="stakeholderAnalyzer"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Winning Moments</h2>
+          <div id="winningMomentsAnalyzer"></div>
+        </div>
+
+        <div class="panel">
+          <h2>What Not To Demo</h2>
+          <div id="avoidAnalyzer"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Timing And Pacing</h2>
+          <div id="timingAnalyzer"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Rehearsal Coach</h2>
+          <div id="rehearsalCoachAnalyzer"></div>
+        </div>
+
+        <div class="panel full">
+          <h2>Competitive Positioning</h2>
+          <div id="competitiveAnalyzer"></div>
+        </div>
+      </div>
+    </section>
+
     <section class="screen" id="screen-run">
       <div class="grid">
         <div class="panel">
@@ -2965,6 +3883,10 @@ function html(response) {
     const audienceHint = document.getElementById("audienceHint");
     const targetAudienceSelect = document.getElementById("marketSegment");
     const targetAudienceHint = document.getElementById("targetAudienceHint");
+    const demoStrategySelect = document.getElementById("demoStrategy");
+    const demoStrategyHint = document.getElementById("demoStrategyHint");
+    const industrySelect = document.getElementById("industry");
+    const industryHint = document.getElementById("industryHint");
     const inputModeSelect = document.getElementById("inputMode");
     const manifestDemoModeSelect = document.getElementById("manifestDemoMode");
     const manifestDemoModeHint = document.getElementById("manifestDemoModeHint");
@@ -2975,11 +3897,15 @@ function html(response) {
     const buttonHelpTooltip = document.getElementById("buttonHelpTooltip");
     const audienceTypeConfig = ${JSON.stringify(demoAudienceConfiguration.audienceTypes)};
     const targetAudienceConfig = ${JSON.stringify(demoAudienceConfiguration.targetAudiences)};
+    const demoStrategyConfig = ${JSON.stringify(demoStrategies)};
+    const industryConfig = ${JSON.stringify(industryPlaybooks)};
     const manifestDemoModeConfig = ${JSON.stringify(manifestDemoModes)};
     const outputLanguageConfig = ${JSON.stringify(Object.values(outputLanguages))};
     const defaultAudienceType = ${JSON.stringify(defaultAudienceType)};
     const defaultTargetAudience = ${JSON.stringify(defaultTargetAudience)};
     const defaultOutputLanguage = ${JSON.stringify(defaultOutputLanguage)};
+    const defaultDemoStrategy = ${JSON.stringify(defaultDemoStrategy)};
+    const defaultIndustry = ${JSON.stringify(defaultIndustry)};
     let runInProgress = false;
     let latestSetupPrompt = null;
     let helpTimer = null;
@@ -3086,6 +4012,8 @@ function html(response) {
       if (payload.manifest) {
           setAudience(payload.manifest.context?.audience?.value || payload.manifest.context?.demoRequest?.audience || payload.manifest.audience || defaultAudienceType);
           setMarketSegment(payload.manifest.context?.targetAudience?.value || payload.manifest.context?.marketSegment?.value || payload.manifest.context?.demoRequest?.targetAudience || payload.manifest.context?.demoRequest?.marketSegment || defaultTargetAudience);
+          setDemoStrategy(payload.manifest.context?.demoStrategy?.id || payload.manifest.context?.demoRequest?.demoStrategy || payload.manifest.defaults?.demoStrategy || defaultDemoStrategy);
+          setIndustry(payload.manifest.context?.industry?.id || payload.manifest.context?.demoRequest?.industry || payload.manifest.defaults?.industry || defaultIndustry);
           setManifestDemoMode(payload.manifest.context?.manifestDemoMode?.id || payload.manifest.context?.demoRequest?.manifestDemoMode || payload.manifest.defaults?.manifestDemoMode || "customer_story");
           setOutputLanguage(payload.manifest.context?.outputLanguage?.value || payload.manifest.context?.demoRequest?.outputLanguage || payload.manifest.defaults?.outputLanguage || defaultOutputLanguage);
           inputModeSelect.value = payload.manifest.context?.demoRequest?.inputMode || "request-and-notes";
@@ -3121,6 +4049,7 @@ function html(response) {
         option.textContent = file;
         versions.appendChild(option);
       }
+      renderIntelligence(payload.intelligence);
     }
 
     function renderGuideOutputs(guide, outputs = {}) {
@@ -3163,6 +4092,37 @@ function html(response) {
 
     function selectedMarketSegment() {
       return targetAudienceSelect.value || defaultTargetAudience;
+    }
+
+    function setDemoStrategy(value) {
+      demoStrategySelect.value = normalizeUiAudience(value, demoStrategyConfig, defaultDemoStrategy, {
+        discovery: "discovery_demo",
+        vision: "vision_demo",
+        executive: "executive_alignment",
+        technical: "technical_validation",
+        competitive: "competitive_defense",
+        expansion: "expansion_demo",
+        renewal: "renewal_demo",
+        workshop: "workshop_session",
+        poc: "proof_of_concept",
+        training: "training_session"
+      });
+      updateStrategyIndustryHints();
+    }
+
+    function setIndustry(value) {
+      industrySelect.value = normalizeUiAudience(value, industryConfig, defaultIndustry, {
+        general: "general_business",
+        unknown: "general_business",
+        wholesale: "wholesale_distribution",
+        distribution: "wholesale_distribution",
+        software: "saas",
+        "professional-services": "services",
+        nonprofit: "nonprofit",
+        "non-profit": "nonprofit",
+        finance: "financial_services"
+      });
+      updateStrategyIndustryHints();
     }
 
     function setOutputLanguage(value) {
@@ -3208,6 +4168,121 @@ function html(response) {
     function updateManifestDemoModeHint() {
       const mode = selectedConfig(manifestDemoModeConfig, manifestDemoModeSelect.value, "customer_story");
       manifestDemoModeHint.textContent = mode.description;
+    }
+
+    function updateStrategyIndustryHints() {
+      const strategy = selectedConfig(demoStrategyConfig, demoStrategySelect.value, defaultDemoStrategy);
+      const industry = selectedConfig(industryConfig, industrySelect.value, defaultIndustry);
+      demoStrategyHint.textContent = strategy.description + " Tone: " + strategy.tone + ". Pacing: " + strategy.pacing + ".";
+      industryHint.textContent = industry.description + " KPIs: " + industry.kpis.slice(0, 4).join(", ") + ".";
+    }
+
+    function renderIntelligence(intelligence) {
+      if (!intelligence) return;
+      const risk = intelligence.demo_risk_analyzer || {};
+      const discovery = intelligence.discovery_gap_analyzer || {};
+      const stakeholder = intelligence.stakeholder_coverage_analyzer || {};
+      const winning = intelligence.winning_moment_detection || {};
+      const avoid = intelligence.what_not_to_demo_engine || {};
+      const timing = intelligence.demo_timing_pacing_analyzer || {};
+      const coach = intelligence.ai_rehearsal_coach || {};
+      const competitive = intelligence.competitive_positioning_mode || {};
+      const strategy = intelligence.demo_strategy || {};
+      const industry = intelligence.industry_playbook || {};
+
+      document.getElementById("intelligenceScores").innerHTML = [
+        scoreCard("Demo quality", risk.demo_quality_score, "Higher is better"),
+        scoreCard("Demo risk", risk.demo_risk_score, "Lower is better"),
+        scoreCard("Business clarity", coach.clarity_score, "Rehearsal view"),
+        scoreCard("Executive alignment", coach.executive_alignment_score, "Outcome focus")
+      ].join("");
+      document.getElementById("intelligencePositioning").textContent = intelligence.positioning || "";
+
+      document.getElementById("riskAnalyzer").innerHTML =
+        listBlock("Warnings", risk.warnings) +
+        listBlock("Recommendations", risk.recommendations) +
+        hintBlock(risk.score_explanation);
+
+      document.getElementById("discoveryAnalyzer").innerHTML =
+        listBlock("Missing discovery items", discovery.missing_discovery_items) +
+        listBlock("Follow-up questions", discovery.recommended_follow_up_questions) +
+        pillList(discovery.found_discovery_items || []);
+
+      document.getElementById("strategyIndustryAnalyzer").innerHTML =
+        analysisItem("Demo strategy", strategy.label, strategy.description) +
+        analysisItem("Tone and pacing", strategy.tone, strategy.pacing) +
+        analysisItem("Technical depth", strategy.technical_depth, strategy.storytelling_style) +
+        analysisItem("Industry playbook", industry.label, industry.description) +
+        pillList([...(industry.terminology || []), ...(industry.kpis || [])].slice(0, 10));
+
+      document.getElementById("stakeholderAnalyzer").innerHTML =
+        coverageRows(stakeholder.stakeholder_coverage || []) +
+        hintBlock(stakeholder.recommendation);
+
+      document.getElementById("winningMomentsAnalyzer").innerHTML =
+        listBlock("Moments to slow down for", winning.winning_moments) +
+        (winning.details || []).slice(0, 4).map((item) => analysisItem(item.moment, item.segment, item.coaching_tip)).join("");
+
+      document.getElementById("avoidAnalyzer").innerHTML =
+        listBlock("Avoid showing", avoid.avoid_showing) +
+        hintBlock(avoid.rationale);
+
+      document.getElementById("timingAnalyzer").innerHTML =
+        analysisItem("Estimated runtime", timing.estimated_runtime, "Overrun risk: " + (timing.overrun_risk || "unknown")) +
+        listBlock("High-risk sections", timing.high_risk_sections) +
+        listBlock("Recommended cuts", timing.recommended_cuts);
+
+      document.getElementById("rehearsalCoachAnalyzer").innerHTML =
+        analysisItem("Status", coach.status, "Use rehearsal output later for transcript and pacing feedback.") +
+        listBlock("Coaching recommendations", coach.recommendations) +
+        listBlock("Future transcript metrics", coach.suggested_metrics_for_future_rehearsal_transcripts);
+
+      document.getElementById("competitiveAnalyzer").innerHTML =
+        "<div class='advisory'>" + escapeClientHtml(competitive.warning || "") + "</div>" +
+        (competitive.competitive_focus || []).map((item) => analysisItem(item.topic, item.why_it_matters, item.recommended_demo_moment)).join("");
+    }
+
+    function scoreCard(label, value, note) {
+      const displayValue = Number.isFinite(Number(value)) ? Math.round(Number(value)) : "-";
+      return "<div class='score-card'><span class='score-label'>" + escapeClientHtml(label) + "</span><span class='score-value'>" + displayValue + "</span><span class='hint'>" + escapeClientHtml(note || "") + "</span></div>";
+    }
+
+    function listBlock(title, items = []) {
+      const clean = (items || []).filter(Boolean);
+      if (!clean.length) return "<p class='hint'>" + escapeClientHtml(title) + ": none detected.</p>";
+      return "<strong class='score-label'>" + escapeClientHtml(title) + "</strong><ul class='compact-list'>" + clean.map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("") + "</ul>";
+    }
+
+    function analysisItem(title, value, note) {
+      return "<div class='analysis-item'><strong>" + escapeClientHtml(title || "") + "</strong><span>" + escapeClientHtml(value || "") + "</span><p class='hint'>" + escapeClientHtml(note || "") + "</p></div>";
+    }
+
+    function hintBlock(text) {
+      return text ? "<p class='hint'>" + escapeClientHtml(text) + "</p>" : "";
+    }
+
+    function pillList(items = []) {
+      const clean = (items || []).filter(Boolean);
+      if (!clean.length) return "";
+      return "<div class='pill-list'>" + clean.map((item) => "<span class='pill'>" + escapeClientHtml(item) + "</span>").join("") + "</div>";
+    }
+
+    function coverageRows(items = []) {
+      if (!items.length) return "<p class='hint'>No stakeholder coverage detected yet.</p>";
+      return items.slice(0, 8).map((item) => {
+        const coverage = Math.max(0, Math.min(100, Number(item.coverage) || 0));
+        return "<div class='coverage-row'><span>" + escapeClientHtml(item.role) + "</span><div class='coverage-track'><div class='coverage-fill' style='width:" + coverage + "%'></div></div><span>" + coverage + "%</span></div>";
+      }).join("");
+    }
+
+    function escapeClientHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
     }
 
       function selectedVoiceApiKey() {
@@ -3298,6 +4373,8 @@ function html(response) {
 
       audienceSelect.onchange = updateAudienceHints;
       targetAudienceSelect.onchange = updateAudienceHints;
+      demoStrategySelect.onchange = updateStrategyIndustryHints;
+      industrySelect.onchange = updateStrategyIndustryHints;
       manifestDemoModeSelect.onchange = updateManifestDemoModeHint;
       inputModeSelect.onchange = syncInputMode;
       voiceProviderSelect.onchange = () => {
@@ -3357,6 +4434,11 @@ function html(response) {
       renderSetupPrompt(setupPayload.setupPrompt);
     }
 
+    async function loadIntelligence() {
+      const payload = await api("/api/intelligence");
+      renderIntelligence(payload.intelligence);
+    }
+
     document.querySelectorAll(".tab").forEach((button) => {
       button.onclick = () => {
         document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
@@ -3369,6 +4451,7 @@ function html(response) {
     document.getElementById("reload").onclick = async () => { await load(); await loadGuide(); };
     document.getElementById("reloadManifest").onclick = load;
     document.getElementById("refreshGuide").onclick = loadGuide;
+    document.getElementById("refreshIntelligence").onclick = loadIntelligence;
     document.getElementById("executeSetupPrompt").onclick = async () => {
       if (!latestSetupPrompt) {
         setStatus("Create a demo first so the setup prompt can be generated.");
@@ -3442,6 +4525,8 @@ function html(response) {
             topic: document.getElementById("topic").value,
             inputMode: inputModeSelect.value,
             manifestDemoMode: manifestDemoModeSelect.value,
+            demoStrategy: demoStrategySelect.value,
+            industry: industrySelect.value,
             audience: audienceSelect.value,
               marketSegment: selectedMarketSegment(),
               outputLanguage: outputLanguageSelect.value,
@@ -3557,6 +4642,7 @@ function html(response) {
 
       (async () => {
         updateAudienceHints();
+        updateStrategyIndustryHints();
         updateManifestDemoModeHint();
         syncVoiceProviderSettings();
         await loadVoices();

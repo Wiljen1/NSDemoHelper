@@ -9,6 +9,8 @@ This workspace contains a first finance-demo package for NetSuite:
 - screenshot capture for rehearsal review
 - a demo value emphasis setting: light, balanced, or heavy
 - output language selection for generated demo guidance
+- demo strategy and industry playbook selection
+- an Intelligence screen with risk analysis, discovery gaps, stakeholder coverage, winning moments, pacing guidance, and rehearsal coaching
 - a rehearsal/account-prep/cache step before the live run
 
 ## Files
@@ -44,6 +46,8 @@ From the control panel you can:
 - choose audience type: prospect, executive, operational/end user, technical, customer, marketing, or partner
 - choose target audience: startup, emerging/SMB, mid-market, enterprise, or public sector/government
 - use the hardcoded audience playbook to steer what the demo should include, avoid, and emphasize
+- choose the demo strategy: discovery, vision, executive alignment, technical validation, competitive defense, expansion, renewal, workshop, proof of concept, or training
+- choose an industry playbook to steer terminology, KPIs, workflows, pain points, and demo emphasis
 - add pre-demo notes from discovery
 - choose whether to use demo request plus notes, demo request only, or pre-demo notes only
 - choose whether the generated manifest should be a plain product demo or a personalized customer story
@@ -55,6 +59,7 @@ From the control panel you can:
 - read one combined personalized SC story and runbook with the exact live-demo steps
 - generate a demo asset / PowerPoint prompt for persona images, slide structure, and supporting visuals
 - generate one guarded NetSuite setup prompt when demo data/configuration may need to be created
+- review demo intelligence: quality score, risk score, discovery gaps, stakeholder balance, what not to demo, timing risk, winning moments, and coaching recommendations
 - restore earlier manifest versions
 - open the reusable NetSuite browser
 - dry run, rehearse with account prep buffering, or run the live narrated demo
