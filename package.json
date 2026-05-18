@@ -1,0 +1,22 @@
+{
+  "name": "ns-demo-helper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "NetSuite Demo Helper for SC demo prep, manifest generation, rehearsal, and narrated demo runs.",
+  "scripts": {
+    "validate": "node src/validate-manifest.mjs manifests/finance-pl-cash360.demo.json",
+    "demo:dry": "node src/demo-runner.mjs --manifest manifests/finance-pl-cash360.demo.json --dry-run --audio=none",
+    "demo:rehearse": "node src/demo-runner.mjs --manifest manifests/finance-pl-cash360.demo.json --rehearse --audio=none --value-intensity=balanced",
+    "demo": "node src/demo-runner.mjs --manifest manifests/finance-pl-cash360.demo.json --audio=say --value-intensity=balanced",
+    "demo:light": "node src/demo-runner.mjs --manifest manifests/finance-pl-cash360.demo.json --audio=say --value-intensity=light",
+    "demo:heavy": "node src/demo-runner.mjs --manifest manifests/finance-pl-cash360.demo.json --audio=say --value-intensity=heavy",
+    "browser": "node src/demo-runner.mjs --manifest manifests/finance-pl-cash360.demo.json --open-browser",
+    "login": "node src/demo-runner.mjs --manifest manifests/finance-pl-cash360.demo.json --login",
+    "control": "node src/control-panel.mjs",
+    "voice:test": "say -v Moira -r 175 \"Moira is now the default demo narrator voice.\""
+  },
+  "dependencies": {
+    "playwright": "^1.44.0"
+  }
+}

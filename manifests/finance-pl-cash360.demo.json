@@ -1,0 +1,585 @@
+{
+  "version": 1,
+  "id": "netsuite-finance-pl-cash360",
+  "name": "NetSuite Finance Demo: P&L to Cash 360",
+  "audience": "Prospect",
+  "context": {
+    "application": "NetSuite",
+    "role": "STW_SVCS_UK - Financial Controller",
+    "baseUrl": "https://td2963620.app.netsuite.com",
+    "navigationPolicy": {
+      "preferred": [
+        "NetSuite global search",
+        "NetSuite navigation bar"
+      ],
+      "avoid": [
+        "custom saved reports for prospect demos",
+        "deep links unless used as fallback after a learned route"
+      ],
+      "reportPolicy": "Use standard NetSuite reports for prospect-facing demos unless the user explicitly asks for a custom report."
+    },
+    "login": {
+      "mode": "manual",
+      "startPath": "/app/center/card.nl?sc=-29&whence=",
+      "readyText": "Search",
+      "instructions": "Open the browser window, sign in to NetSuite, and leave it on any authenticated page. The runner waits for the global Search box before starting."
+    },
+    "demoRequest": {
+      "topic": "Finance demo for a prospect: standard income statement, filters, drilldown, export, and Cash 360.",
+      "audience": "prospect",
+      "inputMode": "request-and-notes",
+      "source": "demo-request-and-pre-demo-notes",
+      "instructions": "Lead with the audience's business problem and desired outcome before showing screens.\nOpen with the biggest business hitters first: executive visibility, trusted numbers, cash control, close speed, auditability, and fewer spreadsheets.\nUse a crisp tell-show-tell rhythm: frame the point, show the shortest proof path, then land why it matters in plain language.\nUse NetSuite global search and the navigation bar as the primary way to move through the product.\nUse standard NetSuite reports for finance demos unless the audience explicitly asks for custom reporting.\nChoose the optimal demo flow, even if the product can do more. Show the path an excellent SC would choose in a live meeting.\nConnect each screen to the audience's likely role, pressure, and decision criteria. Make the story feel specific, not generic.\nKeep the demo read-only unless the SC intentionally chooses to create or edit a record.\nPause for smart discovery questions at natural decision points, especially before drilling into detail or switching modules.\nShow drilldown only when it proves trust, auditability, or actionability. Do not drill for the sake of clicking.\nUse realistic business language. Avoid NetSuite jargon unless the audience already uses it.\nNever announce internal labels such as 'value statement' during narration.\nAvoid feature tours, menu wandering, slow setup, dead clicks, custom report shortcuts, and explaining every field on the page.\nAvoid showing unconfigured areas, risky transactions, preference saves, or anything that could distract from the core story.\nIf a page takes time to load, narrate the business reason for the next step instead of filling the silence with product trivia.",
+      "learnedAt": "2026-05-18T15:06:12.706Z",
+      "instruction": "Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks."
+    },
+    "company": {
+      "companyName": "The prospect",
+      "url": "",
+      "title": "",
+      "description": "",
+      "likelyPriorities": [
+        "trusted reporting",
+        "cash visibility",
+        "drilldown from summary to detail",
+        "faster close with fewer spreadsheets",
+        "cash forecasting and working capital control"
+      ],
+      "industrySignals": [
+        "financial visibility and operational control"
+      ],
+      "source": "notes-only"
+    },
+    "preDemoNotes": "Prospect wants better cash visibility and fewer spreadsheet reconciliations.",
+    "audience": {
+      "value": "prospect",
+      "label": "Prospect",
+      "guideAngle": "Assume first-time NetSuite viewers. Build confidence quickly, avoid jargon, prove the main business outcomes first, and show enough detail to create trust without turning the meeting into a system walkthrough.",
+      "narratorAngle": "For a prospect, explain the business reason for each step before going into detail."
+    }
+  },
+  "defaults": {
+    "valueStatementIntensity": "balanced",
+    "pace": {
+      "beforeSegmentMs": 500,
+      "afterActionMs": 650,
+      "afterSegmentMs": 900
+    },
+    "audio": {
+      "provider": "say",
+      "voice": "Moira",
+      "rate": 175
+    },
+    "browser": {
+      "mode": "reuse",
+      "cdpUrl": "http://127.0.0.1:9222",
+      "profileDirectory": ".auth/netsuite-profile"
+    },
+    "screenshots": {
+      "directory": "artifacts/screenshots",
+      "onSegmentEnd": true,
+      "onFailure": true
+    },
+    "cache": {
+      "file": "artifacts/cache/finance-pl-cash360.demo-cache.json"
+    }
+  },
+  "controls": {
+    "topicPrompt": {
+      "label": "Demo topic",
+      "placeholder": "Example: finance demo for P&L, drilldown, export, and Cash 360",
+      "output": "Create or amend this manifest before rehearsal."
+    },
+    "valueStatementIntensity": {
+      "label": "Demo value emphasis",
+      "default": "balanced",
+      "slider": [
+        {
+          "value": "light",
+          "label": "Light",
+          "description": "Add value points at the big transitions only."
+        },
+        {
+          "value": "balanced",
+          "label": "Balanced",
+          "description": "Add value points on each major page or section."
+        },
+        {
+          "value": "heavy",
+          "label": "Heavy",
+          "description": "Add value points throughout the demo."
+        }
+      ]
+    },
+    "runButtons": [
+      {
+        "label": "Dry Run",
+        "command": "npm run demo:dry",
+        "description": "Print the planned demo without opening NetSuite."
+      },
+      {
+        "label": "Rehearse And Cache",
+        "command": "npm run demo:rehearse",
+        "description": "Run the browser without audio, verify pages, save timings and screenshots."
+      },
+      {
+        "label": "Run Live Demo",
+        "command": "npm run demo",
+        "description": "Run the browser automation with narration."
+      }
+    ]
+  },
+  "safeMode": {
+    "allowed": [
+      "navigation",
+      "read-only drilldown",
+      "highlighting",
+      "screenshots",
+      "optional export-menu inspection"
+    ],
+    "blocked": [
+      "saving preferences",
+      "editing records",
+      "posting transactions",
+      "approving invoices or bills"
+    ]
+  },
+  "segments": [
+    {
+      "id": "open-pl",
+      "title": "Open The Standard Income Statement",
+      "objective": "Use NetSuite search/navigation to open a standard profitability report.",
+      "valueMoment": "major",
+      "valueStatement": "The prospect gets a fast, trusted performance view that connects directly to trusted reporting and cash visibility.",
+      "narration": "For The prospect, let's start where a finance leader usually wants to start: the standard income statement. This gives a quick view of revenue, margin, overheads, and net profit from one controlled place in NetSuite.",
+      "actions": [
+        {
+          "type": "globalSearchOpen",
+          "query": "Income Statement",
+          "resultText": "Income Statement",
+          "fallbackUrl": "${baseUrl}/app/reporting/reportrunner.nl?cr=-316&reload=T",
+          "timeoutMs": 20000
+        },
+        {
+          "type": "waitForText",
+          "text": "Income Statement",
+          "timeoutMs": 20000
+        },
+        {
+          "type": "highlightText",
+          "text": "Net Income",
+          "optional": true
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Income"
+        },
+        {
+          "type": "text",
+          "text": "Expense"
+        },
+        {
+          "type": "text",
+          "text": "Income Statement"
+        }
+      ]
+    },
+    {
+      "id": "pl-executive-readout",
+      "title": "Read The Finance Story",
+      "objective": "Show the CFO-level view: sales, gross profit, operating profit, and net result.",
+      "valueMoment": "page",
+      "valueStatement": "A first-time viewer can understand performance without needing to know where every transaction lives.",
+      "narration": "For someone new to the system, this report is intentionally familiar. Turnover is at the top, overheads sit below it, and operating profit and net profit are easy to find at the bottom.",
+      "actions": [
+        {
+          "type": "highlightText",
+          "text": "Income",
+          "optional": true
+        },
+        {
+          "type": "highlightText",
+          "text": "Expense",
+          "optional": true
+        },
+        {
+          "type": "highlightText",
+          "text": "Net Income",
+          "optional": true
+        },
+        {
+          "type": "highlightText",
+          "text": "Total",
+          "optional": true
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Income Statement"
+        },
+        {
+          "type": "text",
+          "text": "Income"
+        }
+      ]
+    },
+    {
+      "id": "pl-filters",
+      "title": "Show Report Filters",
+      "objective": "Highlight the filter set finance can use to re-slice the result.",
+      "valueMoment": "page",
+      "valueStatement": "The prospect can re-run the same standard report by period, subsidiary, and accounting book, which supports trusted reporting and cash visibility.",
+      "narration": "Now let's look at how a team can change the lens. In the standard report, the most important controls are period, date range, subsidiary context, and accounting book.",
+      "actions": [
+        {
+          "type": "highlightText",
+          "text": "Period"
+        },
+        {
+          "type": "highlightText",
+          "text": "From"
+        },
+        {
+          "type": "highlightText",
+          "text": "To"
+        },
+        {
+          "type": "highlightText",
+          "text": "Subsidiary Context"
+        },
+        {
+          "type": "highlightText",
+          "text": "Accounting Book 1"
+        },
+        {
+          "type": "highlightText",
+          "text": "Refresh"
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Period"
+        },
+        {
+          "type": "text",
+          "text": "Subsidiary Context"
+        },
+        {
+          "type": "text",
+          "text": "Accounting Book"
+        }
+      ]
+    },
+    {
+      "id": "pl-drilldown",
+      "title": "Drill Into The Numbers",
+      "objective": "Move from summary P&L to the transaction-level support behind a number.",
+      "valueMoment": "detail",
+      "valueStatement": "When a number is questioned, the team can investigate it from the report instead of starting a separate reconciliation exercise.",
+      "narration": "If someone asks what sits behind a number, we can drill from the summary into the supporting detail. That turns the report from a static total into an explainable result.",
+      "actions": [
+        {
+          "type": "highlightText",
+          "text": "View Detail",
+          "optional": true
+        },
+        {
+          "type": "clickText",
+          "text": "View Detail",
+          "optional": true
+        },
+        {
+          "type": "waitForAnyText",
+          "texts": [
+            "Transaction",
+            "Date",
+            "Account",
+            "Amount",
+            "Document Number",
+            "Transaction Type"
+          ],
+          "timeoutMs": 12000,
+          "optional": true
+        },
+        {
+          "type": "screenshot",
+          "name": "pl-drilldown"
+        },
+        {
+          "type": "globalSearchOpen",
+          "query": "Income Statement",
+          "resultText": "Income Statement",
+          "fallbackUrl": "${baseUrl}/app/reporting/reportrunner.nl?cr=-316&reload=T",
+          "timeoutMs": 20000
+        },
+        {
+          "type": "waitForText",
+          "text": "Income Statement",
+          "timeoutMs": 15000
+        }
+      ],
+      "fallback": [
+        "If the drilldown route changes, click a blue linked report amount or account line such as Revenue, then return to the saved report."
+      ]
+    },
+    {
+      "id": "pl-export-options",
+      "title": "Show Export Options",
+      "objective": "Show how the report can be shared or taken offline.",
+      "valueMoment": "detail",
+      "valueStatement": "Teams can keep NetSuite as the source of truth while still producing the files people expect for reviews, audits, and board packs.",
+      "narration": "When the report needs to leave the system, the export options are already here. Excel, PDF, CSV, Word, and print are available without rebuilding the report somewhere else.",
+      "actions": [
+        {
+          "type": "highlightText",
+          "text": "Export - Microsoft ® Excel"
+        },
+        {
+          "type": "highlightText",
+          "text": "Export - PDF"
+        },
+        {
+          "type": "highlightText",
+          "text": "Export - CSV"
+        },
+        {
+          "type": "highlightText",
+          "text": "Export - Microsoft ® Word"
+        },
+        {
+          "type": "highlightText",
+          "text": "Print All"
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Export - Microsoft ® Excel"
+        },
+        {
+          "type": "text",
+          "text": "Export - PDF"
+        },
+        {
+          "type": "text",
+          "text": "Export - CSV"
+        }
+      ]
+    },
+    {
+      "id": "open-cash360-dashboard",
+      "title": "Open Cash 360",
+      "objective": "Transition from profitability to liquidity.",
+      "valueMoment": "major",
+      "valueStatement": "A prospect can see how NetSuite connects profitability with liquidity in the same operating system.",
+      "narration": "Once we have looked at profitability, the natural next question is cash. Cash 360 gives a clear view of current cash position and what is expected to happen next.",
+      "actions": [
+        {
+          "type": "globalSearchOpen",
+          "query": "Cash 360",
+          "resultText": "Cash 360 - Redirect",
+          "fallbackUrl": "${baseUrl}/spa-app/com.netsuite.cash360/cash360?whence=",
+          "timeoutMs": 25000
+        },
+        {
+          "type": "waitForText",
+          "text": "Cash 360 Dashboard",
+          "timeoutMs": 25000
+        },
+        {
+          "type": "highlightText",
+          "text": "Cash Position"
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Bank Balance"
+        },
+        {
+          "type": "text",
+          "text": "Receivables"
+        },
+        {
+          "type": "text",
+          "text": "Payables"
+        }
+      ]
+    },
+    {
+      "id": "cash360-actions",
+      "title": "Show Cash Actions",
+      "objective": "Highlight the operational actions available from the Cash 360 dashboard.",
+      "valueMoment": "detail",
+      "valueStatement": "The dashboard points people toward the work that affects cash, not just the numbers they need to read.",
+      "narration": "This is not only a dashboard. The action panel gives the team direct paths to invoices, bills, aging summaries, and account categories that influence the cash view.",
+      "actions": [
+        {
+          "type": "highlightText",
+          "text": "View Invoices"
+        },
+        {
+          "type": "highlightText",
+          "text": "Approve Invoices"
+        },
+        {
+          "type": "highlightText",
+          "text": "View Bills"
+        },
+        {
+          "type": "highlightText",
+          "text": "View A/P Aging Summary"
+        },
+        {
+          "type": "highlightText",
+          "text": "View A/R Aging Summary"
+        },
+        {
+          "type": "highlightText",
+          "text": "View Account Categories"
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Actions"
+        },
+        {
+          "type": "text",
+          "text": "View Bills"
+        }
+      ]
+    },
+    {
+      "id": "cash360-forecast",
+      "title": "Show Cash Forecast",
+      "objective": "Show the month-by-month liquidity projection.",
+      "valueMoment": "page",
+      "valueStatement": "The team can spot future cash pressure earlier, using live operational data rather than a disconnected forecast file.",
+      "narration": "The forecast table is the forward-looking view. It separates opening balance, inflows, outflows, net balance, and closing balance by period, so the team can see the cash trajectory over the next months.",
+      "actions": [
+        {
+          "type": "goto",
+          "url": "${baseUrl}/spa-app/com.netsuite.cash360/cash360?whence=#/forecast-table"
+        },
+        {
+          "type": "waitForText",
+          "text": "Cash Forecast",
+          "timeoutMs": 20000
+        },
+        {
+          "type": "highlightText",
+          "text": "Opening Balance"
+        },
+        {
+          "type": "highlightText",
+          "text": "Inflow"
+        },
+        {
+          "type": "highlightText",
+          "text": "Outflow"
+        },
+        {
+          "type": "highlightText",
+          "text": "Net Balance"
+        },
+        {
+          "type": "highlightText",
+          "text": "Closing Balance"
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Account Category"
+        },
+        {
+          "type": "text",
+          "text": "Opening Balance"
+        },
+        {
+          "type": "text",
+          "text": "Closing Balance"
+        }
+      ]
+    },
+    {
+      "id": "cash360-preferences",
+      "title": "Show Forecast Controls",
+      "objective": "Show how finance governs the forecast assumptions.",
+      "valueMoment": "page",
+      "valueStatement": "Forecast assumptions are visible and configurable, so the cash view can match how the business actually plans.",
+      "narration": "Finally, the preferences page shows how the forecast is governed. The team can set the forecast period, choose which inputs to include, and manage the account categories and assumptions behind the projection.",
+      "actions": [
+        {
+          "type": "goto",
+          "url": "${baseUrl}/spa-app/com.netsuite.cash360/cash360?whence=#/preference"
+        },
+        {
+          "type": "waitForText",
+          "text": "Preferences",
+          "timeoutMs": 20000
+        },
+        {
+          "type": "highlightText",
+          "text": "Forecast Period"
+        },
+        {
+          "type": "highlightText",
+          "text": "Include Opening Balance",
+          "optional": true
+        },
+        {
+          "type": "highlightText",
+          "text": "Include Sales Orders",
+          "optional": true
+        },
+        {
+          "type": "highlightText",
+          "text": "Include Purchase Orders",
+          "optional": true
+        },
+        {
+          "type": "highlightText",
+          "text": "Account Categories"
+        },
+        {
+          "type": "highlightText",
+          "text": "Data to Use"
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Forecast Period"
+        },
+        {
+          "type": "text",
+          "text": "Account Categories"
+        },
+        {
+          "type": "text",
+          "text": "Save"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "title": "Close The Story",
+      "objective": "Tie profitability and cash together.",
+      "valueMoment": "major",
+      "valueStatement": "A finance team can move from performance reporting to cash planning with fewer handoffs and less spreadsheet chasing.",
+      "narration": "That is the finance story end to end: profitability in the P&L, explainability through filters and drilldown, controlled sharing through exports, and liquidity planning in Cash 360.",
+      "actions": [
+        {
+          "type": "screenshot",
+          "name": "closing-cash360-preferences"
+        }
+      ]
+    }
+  ]
+}
