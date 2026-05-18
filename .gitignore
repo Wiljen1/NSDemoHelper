@@ -8,6 +8,7 @@ node_modules/
 
 artifacts/audio/
 artifacts/cache/
+artifacts/cms/
 artifacts/codex-prompts/
 artifacts/prep-buffer/
 artifacts/runtime/

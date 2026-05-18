@@ -4,6 +4,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import os from "node:os";
+import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 
 const projectRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
 const manifestPath = path.join(projectRoot, "manifests/finance-pl-cash360.demo.json");
@@ -11,8 +13,16 @@ const generatedManifestsDir = path.join(projectRoot, "manifests/generated");
 const versionsDir = path.join(projectRoot, "manifests/versions");
 const scGuidePath = path.join(projectRoot, "artifacts/sc-demo-guide.md");
 const narratorStatePath = path.join(projectRoot, "artifacts/runtime/narrator-state.json");
+const cmsContentPath = path.join(projectRoot, "artifacts/cms/content.json");
+const cmsVersionsDir = path.join(projectRoot, "artifacts/cms/versions");
+const cmsAdminPath = path.join(projectRoot, ".auth/cms-admin.json");
+const cmsSessionsPath = path.join(projectRoot, ".auth/cms-sessions.json");
 const port = Number(process.env.PORT || 4173);
+const scryptAsync = promisify(scryptCallback);
 let currentRun = null;
+let defaultScInstructionsOverride = "";
+let helperIntroOverride = "";
+let helperStepsOverride = null;
 
 const voiceProviders = {
   say: {
@@ -30,7 +40,7 @@ const voiceProviders = {
   }
 };
 
-const outputLanguages = {
+let outputLanguages = {
   en: { value: "en", label: "English" },
   nl: { value: "nl", label: "Dutch" },
   de: { value: "de", label: "German" },
@@ -44,7 +54,7 @@ const defaultOutputLanguage = "en";
 const defaultDemoStrategy = "vision_demo";
 const defaultIndustry = "general_business";
 
-const demoStrategies = [
+let demoStrategies = [
   {
     id: "discovery_demo",
     label: "Discovery Demo",
@@ -205,7 +215,7 @@ const demoStrategies = [
   }
 ];
 
-const industryPlaybooks = [
+let industryPlaybooks = [
   {
     id: "general_business",
     label: "General Business",
@@ -318,7 +328,7 @@ const industryPlaybooks = [
   }
 ];
 
-const manifestDemoModes = [
+let manifestDemoModes = [
   {
     id: "plain_demo",
     label: "Plain demo",
@@ -333,7 +343,7 @@ const manifestDemoModes = [
   }
 ];
 
-const demoAudienceConfiguration = {
+let demoAudienceConfiguration = {
   targetAudiences: [
     {
       id: "startup",
@@ -472,9 +482,40 @@ const demoAudienceConfiguration = {
   ]
 };
 
+await loadCmsContentIntoRuntime();
+
 const server = http.createServer(async (request, response) => {
   try {
     if (request.method === "GET" && request.url === "/") return html(response);
+    if (request.method === "GET" && request.url === "/api/cms/status") return json(response, await cmsStatus(request));
+    if (request.method === "POST" && request.url === "/api/cms/setup") {
+      const body = await readBody(request);
+      const result = await setupCmsAdmin(body, request);
+      return json(response, result.payload, 200, result.headers);
+    }
+    if (request.method === "POST" && request.url === "/api/cms/login") {
+      const body = await readBody(request);
+      const result = await loginCmsAdmin(body, request);
+      return json(response, result.payload, 200, result.headers);
+    }
+    if (request.method === "POST" && request.url === "/api/cms/logout") {
+      await destroyCmsSession(request);
+      return json(response, { ok: true, authenticated: false }, 200, { "Set-Cookie": clearCmsSessionCookie() });
+    }
+    if (request.method === "GET" && request.url === "/api/cms") {
+      await requireCmsAuth(request);
+      return json(response, await cmsPayload());
+    }
+    if (request.method === "POST" && request.url === "/api/cms/save") {
+      await requireCmsAuth(request);
+      const body = await readBody(request);
+      return json(response, await saveCmsBlock(body));
+    }
+    if (request.method === "POST" && request.url === "/api/cms/restore") {
+      await requireCmsAuth(request);
+      const body = await readBody(request);
+      return json(response, await restoreCmsVersion(body.file));
+    }
     if (request.method === "GET" && request.url === "/api/manifest") return json(response, await manifestPayload());
     if (request.method === "GET" && request.url === "/api/intelligence") {
       const manifest = await readManifest();
@@ -598,7 +639,8 @@ const server = http.createServer(async (request, response) => {
     response.writeHead(404);
     response.end("Not found");
   } catch (error) {
-    json(response, { ok: false, error: error.message }, 500);
+    const status = error.statusCode || error.status || 500;
+    json(response, { ok: false, error: error.message }, status);
   }
 });
 
@@ -617,6 +659,404 @@ async function manifestPayload() {
     setupPrompt: setupPromptPayload(manifest),
     intelligence: demoIntelligencePayload(manifest, guide)
   };
+}
+
+async function loadCmsContentIntoRuntime() {
+  const content = await readCmsContent();
+  applyCmsContentToRuntime(content);
+}
+
+async function cmsStatus(request) {
+  const setupRequired = !(await cmsAdminExists());
+  return {
+    ok: true,
+    setupRequired,
+    authenticated: setupRequired ? false : await isCmsAuthenticated(request),
+    security: {
+      passwordStorage: "scrypt salted hash",
+      session: "http-only same-site cookie",
+      versioning: "every CMS edit creates a restore point"
+    }
+  };
+}
+
+async function cmsPayload() {
+  const content = await readCmsContent();
+  return {
+    ok: true,
+    content,
+    blocks: cmsBlocksForUi(content),
+    versions: await listCmsVersions()
+  };
+}
+
+async function setupCmsAdmin(body, request) {
+  if (await cmsAdminExists()) throw httpError("CMS admin has already been set up.", 409);
+  const password = String(body.password || "");
+  assertStrongCmsPassword(password);
+  const passwordHash = await hashCmsPassword(password);
+  await mkdir(path.dirname(cmsAdminPath), { recursive: true });
+  await writeFile(cmsAdminPath, `${JSON.stringify({
+    createdAt: new Date().toISOString(),
+    password: passwordHash
+  }, null, 2)}\n`, "utf8");
+  const session = await createCmsSession(request);
+  return {
+    payload: { ok: true, authenticated: true, setupRequired: false },
+    headers: { "Set-Cookie": session.cookie }
+  };
+}
+
+async function loginCmsAdmin(body, request) {
+  const admin = await readCmsAdmin();
+  const valid = await verifyCmsPassword(String(body.password || ""), admin.password);
+  if (!valid) throw httpError("Incorrect admin password.", 401);
+  const session = await createCmsSession(request);
+  return {
+    payload: { ok: true, authenticated: true, setupRequired: false },
+    headers: { "Set-Cookie": session.cookie }
+  };
+}
+
+async function saveCmsBlock(body) {
+  const blockId = String(body.blockId || "").trim();
+  const rawValue = String(body.rawValue ?? "");
+  const changeNote = String(body.changeNote || "").trim();
+  const content = await readCmsContent();
+  const block = content.blocks?.[blockId];
+  if (!block) throw httpError("Choose a valid CMS content block.", 400);
+  await saveCmsVersion(`before-${blockId}`);
+  block.value = parseCmsBlockValue(block, rawValue);
+  block.updatedAt = new Date().toISOString();
+  content.updatedAt = block.updatedAt;
+  content.history = [
+    {
+      id: randomBytes(8).toString("hex"),
+      blockId,
+      label: block.label,
+      note: changeNote || "Content block updated",
+      changedAt: block.updatedAt
+    },
+    ...(content.history || [])
+  ].slice(0, 80);
+  await writeCmsContent(content);
+  applyCmsContentToRuntime(content);
+  return {
+    ok: true,
+    content,
+    blocks: cmsBlocksForUi(content),
+    versions: await listCmsVersions()
+  };
+}
+
+async function restoreCmsVersion(file) {
+  await saveCmsVersion("before-cms-restore");
+  const restored = JSON.parse(await readFile(safeCmsVersionPath(file), "utf8"));
+  const content = normalizeCmsContent(restored);
+  content.updatedAt = new Date().toISOString();
+  content.history = [
+    {
+      id: randomBytes(8).toString("hex"),
+      blockId: "restore",
+      label: "CMS restore",
+      note: `Restored CMS content from ${path.basename(String(file || ""))}`,
+      changedAt: content.updatedAt
+    },
+    ...(content.history || [])
+  ].slice(0, 80);
+  await writeCmsContent(content);
+  applyCmsContentToRuntime(content);
+  return {
+    ok: true,
+    content,
+    blocks: cmsBlocksForUi(content),
+    versions: await listCmsVersions()
+  };
+}
+
+async function readCmsContent() {
+  try {
+    return normalizeCmsContent(JSON.parse(await readFile(cmsContentPath, "utf8")));
+  } catch {
+    const content = defaultCmsContent();
+    await writeCmsContent(content);
+    return content;
+  }
+}
+
+async function writeCmsContent(content) {
+  await mkdir(path.dirname(cmsContentPath), { recursive: true });
+  await writeFile(cmsContentPath, `${JSON.stringify(content, null, 2)}\n`, "utf8");
+}
+
+function defaultCmsContent() {
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: 1,
+    updatedAt: now,
+    blocks: {
+      defaultScInstructions: cmsTextBlock("Default SC Instructions", "The baseline guidance pre-filled into the Prep screen.", defaultScInstructions(), now),
+      helperIntro: cmsTextBlock("How The Helper Works Intro", "The short explanation shown on the Prep page.", helperIntroText(), now),
+      helperSteps: cmsJsonBlock("How The Helper Works Steps", "The explanation steps shown on the Prep page.", helperSteps(), now),
+      demoStrategies: cmsJsonBlock("Demo Strategies", "Selectable demo strategy playbooks and behavior rules.", demoStrategies, now),
+      industryPlaybooks: cmsJsonBlock("Industry Playbooks", "Industry-specific terminology, KPIs, workflows, pain points, and avoid rules.", industryPlaybooks, now),
+      targetAudiences: cmsJsonBlock("Target Audiences", "Company-size/segment playbooks such as Startup, Mid-Market, and Enterprise.", demoAudienceConfiguration.targetAudiences, now),
+      audienceTypes: cmsJsonBlock("Audience Types", "Stakeholder/audience type playbooks such as Prospect, Executive, Technical, Customer, and Marketing.", demoAudienceConfiguration.audienceTypes, now),
+      recommendedContextVariables: cmsJsonBlock("Recommended Context Variables", "Discovery variables the helper should consider.", demoAudienceConfiguration.recommendedContextVariables, now),
+      recommendedDemoGoals: cmsJsonBlock("Recommended Demo Goals", "Demo goal options used by audience guidance.", demoAudienceConfiguration.recommendedDemoGoals, now),
+      manifestDemoModes: cmsJsonBlock("Manifest Demo Options", "Plain demo versus customer-story behavior.", manifestDemoModes, now),
+      outputLanguages: cmsJsonBlock("Output Languages", "Language choices available in Prep.", outputLanguages, now)
+    },
+    history: []
+  };
+}
+
+function normalizeCmsContent(content) {
+  const defaults = defaultCmsContent();
+  const normalized = {
+    ...defaults,
+    ...content,
+    blocks: { ...defaults.blocks, ...(content?.blocks || {}) },
+    history: Array.isArray(content?.history) ? content.history : []
+  };
+  for (const [id, fallback] of Object.entries(defaults.blocks)) {
+    const existing = normalized.blocks[id] || {};
+    normalized.blocks[id] = {
+      id,
+      kind: fallback.kind,
+      label: fallback.label,
+      description: fallback.description,
+      value: existing.value ?? fallback.value,
+      updatedAt: existing.updatedAt || fallback.updatedAt
+    };
+  }
+  return normalized;
+}
+
+function cmsTextBlock(label, description, value, updatedAt) {
+  return { id: "", kind: "text", label, description, value: String(value || ""), updatedAt };
+}
+
+function cmsJsonBlock(label, description, value, updatedAt) {
+  return { id: "", kind: "json", label, description, value: structuredClone(value), updatedAt };
+}
+
+function cmsBlocksForUi(content) {
+  return Object.entries(content.blocks || {}).map(([id, block]) => ({
+    id,
+    kind: block.kind,
+    label: block.label,
+    description: block.description,
+    updatedAt: block.updatedAt,
+    value: block.value
+  }));
+}
+
+function parseCmsBlockValue(block, rawValue) {
+  if (block.kind === "text") {
+    const value = String(rawValue || "").trim();
+    if (!value) throw httpError("Text content cannot be blank.", 400);
+    return value;
+  }
+  try {
+    const parsed = JSON.parse(rawValue);
+    validateCmsJsonBlock(block, parsed);
+    return parsed;
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw httpError(`Invalid JSON: ${error.message}`, 400);
+  }
+}
+
+function validateCmsJsonBlock(block, value) {
+  const id = block.id;
+  if (["demoStrategies", "industryPlaybooks", "targetAudiences", "audienceTypes", "manifestDemoModes", "helperSteps"].includes(id)) {
+    if (!Array.isArray(value)) throw httpError(`${block.label} must be a JSON array.`, 400);
+    for (const item of value) {
+      if (!item || typeof item !== "object") throw httpError(`${block.label} entries must be objects.`, 400);
+      if (id === "helperSteps") {
+        if (!item.title || !item.body) throw httpError("Each helper step needs title and body.", 400);
+      } else if (!item.id || !item.label) {
+        throw httpError(`Each ${block.label} entry needs id and label.`, 400);
+      }
+    }
+  }
+  if (["recommendedContextVariables", "recommendedDemoGoals"].includes(id) && !Array.isArray(value)) {
+    throw httpError(`${block.label} must be a JSON array.`, 400);
+  }
+  if (id === "outputLanguages" && (!value || typeof value !== "object" || Array.isArray(value))) {
+    throw httpError("Output Languages must be a JSON object keyed by language code.", 400);
+  }
+}
+
+function applyCmsContentToRuntime(content) {
+  const blocks = content.blocks || {};
+  defaultScInstructionsOverride = String(blocks.defaultScInstructions?.value || "").trim();
+  helperIntroOverride = String(blocks.helperIntro?.value || "").trim();
+  helperStepsOverride = Array.isArray(blocks.helperSteps?.value) ? structuredClone(blocks.helperSteps.value) : null;
+  if (Array.isArray(blocks.demoStrategies?.value)) demoStrategies = structuredClone(blocks.demoStrategies.value);
+  if (Array.isArray(blocks.industryPlaybooks?.value)) industryPlaybooks = structuredClone(blocks.industryPlaybooks.value);
+  if (Array.isArray(blocks.manifestDemoModes?.value)) manifestDemoModes = structuredClone(blocks.manifestDemoModes.value);
+  if (blocks.outputLanguages?.value && typeof blocks.outputLanguages.value === "object" && !Array.isArray(blocks.outputLanguages.value)) {
+    outputLanguages = structuredClone(blocks.outputLanguages.value);
+  }
+  demoAudienceConfiguration = {
+    ...demoAudienceConfiguration,
+    targetAudiences: Array.isArray(blocks.targetAudiences?.value) ? structuredClone(blocks.targetAudiences.value) : demoAudienceConfiguration.targetAudiences,
+    audienceTypes: Array.isArray(blocks.audienceTypes?.value) ? structuredClone(blocks.audienceTypes.value) : demoAudienceConfiguration.audienceTypes,
+    recommendedContextVariables: Array.isArray(blocks.recommendedContextVariables?.value) ? structuredClone(blocks.recommendedContextVariables.value) : demoAudienceConfiguration.recommendedContextVariables,
+    recommendedDemoGoals: Array.isArray(blocks.recommendedDemoGoals?.value) ? structuredClone(blocks.recommendedDemoGoals.value) : demoAudienceConfiguration.recommendedDemoGoals
+  };
+}
+
+async function saveCmsVersion(label) {
+  await mkdir(cmsVersionsDir, { recursive: true });
+  const content = await readCmsContent();
+  const stamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+  const safeLabel = String(label || "cms-version").replace(/[^a-z0-9-]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
+  const file = `${stamp}-${safeLabel}.json`;
+  await writeFile(path.join(cmsVersionsDir, file), `${JSON.stringify(content, null, 2)}\n`, "utf8");
+  return file;
+}
+
+async function listCmsVersions() {
+  await mkdir(cmsVersionsDir, { recursive: true });
+  return (await readdir(cmsVersionsDir)).filter((file) => file.endsWith(".json")).sort().reverse();
+}
+
+function safeCmsVersionPath(file) {
+  const clean = path.basename(String(file || ""));
+  if (!clean.endsWith(".json")) throw httpError("Choose a JSON CMS version.", 400);
+  return path.join(cmsVersionsDir, clean);
+}
+
+async function cmsAdminExists() {
+  try {
+    await readFile(cmsAdminPath, "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readCmsAdmin() {
+  try {
+    return JSON.parse(await readFile(cmsAdminPath, "utf8"));
+  } catch {
+    throw httpError("Set up the CMS admin password first.", 401);
+  }
+}
+
+function assertStrongCmsPassword(password) {
+  if (password.length < 12) throw httpError("Use an admin password of at least 12 characters.", 400);
+}
+
+async function hashCmsPassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  const derived = await scryptAsync(password, salt, 64);
+  return {
+    algorithm: "scrypt",
+    salt,
+    hash: Buffer.from(derived).toString("hex")
+  };
+}
+
+async function verifyCmsPassword(password, record) {
+  if (!record?.salt || !record?.hash) return false;
+  const derived = Buffer.from(await scryptAsync(password, record.salt, 64));
+  const expected = Buffer.from(record.hash, "hex");
+  return expected.length === derived.length && timingSafeEqual(expected, derived);
+}
+
+async function createCmsSession(request) {
+  const token = randomBytes(32).toString("base64url");
+  const now = Date.now();
+  const sessions = await readCmsSessions();
+  const tokenHash = hashToken(token);
+  sessions[tokenHash] = {
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 8 * 60 * 60 * 1000).toISOString()
+  };
+  await writeCmsSessions(pruneCmsSessions(sessions));
+  return { cookie: cmsSessionCookie(token, request) };
+}
+
+async function isCmsAuthenticated(request) {
+  try {
+    await requireCmsAuth(request);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function requireCmsAuth(request) {
+  const token = parseCookies(request.headers.cookie).nsdh_admin_session;
+  if (!token) throw httpError("CMS login required.", 401);
+  const sessions = pruneCmsSessions(await readCmsSessions());
+  const session = sessions[hashToken(token)];
+  if (!session) throw httpError("CMS login required.", 401);
+  await writeCmsSessions(sessions);
+  return true;
+}
+
+async function destroyCmsSession(request) {
+  const token = parseCookies(request.headers.cookie).nsdh_admin_session;
+  if (!token) return;
+  const sessions = await readCmsSessions();
+  delete sessions[hashToken(token)];
+  await writeCmsSessions(sessions);
+}
+
+async function readCmsSessions() {
+  try {
+    return JSON.parse(await readFile(cmsSessionsPath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+async function writeCmsSessions(sessions) {
+  await mkdir(path.dirname(cmsSessionsPath), { recursive: true });
+  await writeFile(cmsSessionsPath, `${JSON.stringify(sessions, null, 2)}\n`, "utf8");
+}
+
+function pruneCmsSessions(sessions) {
+  const now = Date.now();
+  return Object.fromEntries(Object.entries(sessions || {}).filter(([, session]) => Date.parse(session.expiresAt || "") > now));
+}
+
+function cmsSessionCookie(token, request) {
+  const secure = request.headers["x-forwarded-proto"] === "https" || request.socket.encrypted;
+  return [
+    `nsdh_admin_session=${token}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Strict",
+    "Max-Age=28800",
+    secure ? "Secure" : ""
+  ].filter(Boolean).join("; ");
+}
+
+function clearCmsSessionCookie() {
+  return "nsdh_admin_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0";
+}
+
+function parseCookies(cookieHeader = "") {
+  return Object.fromEntries(String(cookieHeader || "").split(";").map((part) => {
+    const [name, ...rest] = part.trim().split("=");
+    return [name, rest.join("=")];
+  }).filter(([name]) => name));
+}
+
+function hashToken(token) {
+  return createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+function httpError(message, statusCode = 500) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
 }
 
 async function readManifest() {
@@ -701,6 +1141,7 @@ function slugify(value) {
 }
 
 function defaultScInstructions() {
+  if (defaultScInstructionsOverride) return defaultScInstructionsOverride;
   return [
     "Lead with the audience's business problem and desired outcome before showing screens.",
     "Start with a short general or executive NetSuite overview, then move from the highest-value proof moments to supporting detail.",
@@ -719,6 +1160,27 @@ function defaultScInstructions() {
     "Avoid showing unconfigured areas, risky transactions, preference saves, or anything that could distract from the core story.",
     "If a page takes time to load, narrate the business reason for the next step instead of filling the silence with product trivia."
   ].join("\n");
+}
+
+function helperIntroText() {
+  return helperIntroOverride || "The tool uses Codex-style reasoning plus editable SC playbooks to turn company context, discovery notes, audience choices, and demo strategy into practical demo assets.";
+}
+
+function helperSteps() {
+  return helperStepsOverride || [
+    { title: "1. Brief", body: "Add the company site, demo request, discovery notes, and SC instructions." },
+    { title: "2. Shape", body: "Choose audience type, target segment, strategy, industry, language, and story mode." },
+    { title: "3. Learn", body: "The helper interprets the context and infers likely ERP priorities and demo pressure points." },
+    { title: "4. Generate", body: "It creates an editable manifest with navigation, narration, proof points, and safe actions." },
+    { title: "5. Check", body: "The Intelligence tab scores risk, discovery gaps, pacing, stakeholders, and winning moments." },
+    { title: "6. Coach", body: "The SC guide gives the demo story, talk track, setup prompt, and asset prompt." },
+    { title: "7. Rehearse", body: "Rehearsal checks routes, buffers account prep, captures timing, and warms the flow." },
+    { title: "8. Run", body: "The live demo drives NetSuite and narrates with the selected voice engine." }
+  ];
+}
+
+function helperStepsHtml() {
+  return helperSteps().map((step) => `<div class="step"><strong>${escapeHtml(step.title)}</strong><span>${escapeHtml(step.body)}</span></div>`).join("");
 }
 
 async function readScGuide() {
@@ -3600,8 +4062,8 @@ function stopCurrentRun() {
   return { ok: true, stopped: true, message: "Stop requested." };
 }
 
-function json(response, payload, status = 200) {
-  response.writeHead(status, { "content-type": "application/json" });
+function json(response, payload, status = 200, headers = {}) {
+  response.writeHead(status, { "content-type": "application/json", ...headers });
   response.end(JSON.stringify(payload));
 }
 
@@ -4126,6 +4588,39 @@ function html(response) {
     body.night .advisory {
       background: #281713;
     }
+    .cms-auth-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .cms-editor-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, .36fr) minmax(0, 1fr);
+      gap: 16px;
+      margin-top: 14px;
+    }
+    #cmsEditor {
+      min-height: 52vh;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .cms-history {
+      max-height: 260px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfcfd;
+      margin-top: 10px;
+    }
+    body.night .cms-history { background: #0b1218; }
+    .cms-history-item {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .cms-history-item:last-child { border-bottom: 0; }
     .tabs {
       display: flex;
       gap: 8px;
@@ -4497,7 +4992,9 @@ function html(response) {
       .field-grid { grid-template-columns: 1fr; }
       .intelligence-overview-grid,
       .intel-summary,
-      .priority-intelligence-grid { grid-template-columns: 1fr; }
+      .priority-intelligence-grid,
+      .cms-auth-grid,
+      .cms-editor-grid { grid-template-columns: 1fr; }
       .steps { grid-template-columns: 1fr 1fr; }
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
     }
@@ -4519,6 +5016,7 @@ function html(response) {
     <button class="tab" data-tab="intelligence" data-help="Review demo quality, risks, discovery gaps, stakeholder coverage, winning moments, and coaching recommendations.">Intelligence</button>
     <button class="tab" data-tab="manifest" data-help="Review or edit the detailed automation manifest that drives the demo.">Manifest</button>
     <button class="tab" data-tab="run" data-help="Open NetSuite, dry run, rehearse, run the live demo, or stop an active run.">Run</button>
+    <button class="tab" data-tab="admin" data-help="Protected CMS area for editing shared helper text and playbooks with version history.">Admin CMS</button>
   </nav>
   <main>
     <section class="screen active" id="screen-prep">
@@ -4662,17 +5160,10 @@ function html(response) {
 
         <div class="panel full prep-how">
           <h2>How NetSuite Demo Helper Works</h2>
-          <p class="hint">The tool uses Codex-style reasoning plus hardcoded SC playbooks to turn company context, discovery notes, audience choices, and demo strategy into practical demo assets.</p>
+          <p class="hint">${escapeHtml(helperIntroText())}</p>
           <p class="hint">Current version: local SC workspace. Target version: standalone NSDemoHelper app for Mac and Windows, with update checks from GitHub releases.</p>
           <div class="steps">
-            <div class="step"><strong>1. Brief</strong><span>Add the company site, demo request, discovery notes, and SC instructions.</span></div>
-            <div class="step"><strong>2. Shape</strong><span>Choose audience type, target segment, strategy, industry, language, and story mode.</span></div>
-            <div class="step"><strong>3. Learn</strong><span>The helper interprets the context and infers likely ERP priorities and demo pressure points.</span></div>
-            <div class="step"><strong>4. Generate</strong><span>It creates an editable manifest with navigation, narration, proof points, and safe actions.</span></div>
-            <div class="step"><strong>5. Check</strong><span>The Intelligence tab scores risk, discovery gaps, pacing, stakeholders, and winning moments.</span></div>
-            <div class="step"><strong>6. Coach</strong><span>The SC guide gives the demo story, talk track, setup prompt, and asset prompt.</span></div>
-            <div class="step"><strong>7. Rehearse</strong><span>Rehearsal checks routes, buffers account prep, captures timing, and warms the flow.</span></div>
-            <div class="step"><strong>8. Run</strong><span>The live demo drives NetSuite and narrates with the selected voice engine.</span></div>
+            ${helperStepsHtml()}
           </div>
         </div>
       </div>
@@ -4831,6 +5322,76 @@ function html(response) {
         </div>
       </div>
     </section>
+
+    <section class="screen" id="screen-admin">
+      <div class="grid">
+        <div class="panel full">
+          <h2>Admin CMS</h2>
+          <p class="hint">Protected local admin area for changing the helper's built-in guidance, playbooks, labels, and explanatory text. Passwords are stored as salted scrypt hashes and every CMS save creates a rollback version.</p>
+          <div class="cms-auth-grid" id="cmsAuthArea">
+            <div class="analysis-item" id="cmsSetupPanel" hidden>
+              <strong>Create Admin Login</strong>
+              <p class="hint">First run only. Use a password of at least 12 characters. It is stored locally as a salted hash, not as plain text.</p>
+              <label for="cmsSetupPassword">Admin password</label>
+              <input id="cmsSetupPassword" type="password" autocomplete="new-password">
+              <label for="cmsSetupPasswordConfirm">Confirm password</label>
+              <input id="cmsSetupPasswordConfirm" type="password" autocomplete="new-password">
+              <div class="row" style="margin-top:10px">
+                <button id="cmsSetupButton">Create Admin Login</button>
+              </div>
+            </div>
+            <div class="analysis-item" id="cmsLoginPanel" hidden>
+              <strong>Login</strong>
+              <p class="hint">Login unlocks editing for this local browser session. Sessions expire automatically.</p>
+              <label for="cmsLoginPassword">Admin password</label>
+              <input id="cmsLoginPassword" type="password" autocomplete="current-password">
+              <div class="row" style="margin-top:10px">
+                <button id="cmsLoginButton">Login</button>
+              </div>
+            </div>
+            <div class="analysis-item" id="cmsSessionPanel" hidden>
+              <strong>CMS unlocked</strong>
+              <p class="hint" id="cmsSecuritySummary">Content editing is available.</p>
+              <div class="row" style="margin-top:10px">
+                <button class="secondary" id="cmsReloadButton">Reload CMS</button>
+                <button class="secondary" id="cmsLogoutButton">Logout</button>
+              </div>
+            </div>
+          </div>
+          <p class="hint" id="cmsStatus">CMS status will appear here.</p>
+        </div>
+
+        <div class="panel full" id="cmsEditorPanel" hidden>
+          <h2>Content Editor</h2>
+          <div class="cms-editor-grid">
+            <div>
+              <label for="cmsBlockSelect">Content block</label>
+              <select id="cmsBlockSelect"></select>
+              <p class="hint" id="cmsBlockDescription"></p>
+              <label for="cmsChangeNote">Change note</label>
+              <input id="cmsChangeNote" placeholder="Example: tighten enterprise demo guidance">
+              <div class="row" style="margin-top:10px">
+                <button id="cmsSaveButton">Save Content Block</button>
+              </div>
+              <div class="band">
+                <label for="cmsVersionSelect">Restore older CMS version</label>
+                <select id="cmsVersionSelect"></select>
+                <div class="row" style="margin-top:10px">
+                  <button class="secondary" id="cmsRestoreButton">Restore Selected Version</button>
+                </div>
+                <p class="hint">Restoring also creates a backup of the current CMS content first.</p>
+              </div>
+              <div class="cms-history" id="cmsHistory"></div>
+            </div>
+            <div>
+              <label for="cmsEditor">Editable content</label>
+              <textarea id="cmsEditor" spellcheck="false"></textarea>
+              <p class="hint" id="cmsEditorHint">Text blocks save as plain text. Playbook blocks save as JSON and are validated before they become active.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
   <div id="buttonHelpTooltip" class="help-tooltip" role="tooltip"></div>
   <script>
@@ -4867,6 +5428,18 @@ function html(response) {
     const topicField = document.getElementById("topic");
     const preDemoNotesField = document.getElementById("preDemoNotes");
     const buttonHelpTooltip = document.getElementById("buttonHelpTooltip");
+    const cmsSetupPanel = document.getElementById("cmsSetupPanel");
+    const cmsLoginPanel = document.getElementById("cmsLoginPanel");
+    const cmsSessionPanel = document.getElementById("cmsSessionPanel");
+    const cmsEditorPanel = document.getElementById("cmsEditorPanel");
+    const cmsStatus = document.getElementById("cmsStatus");
+    const cmsBlockSelect = document.getElementById("cmsBlockSelect");
+    const cmsBlockDescription = document.getElementById("cmsBlockDescription");
+    const cmsChangeNote = document.getElementById("cmsChangeNote");
+    const cmsEditor = document.getElementById("cmsEditor");
+    const cmsVersionSelect = document.getElementById("cmsVersionSelect");
+    const cmsHistory = document.getElementById("cmsHistory");
+    const cmsSecuritySummary = document.getElementById("cmsSecuritySummary");
     const audienceTypeConfig = ${JSON.stringify(demoAudienceConfiguration.audienceTypes)};
     const targetAudienceConfig = ${JSON.stringify(demoAudienceConfiguration.targetAudiences)};
     const demoStrategyConfig = ${JSON.stringify(demoStrategies)};
@@ -4881,6 +5454,7 @@ function html(response) {
     let runInProgress = false;
     let latestSetupPrompt = null;
     let latestIntelligence = null;
+    let cmsBlocks = [];
     const heatmapPages = { demo: 0, notes: 0 };
     let helpTimer = null;
     let helpTarget = null;
@@ -4903,6 +5477,73 @@ function html(response) {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Request failed");
       return payload;
+    }
+
+    async function loadCmsStatus() {
+      try {
+        const payload = await api("/api/cms/status");
+        renderCmsAuth(payload);
+        if (payload.authenticated) await loadCmsContent();
+      } catch (error) {
+        cmsStatus.textContent = error.message;
+      }
+    }
+
+    function renderCmsAuth(payload) {
+      cmsSetupPanel.hidden = !payload.setupRequired;
+      cmsLoginPanel.hidden = payload.setupRequired || payload.authenticated;
+      cmsSessionPanel.hidden = !payload.authenticated;
+      cmsEditorPanel.hidden = !payload.authenticated;
+      cmsStatus.textContent = payload.setupRequired
+        ? "Create the local CMS admin password before editing shared content."
+        : payload.authenticated
+          ? "CMS unlocked. Choose a content block, edit it, and save with a short change note."
+          : "Login required before CMS content can be edited.";
+      const security = payload.security || {};
+      cmsSecuritySummary.textContent = [security.passwordStorage, security.session, security.versioning].filter(Boolean).join(" | ");
+    }
+
+    async function loadCmsContent() {
+      const payload = await api("/api/cms");
+      renderCms(payload);
+    }
+
+    function renderCms(payload) {
+      cmsBlocks = payload.blocks || [];
+      const previous = cmsBlockSelect.value;
+      cmsBlockSelect.innerHTML = cmsBlocks.map((block) => "<option value='" + escapeClientHtml(block.id) + "'>" + escapeClientHtml(block.label) + "</option>").join("");
+      if (previous && cmsBlocks.some((block) => block.id === previous)) cmsBlockSelect.value = previous;
+      renderSelectedCmsBlock();
+      cmsVersionSelect.innerHTML = (payload.versions || []).length
+        ? payload.versions.map((file) => "<option value='" + escapeClientHtml(file) + "'>" + escapeClientHtml(file) + "</option>").join("")
+        : "<option value=''>No CMS versions yet</option>";
+      cmsHistory.innerHTML = (payload.content?.history || []).slice(0, 12).map((item) =>
+        "<div class='cms-history-item'><strong>" + escapeClientHtml(item.label || item.blockId) + "</strong><br>" +
+        escapeClientHtml(item.note || "Updated") + "<br><span>" + escapeClientHtml(item.changedAt || "") + "</span></div>"
+      ).join("") || "<p class='hint'>No CMS changes yet.</p>";
+    }
+
+    function renderSelectedCmsBlock() {
+      const block = cmsBlocks.find((item) => item.id === cmsBlockSelect.value) || cmsBlocks[0];
+      if (!block) {
+        cmsEditor.value = "";
+        cmsBlockDescription.textContent = "";
+        return;
+      }
+      cmsBlockSelect.value = block.id;
+      cmsBlockDescription.textContent = block.description + " Last updated: " + (block.updatedAt || "never");
+      cmsEditor.value = block.kind === "json"
+        ? JSON.stringify(block.value, null, 2)
+        : String(block.value || "");
+      document.getElementById("cmsEditorHint").textContent = block.kind === "json"
+        ? "This block is JSON. The app validates the structure before it becomes active."
+        : "This block is plain text. It cannot be saved blank.";
+    }
+
+    function reloadAfterCmsChange(message) {
+      cmsStatus.textContent = message + " Reloading the app so the updated CMS content is used everywhere.";
+      sessionStorage.setItem("nsdhActiveTab", "admin");
+      setTimeout(() => window.location.reload(), 600);
     }
 
     function setStatus(text) {
@@ -5537,11 +6178,13 @@ function html(response) {
     }
 
     document.querySelectorAll(".tab").forEach((button) => {
-      button.onclick = () => {
+      button.onclick = async () => {
         document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
         document.querySelectorAll(".screen").forEach((screen) => screen.classList.remove("active"));
         button.classList.add("active");
         document.getElementById("screen-" + button.dataset.tab).classList.add("active");
+        sessionStorage.setItem("nsdhActiveTab", button.dataset.tab);
+        if (button.dataset.tab === "admin") await loadCmsStatus();
       };
     });
 
@@ -5558,6 +6201,73 @@ function html(response) {
     document.getElementById("reloadManifest").onclick = load;
     document.getElementById("refreshGuide").onclick = loadGuide;
     document.getElementById("refreshIntelligence").onclick = loadIntelligence;
+    cmsBlockSelect.onchange = renderSelectedCmsBlock;
+    document.getElementById("cmsSetupButton").onclick = async () => {
+      const password = document.getElementById("cmsSetupPassword").value;
+      const confirmPassword = document.getElementById("cmsSetupPasswordConfirm").value;
+      if (password !== confirmPassword) {
+        cmsStatus.textContent = "Passwords do not match.";
+        return;
+      }
+      try {
+        await api("/api/cms/setup", { method: "POST", body: JSON.stringify({ password }) });
+        document.getElementById("cmsSetupPassword").value = "";
+        document.getElementById("cmsSetupPasswordConfirm").value = "";
+        await loadCmsStatus();
+      } catch (error) {
+        cmsStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("cmsLoginButton").onclick = async () => {
+      try {
+        await api("/api/cms/login", {
+          method: "POST",
+          body: JSON.stringify({ password: document.getElementById("cmsLoginPassword").value })
+        });
+        document.getElementById("cmsLoginPassword").value = "";
+        await loadCmsStatus();
+      } catch (error) {
+        cmsStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("cmsLogoutButton").onclick = async () => {
+      try {
+        await api("/api/cms/logout", { method: "POST", body: "{}" });
+        cmsBlocks = [];
+        renderCmsAuth({ setupRequired: false, authenticated: false, security: {} });
+      } catch (error) {
+        cmsStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("cmsReloadButton").onclick = loadCmsContent;
+    document.getElementById("cmsSaveButton").onclick = async () => {
+      try {
+        await api("/api/cms/save", {
+          method: "POST",
+          body: JSON.stringify({
+            blockId: cmsBlockSelect.value,
+            rawValue: cmsEditor.value,
+            changeNote: cmsChangeNote.value
+          })
+        });
+        reloadAfterCmsChange("CMS content saved.");
+      } catch (error) {
+        cmsStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("cmsRestoreButton").onclick = async () => {
+      if (!cmsVersionSelect.value) return;
+      if (!window.confirm("Restore this older CMS version? A backup of the current CMS content will be created first.")) return;
+      try {
+        await api("/api/cms/restore", {
+          method: "POST",
+          body: JSON.stringify({ file: cmsVersionSelect.value })
+        });
+        reloadAfterCmsChange("CMS version restored.");
+      } catch (error) {
+        cmsStatus.textContent = error.message;
+      }
+    };
     document.getElementById("createFollowUps").onclick = async () => {
       setBusy(true);
       try {
@@ -5817,6 +6527,10 @@ function html(response) {
         await loadVoices();
         await load();
       await loadGuide();
+      const activeTab = sessionStorage.getItem("nsdhActiveTab");
+      if (activeTab && document.querySelector('.tab[data-tab="' + activeTab + '"]')) {
+        document.querySelector('.tab[data-tab="' + activeTab + '"]').click();
+      }
       await pollNarrator();
       setInterval(pollNarrator, 1500);
     })().catch((error) => setStatus(error.message));
