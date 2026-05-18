@@ -500,6 +500,24 @@ const server = http.createServer(async (request, response) => {
       const manifest = await readManifest();
       return json(response, { ok: true, setupPrompt: setupPromptPayload(manifest) });
     }
+    if (request.method === "POST" && request.url === "/api/intelligence/follow-up-questions") {
+      const manifest = await readManifest();
+      const guide = await readOrGenerateScGuide(manifest);
+      const intelligence = demoIntelligencePayload(manifest, guide);
+      return json(response, { ok: true, questions: followUpQuestionsFromIntelligence(intelligence, manifest, guide) });
+    }
+    if (request.method === "POST" && request.url === "/api/intelligence/improve-guide") {
+      const manifest = await readManifest();
+      const guide = await readOrGenerateScGuide(manifest);
+      const intelligence = demoIntelligencePayload(manifest, guide);
+      const improvedGuide = await writeImprovedScGuide(manifest, guide, intelligence);
+      return json(response, {
+        ok: true,
+        guide: improvedGuide,
+        guideOutputs: guideOutputsPayload(manifest, improvedGuide),
+        intelligence: demoIntelligencePayload(manifest, improvedGuide)
+      });
+    }
     if (request.method === "GET" && request.url === "/api/narrator-state") return json(response, await readNarratorState());
     if (request.method === "GET" && request.url?.startsWith("/api/download/")) {
       const fileName = decodeURIComponent(path.basename(request.url.replace("/api/download/", "")));
@@ -519,16 +537,29 @@ const server = http.createServer(async (request, response) => {
       return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest), intelligence: demoIntelligencePayload(parsedManifest, guide) });
     }
 
+    if (request.method === "POST" && request.url === "/api/manifest/from-guide") {
+      await saveVersion("before-manifest-from-guide");
+      const manifest = await readManifest();
+      const guide = await readOrGenerateScGuide(manifest);
+      const nextManifest = applyGuideToRunnableManifest(manifest, guide);
+      await writeFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`, "utf8");
+      const namedManifestPath = await writeNamedManifestCopy(nextManifest);
+      return json(response, { ok: true, manifest: nextManifest, versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(nextManifest, guide), setupPrompt: setupPromptPayload(nextManifest), intelligence: demoIntelligencePayload(nextManifest, guide) });
+    }
+
     if (request.method === "POST" && request.url === "/api/learn") {
       const body = await readBody(request);
       await saveVersion("before-learn");
       const manifest = await readManifest();
       const company = await analyseCompany(body.companyUrl, notesForCompanyAnalysis(body));
       const learned = applyLearningRequest(manifest, body, company);
-      await writeFile(manifestPath, `${JSON.stringify(learned, null, 2)}\n`, "utf8");
-      const namedManifestPath = await writeNamedManifestCopy(learned);
       const guide = await writeScGuide(learned, body, company);
-      return json(response, { ok: true, manifest: learned, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(learned, guide), namedManifestPath, setupPrompt: setupPromptPayload(learned), intelligence: demoIntelligencePayload(learned, guide) });
+      const finalManifest = body.createRunnableManifest
+        ? applyGuideToRunnableManifest(learned, guide)
+        : markManifestGuideOnly(learned);
+      await writeFile(manifestPath, `${JSON.stringify(finalManifest, null, 2)}\n`, "utf8");
+      const namedManifestPath = await writeNamedManifestCopy(finalManifest);
+      return json(response, { ok: true, manifest: finalManifest, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(finalManifest, guide), namedManifestPath, setupPrompt: setupPromptPayload(finalManifest), intelligence: demoIntelligencePayload(finalManifest, guide), runnableManifestCreated: Boolean(body.createRunnableManifest) });
     }
 
     if (request.method === "POST" && request.url === "/api/restore") {
@@ -1780,6 +1811,173 @@ async function writeScGuide(manifest, body, company) {
   return guide;
 }
 
+async function writeImprovedScGuide(manifest, guide, intelligence) {
+  const improved = improveScGuideWithIntelligence(guide, intelligence);
+  await mkdir(path.dirname(scGuidePath), { recursive: true });
+  await writeFile(scGuidePath, improved, "utf8");
+  const archiveDir = path.join(projectRoot, "artifacts/sc-guides");
+  await mkdir(archiveDir, { recursive: true });
+  const stamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+  await writeFile(path.join(archiveDir, `${stamp}-${companyFileSlug(manifest)}-improved-sc-guide.md`), improved, "utf8");
+  return improved;
+}
+
+function improveScGuideWithIntelligence(guide, intelligence) {
+  const baseGuide = stripMarkdownSection(guide, "Intelligence Improvements To Apply");
+  const risk = intelligence.demo_risk_analyzer || {};
+  const notes = intelligence.pre_demo_notes_analyzer || {};
+  const demoHeatmap = intelligence.demo_heatmap_analyzer || {};
+  const avoid = intelligence.what_not_to_demo_engine || {};
+  const timing = intelligence.demo_timing_pacing_analyzer || {};
+  const winning = intelligence.winning_moment_detection || {};
+  const questions = followUpQuestionsFromIntelligence(intelligence);
+  const improvementSection = `## Intelligence Improvements To Apply
+
+### Follow-Up Discovery Questions
+
+${questions}
+
+### SC Guide Improvements
+
+${[
+  ...(risk.recommendations || []).slice(0, 5),
+  ...(demoHeatmap.needs_work_areas || []).slice(0, 4).map((area) => `Strengthen this area in the story: ${area}.`),
+  ...(notes.recommendations || []).slice(0, 4),
+  timing.overrun_risk !== "low" ? `Pre-select a cut path because timing risk is ${timing.overrun_risk}.` : "",
+  ...(winning.details || []).slice(0, 3).map((item) => `Slow down during "${item.moment}" and land this proof: ${item.why_it_lands}`)
+].filter(Boolean).map((item) => `- ${item}`).join("\n")}
+
+### Demo Guardrails
+
+${(avoid.avoid_showing || []).slice(0, 8).map((item) => `- ${item}`).join("\n") || "- Keep the live path aligned to the selected audience, strategy, and scope."}
+`;
+
+  return `${baseGuide.trim()}\n\n${improvementSection}\n`;
+}
+
+function stripMarkdownSection(markdown, heading) {
+  const lines = String(markdown || "").split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === `## ${heading}`);
+  if (start < 0) return String(markdown || "");
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (lines[index].startsWith("## ")) {
+      end = index;
+      break;
+    }
+  }
+  return [...lines.slice(0, start), ...lines.slice(end)].join("\n").trim();
+}
+
+function followUpQuestionsFromIntelligence(intelligence) {
+  const discovery = intelligence.discovery_gap_analyzer || {};
+  const notes = intelligence.pre_demo_notes_analyzer || {};
+  const demoHeatmap = intelligence.demo_heatmap_analyzer || {};
+  const risk = intelligence.demo_risk_analyzer || {};
+  const questions = uniqueItems([
+    ...(discovery.recommended_follow_up_questions || []),
+    ...(notes.risk_areas || []).slice(0, 4).map((area) => followUpQuestionForRiskArea(area)),
+    ...(demoHeatmap.needs_work_areas || []).slice(0, 4).map((area) => `What discovery detail would help us strengthen ${area.toLowerCase()} in the demo story?`),
+    ...(risk.warnings || []).slice(0, 3).map((warning) => `What should we clarify to reduce this demo risk: ${warning}`)
+  ]).filter(Boolean);
+
+  return questions.length
+    ? questions.slice(0, 12).map((question, index) => `${index + 1}. ${question}`).join("\n")
+    : "1. What is the single business outcome the audience must believe after the demo?\n2. Which stakeholder has the most influence over the next step?\n3. What current-system pain should the opening story make visible?";
+}
+
+function followUpQuestionForRiskArea(area) {
+  const questions = {
+    "Current systems": "Which systems, spreadsheets, and workarounds are used today, and where does the process break first?",
+    "Business pain": "What is the most expensive or visible pain the demo must prove NetSuite can improve?",
+    "Stakeholders and roles": "Who will attend the demo, what is each person's role, and what does each need to believe?",
+    "Success criteria": "How will the customer measure whether this project and demo were successful?",
+    "Scope clarity": "What is definitely in scope for this demo, what is phase 2, and what should be parked for Q&A?",
+    "Process detail": "Which exact process should the demo story follow from start to finish?",
+    "Technical and integration context": "Which systems must integrate with NetSuite, and which technical topics should stay in Q&A?",
+    "Timeline and urgency": "What date, event, audit, or business pressure makes this project urgent now?",
+    "Risks and constraints": "Which compliance, country, language, approval, or reporting constraints could derail confidence?",
+    "Competitive or decision context": "What other options are they comparing against, and what would make NetSuite the safer choice?"
+  };
+  return questions[area] || `What discovery detail is missing for ${String(area || "this risk area").toLowerCase()}?`;
+}
+
+function markManifestGuideOnly(manifest) {
+  const next = structuredClone(manifest);
+  next.context = next.context || {};
+  next.context.manifestBuild = {
+    status: "guide-ready-manifest-not-built",
+    source: "sc-guide",
+    createdFromGuide: false,
+    updatedAt: new Date().toISOString(),
+    instruction: "The SC guide has been generated. Create the runnable manifest from the guide before relying on the Manifest tab or browser rehearsal."
+  };
+  return next;
+}
+
+function applyGuideToRunnableManifest(manifest, guide) {
+  const next = structuredClone(manifest);
+  const audience = normalizeAudience(next.context?.audience?.value || next.context?.demoRequest?.audience || next.audience);
+  const marketSegment = normalizeMarketSegment(next.context?.targetAudience?.value || next.context?.marketSegment?.value || next.context?.demoRequest?.targetAudience || next.context?.demoRequest?.marketSegment);
+  const demoStrategy = normalizeDemoStrategy(next.context?.demoStrategy?.id || next.context?.demoRequest?.demoStrategy || next.defaults?.demoStrategy);
+  const industry = normalizeIndustry(next.context?.industry?.id || next.context?.demoRequest?.industry || next.defaults?.industry);
+  const demoScope = String(next.context?.demoScope || next.context?.demoRequest?.demoScope || "").trim();
+  const manifestDemoMode = normalizeManifestDemoMode(next.context?.manifestDemoMode?.id || next.context?.demoRequest?.manifestDemoMode || next.defaults?.manifestDemoMode);
+  const flowPrinciples = next.context?.demoPrep || demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry });
+  const company = next.context?.company || {};
+  const runbook = markdownSection(guide, "Personalized Demo Story And Runbook") || guide;
+  next.segments = (next.segments || []).map((segment) => applyRunbookToSegment(segment, runbook));
+  next.segments = prioritizeDemoSegments(ensureOpeningOverviewSegment(next.segments, {
+    company,
+    audience,
+    marketSegment,
+    demoScope,
+    manifestDemoMode,
+    demoStrategy,
+    industry,
+    flowPrinciples
+  }));
+  next.context = next.context || {};
+  next.context.manifestBuild = {
+    status: "runnable-manifest-created",
+    source: "sc-guide",
+    createdFromGuide: true,
+    updatedAt: new Date().toISOString(),
+    instruction: "This manifest was refreshed from the SC guide and is ready for browser dry-run or rehearsal."
+  };
+  return next;
+}
+
+function applyRunbookToSegment(segment, runbook) {
+  const details = runbookDetailsForSegment(runbook, segment.title);
+  if (!details) return segment;
+  return {
+    ...segment,
+    objective: details.storyPurpose || segment.objective,
+    narration: details.whatToSay || segment.narration,
+    valueStatement: details.proofPoint || segment.valueStatement,
+    scTip: details.scTip || segment.scTip
+  };
+}
+
+function runbookDetailsForSegment(runbook, title) {
+  const source = String(runbook || "");
+  const index = source.toLowerCase().indexOf(String(title || "").toLowerCase());
+  if (index < 0) return null;
+  const block = source.slice(index, Math.min(source.length, index + 900));
+  const extract = (label) => {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = block.match(new RegExp(`- ${escaped}:\\s*([^\\n]+)`, "i"));
+    return match?.[1]?.trim() || "";
+  };
+  return {
+    storyPurpose: extract("Story purpose"),
+    whatToSay: extract("What to say"),
+    proofPoint: extract("Proof point to land"),
+    scTip: extract("SC tip")
+  };
+}
+
 function generateScGuide(manifest, body, company) {
   const instructions = String(body.instructions || "").trim() || defaultScInstructions();
   const notes = String(body.preDemoNotes || "").trim() || "No additional pre-demo notes were provided.";
@@ -2315,12 +2513,16 @@ function demoIntelligenceContext(manifest, scGuide = "") {
   const strategy = normalizeDemoStrategy(manifest.context?.demoStrategy?.id || manifest.context?.demoRequest?.demoStrategy || manifest.defaults?.demoStrategy);
   const industry = normalizeIndustry(manifest.context?.industry?.id || manifest.context?.demoRequest?.industry || manifest.defaults?.industry);
   const company = manifest.context?.company || {};
-  const segments = manifest.segments || [];
-  const actions = segments.flatMap((segment) => (segment.actions || []).map((action) => ({ ...action, segmentId: segment.id, segmentTitle: segment.title })));
   const scGuideText = String(scGuide || "");
   const scRunbook = markdownSection(scGuideText, "Personalized Demo Story And Runbook");
   const assetPrompt = markdownSection(scGuideText, "Demo Asset Generation Prompt");
   const setupPrompt = markdownSection(scGuideText, "NetSuite Prep Summary");
+  const manifestFlowReady = manifest.context?.manifestBuild?.createdFromGuide === true;
+  const manifestSegments = manifest.segments || [];
+  const segments = manifestFlowReady ? manifestSegments : guideSegmentsFromRunbook(scRunbook, manifestSegments);
+  const actions = manifestFlowReady
+    ? segments.flatMap((segment) => (segment.actions || []).map((action) => ({ ...action, segmentId: segment.id, segmentTitle: segment.title })))
+    : [];
   const text = [
     manifest.name,
     manifest.audience,
@@ -2337,6 +2539,7 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     company.description,
     ...(company.likelyPriorities || []),
     ...(company.industrySignals || []),
+    manifest.context?.manifestBuild?.status,
     ...segments.flatMap((segment) => [
       segment.title,
       segment.objective,
@@ -2355,6 +2558,7 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     company,
     segments,
     actions,
+    manifestFlowReady,
     text,
     scGuide: scGuideText,
     scGuideLower: scGuideText.toLowerCase(),
@@ -2371,6 +2575,36 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     technicalSignalCount: countKeywordHits(text, ["api", "script", "suitelet", "backend", "configuration", "permission", "role", "workflow", "integration", "saved search", "field", "preference", "setup"]),
     businessSignalCount: countKeywordHits(text, ["roi", "cost", "margin", "cash", "working capital", "risk", "control", "close", "forecast", "faster", "time", "efficiency", "productivity", "visibility", "outcome"])
   };
+}
+
+function guideSegmentsFromRunbook(scRunbook, fallbackSegments = []) {
+  const source = String(scRunbook || "");
+  if (!source.trim()) return fallbackSegments;
+  const matches = Array.from(source.matchAll(/(?:^|\n)(\d+)\.\s+([^\n]+)\n([\s\S]*?)(?=\n\d+\.\s+|\n\nClosing move:|\n\nLanguage note:|$)/g));
+  if (!matches.length) return fallbackSegments;
+  return matches.map((match, index) => {
+    const title = match[2].trim();
+    const block = match[3] || "";
+    const storyPurpose = runbookLine(block, "Story purpose") || runbookLine(block, "Show");
+    const whatToSay = runbookLine(block, "What to say") || runbookLine(block, "Talk track");
+    const proofPoint = runbookLine(block, "Proof point to land") || runbookLine(block, "Why it matters");
+    const fallback = fallbackSegments.find((segment) => segment.title === title || segment.id === slugify(title));
+    return {
+      id: fallback?.id || slugify(title) || `guide-segment-${index + 1}`,
+      title,
+      objective: storyPurpose || fallback?.objective || title,
+      narration: whatToSay || fallback?.narration || storyPurpose || title,
+      valueStatement: proofPoint || fallback?.valueStatement || storyPurpose || title,
+      actions: fallback?.actions || [],
+      valueMoment: fallback?.valueMoment
+    };
+  });
+}
+
+function runbookLine(block, label) {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = String(block || "").match(new RegExp(`- ${escaped}:\\s*([^\\n]+)`, "i"));
+  return match?.[1]?.trim() || "";
 }
 
 function demoRiskAnalysis(context, discovery, stakeholderCoverage, timing, winning) {
@@ -2810,7 +3044,9 @@ function timingAndPacingAnalysis(context) {
       segment: segment.title,
       estimated_minutes: roundOne(estimatedMinutes),
       pacing_risk: actions.length >= 7 || estimatedMinutes >= 4 || /(preference|setup|configuration|custom|admin)/i.test(segment.title) ? "high" : actions.length >= 5 || estimatedMinutes >= 2.6 ? "medium" : "low",
-      basis: `${actions.length} manifest actions, ${narrationWords} narration/proof words${guideWords ? `, ${guideWords} SC guide words` : ""}`
+      basis: context.manifestFlowReady
+        ? `${actions.length} manifest actions, ${narrationWords} narration/proof words${guideWords ? `, ${guideWords} SC guide words` : ""}`
+        : `${narrationWords} SC guide/runbook words. Runnable manifest actions are ignored until the manifest is created from the guide.`
     };
   });
   const estimatedMinutes = roundOne(segmentTimings.reduce((total, item) => total + item.estimated_minutes, 0));
@@ -2825,7 +3061,9 @@ function timingAndPacingAnalysis(context) {
     estimated_runtime: `${Math.round(estimatedMinutes)} minutes`,
     estimated_minutes: estimatedMinutes,
     overrun_risk: overrunRisk,
-    basis: "Estimated from manifest actions, explicit waits/highlights/clicks, narration length, value statements, and matching SC guide runbook text.",
+    basis: context.manifestFlowReady
+      ? "Estimated from runnable manifest actions, explicit waits/highlights/clicks, narration length, value statements, and matching SC guide runbook text."
+      : "Estimated from the SC guide/runbook and prep context. Runnable manifest actions are ignored until the manifest is explicitly created from the guide.",
     section_timing: segmentTimings,
     high_risk_sections: highRiskSections,
     recommended_cuts: uniqueItems(recommendedCuts)
@@ -3234,6 +3472,15 @@ async function runCommand(body) {
     return {
       ...run,
       log: `${prep.log}\n\n${run.log || ""}`
+    };
+  }
+  if (mode === "browser-dry-run") {
+    const prep = await prepareAccountBuffer();
+    const dry = await runProcess("node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--dry-run", "--audio=none", `--value-intensity=${valueIntensity}`]);
+    const open = await runProcess("node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--open-browser"]);
+    return {
+      ok: dry.ok && open.ok,
+      log: `${prep.log}\n\nRunnable manifest dry-run:\n${dry.log || ""}\n\nBrowser launch:\n${open.log || ""}`
     };
   }
 
@@ -4193,9 +4440,9 @@ function html(response) {
     </header>
   <nav class="tabs" aria-label="Workspace screens">
     <button class="tab active" data-tab="prep" data-help="Set up the audience, company context, demo input, notes, voice, and demo value emphasis.">Prep</button>
-    <button class="tab" data-tab="manifest" data-help="Review or edit the detailed automation manifest that drives the demo.">Manifest</button>
     <button class="tab" data-tab="guide" data-help="Review the personalized SC demo story, setup prompt, and export it to Word.">SC Guide</button>
     <button class="tab" data-tab="intelligence" data-help="Review demo quality, risks, discovery gaps, stakeholder coverage, winning moments, and coaching recommendations.">Intelligence</button>
+    <button class="tab" data-tab="manifest" data-help="Review or edit the detailed automation manifest that drives the demo.">Manifest</button>
     <button class="tab" data-tab="run" data-help="Open NetSuite, dry run, rehearse, run the live demo, or stop an active run.">Run</button>
   </nav>
   <main>
@@ -4359,6 +4606,7 @@ function html(response) {
     <section class="screen" id="screen-manifest">
       <div class="row">
         <button id="save" data-help="Saves the JSON currently shown in the manifest editor.">Save Manifest</button>
+        <button class="secondary" id="createManifestFromGuide" data-help="Refreshes the runnable manifest from the current SC guide and marks it ready for browser dry-run.">Create Manifest From SC Guide</button>
         <button class="secondary" id="reloadManifest" data-help="Reloads the saved manifest from disk and discards unsaved editor changes.">Reload Manifest</button>
       </div>
       <label for="manifestEditor">Editable manifest</label>
@@ -4402,11 +4650,16 @@ function html(response) {
 
     <section class="screen" id="screen-intelligence">
       <div class="row">
-        <button class="secondary" id="refreshIntelligence" data-help="Re-analyzes the current manifest and refreshes the coaching view.">Refresh Intelligence</button>
+        <button class="secondary" id="refreshIntelligence" data-help="Re-analyzes the current SC guide, pre-demo notes, audience choices, and runnable manifest status.">Refresh Intelligence</button>
       </div>
       <div class="grid" style="margin-top:12px">
         <div class="panel full">
           <h2>Demo Intelligence Overview</h2>
+          <div class="row">
+            <button class="secondary" id="createFollowUps" data-help="Creates follow-up discovery questions from the Intelligence heatmaps and risk areas.">Create Follow-Up Questions</button>
+            <button id="improveGuideFromIntel" data-help="Updates the SC guide with the Intelligence recommendations and guardrails.">Improve SC Guide</button>
+          </div>
+          <textarea id="intelligenceActionOutput" spellcheck="false" readonly placeholder="Follow-up questions and applied improvements will appear here." style="min-height:130px;margin-top:12px"></textarea>
           <div class="score-grid" id="intelligenceScores"></div>
           <p class="hint" id="intelligencePositioning"></p>
           <div class="score-explainer" id="scoreExplainer"></div>
@@ -4478,6 +4731,7 @@ function html(response) {
           <div class="row">
             <button class="secondary" id="openBrowser" data-help="Opens or reuses the NetSuite browser session so you can sign in before running the demo.">Open NetSuite Browser</button>
             <button class="secondary" data-run="dry" data-help="Checks the planned demo steps without controlling NetSuite or playing audio.">Dry Run</button>
+            <button class="secondary" data-run="browser-dry-run" data-help="Creates the prep buffer, validates the runnable manifest, and opens the NetSuite browser without live narration.">Browser Dry-Run</button>
             <button class="secondary" data-run="rehearse" data-help="Creates an account prep buffer and Codex setup prompt, then runs the browser rehearsal without narration.">Rehearse + Prep Account</button>
             <button data-run="live" data-help="Runs the full NetSuite automation with narrator audio using the selected voice.">Live Demo</button>
             <button class="danger" id="stopRun" disabled data-help="Stops the currently running demo automation.">Stop</button>
@@ -4513,6 +4767,7 @@ function html(response) {
     const setupPrompt = document.getElementById("setupPrompt");
     const setupAccountSummary = document.getElementById("setupAccountSummary");
     const setupItemSummary = document.getElementById("setupItemSummary");
+    const intelligenceActionOutput = document.getElementById("intelligenceActionOutput");
     const voiceSelect = document.getElementById("voiceSelect");
     const voiceProviderSelect = document.getElementById("voiceProvider");
     const voiceProviderHint = document.getElementById("voiceProviderHint");
@@ -5157,6 +5412,33 @@ function html(response) {
     document.getElementById("reloadManifest").onclick = load;
     document.getElementById("refreshGuide").onclick = loadGuide;
     document.getElementById("refreshIntelligence").onclick = loadIntelligence;
+    document.getElementById("createFollowUps").onclick = async () => {
+      setBusy(true);
+      try {
+        const payload = await api("/api/intelligence/follow-up-questions", { method: "POST", body: "{}" });
+        intelligenceActionOutput.value = payload.questions || "";
+        setStatus("Follow-up discovery questions created from Intelligence.");
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+    document.getElementById("improveGuideFromIntel").onclick = async () => {
+      setBusy(true);
+      try {
+        const payload = await api("/api/intelligence/improve-guide", { method: "POST", body: "{}" });
+        scGuide.value = payload.guide || "";
+        renderGuideOutputs(payload.guide || "", payload.guideOutputs);
+        renderIntelligence(payload.intelligence);
+        intelligenceActionOutput.value = "SC guide improved with Intelligence recommendations. Review the SC Guide tab for the updated runbook and improvement section.";
+        setStatus("SC guide improved using Intelligence recommendations.");
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
     document.getElementById("executeSetupPrompt").onclick = async () => {
       if (!latestSetupPrompt) {
         setStatus("Create a demo first so the setup prompt can be generated.");
@@ -5219,11 +5501,30 @@ function html(response) {
         setBusy(false);
       }
     };
+    document.getElementById("createManifestFromGuide").onclick = async () => {
+      setBusy(true);
+      try {
+        const payload = await api("/api/manifest/from-guide", { method: "POST", body: "{}" });
+        render(payload);
+        setStatus("Runnable manifest refreshed from the SC guide. Use Browser Dry-Run before Live Demo.");
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
 
     document.getElementById("learn").onclick = async () => {
       setBusy(true);
       try {
-        setStatus("Checking company context and creating demo assets...");
+        const createRunnableManifest = window.confirm(
+          "Do you also want to create the runnable browser manifest from the SC guide now?\\n\\n" +
+          "Yes: the helper creates the SC guide, refreshes the manifest from that guide, validates the dry-run path, and opens the NetSuite browser.\\n\\n" +
+          "No: the helper creates the SC guide and Intelligence view only; you can create the manifest later from the Manifest or Run workflow."
+        );
+        setStatus(createRunnableManifest
+          ? "Checking company context, creating the SC guide, and building the runnable manifest..."
+          : "Checking company context and creating the SC guide...");
         const payload = await api("/api/learn", {
           method: "POST",
           body: JSON.stringify({
@@ -5241,13 +5542,29 @@ function html(response) {
               preDemoNotes: preDemoNotesField.value,
               valueIntensity: document.getElementById("intensity").value,
               voiceProvider: voiceProviderSelect.value,
-            voice: voiceSelect.value
+            voice: voiceSelect.value,
+            createRunnableManifest
           })
         });
         render(payload);
         scGuide.value = payload.guide || "";
         renderGuideOutputs(payload.guide || "", payload.guideOutputs);
-        setStatus("Manifest and SC guide created. Review the Manifest and SC Guide tabs before rehearsal.");
+        if (createRunnableManifest) {
+          setStatus("SC guide and runnable manifest created. Starting browser dry-run...");
+          const runPayload = await apiWithLog("/api/run", {
+            method: "POST",
+            body: JSON.stringify({
+              mode: "browser-dry-run",
+              valueIntensity: document.getElementById("intensity").value,
+              voiceProvider: voiceProviderSelect.value,
+              voiceApiKey: selectedVoiceApiKey(),
+              voice: voiceSelect.value
+            })
+          });
+          setStatus("SC guide and runnable manifest created. Browser dry-run complete.\\n\\n" + (runPayload.log || ""));
+        } else {
+          setStatus("SC guide and Intelligence created. Runnable manifest was not built yet.");
+        }
       } catch (error) {
         setStatus(error.message);
       } finally {
