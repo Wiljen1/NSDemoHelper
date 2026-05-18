@@ -41,7 +41,9 @@ From the control panel you can:
 - describe the demo you want
 - set SC demo-generation instructions
 - add the prospect company website
-- choose target segment: emerging, mid-market, or enterprise
+- choose audience type: prospect, executive, operational/end user, technical, customer, marketing, or partner
+- choose target audience: startup, emerging/SMB, mid-market, enterprise, or public sector/government
+- use the hardcoded audience playbook to steer what the demo should include, avoid, and emphasize
 - add pre-demo notes from discovery
 - choose whether to use demo request plus notes, demo request only, or pre-demo notes only
 - choose the output language

@@ -38,6 +38,145 @@ const outputLanguages = {
   es: { value: "es", label: "Spanish" }
 };
 
+const demoAudienceConfiguration = {
+  targetAudiences: [
+    {
+      id: "startup",
+      label: "Startup",
+      description: "Very early-stage companies focused on speed, innovation, and rapid execution with limited resources and lean teams.",
+      primary_focus: ["speed", "simplicity", "quick setup", "cost efficiency", "fast ROI", "automation"],
+      include_in_demo: ["quick wins", "simple workflows", "easy onboarding", "automation examples", "modern UX", "out-of-box functionality", "time-saving scenarios"],
+      avoid_in_demo: ["complex enterprise architecture", "heavy governance discussions", "long implementation timelines", "feature overload", "deep compliance discussions"],
+      demo_style: ["fast-paced", "high-energy", "outcome-driven", "minimal clicks", "show immediate value"]
+    },
+    {
+      id: "emerging",
+      label: "Emerging / SMB",
+      description: "Small to growing businesses looking to scale operations efficiently without increasing complexity.",
+      primary_focus: ["scalability", "ease of use", "affordability", "operational efficiency", "team productivity"],
+      include_in_demo: ["cross-functional workflows", "simple reporting", "collaboration features", "automation", "templates", "best practices"],
+      avoid_in_demo: ["overly technical deep dives", "enterprise-only messaging", "complex implementation discussions", "advanced customization too early"],
+      demo_style: ["practical", "business-focused", "efficient", "show growth potential"]
+    },
+    {
+      id: "mid_market",
+      label: "Mid-Market",
+      description: "Growing organizations with defined business processes that require scalability, visibility, and operational control.",
+      primary_focus: ["process efficiency", "visibility", "integration", "cross-team collaboration", "scalable operations", "reporting"],
+      include_in_demo: ["role-based workflows", "analytics dashboards", "integrations", "approval processes", "department collaboration", "automation across teams"],
+      avoid_in_demo: ["oversimplified startup messaging", "feature dumping", "extremely technical implementation details", "unnecessary enterprise governance complexity"],
+      demo_style: ["process-oriented", "business-value focused", "real-world operational scenarios"]
+    },
+    {
+      id: "enterprise",
+      label: "Enterprise",
+      description: "Large organizations with complex operations, multiple stakeholders, governance requirements, and global scale.",
+      primary_focus: ["security", "governance", "scalability", "reliability", "compliance", "integration ecosystem", "risk reduction"],
+      include_in_demo: ["security controls", "permissions", "audit trails", "enterprise workflows", "API/integration capabilities", "executive dashboards", "multi-role experiences", "global scalability examples"],
+      avoid_in_demo: ["small business messaging", "oversimplified workflows", "generic ROI claims", "flashy features without business context"],
+      demo_style: ["structured", "strategic", "multi-stakeholder narrative", "confidence-building"]
+    },
+    {
+      id: "public_sector",
+      label: "Public Sector / Government",
+      description: "Government and public organizations focused on compliance, transparency, accessibility, and risk management.",
+      primary_focus: ["compliance", "security", "accessibility", "auditability", "stability", "procurement alignment"],
+      include_in_demo: ["compliance controls", "security certifications", "audit trails", "accessibility support", "governance workflows", "data protection"],
+      avoid_in_demo: ["aggressive sales messaging", "unverified claims", "consumer-style flashy experiences", "unstructured workflows"],
+      demo_style: ["formal", "trust-focused", "compliance-oriented", "detail-oriented"]
+    }
+  ],
+  audienceTypes: [
+    {
+      id: "prospect",
+      label: "Prospect",
+      description: "Potential buyers evaluating whether the solution solves their business challenges and delivers measurable value.",
+      primary_focus: ["business value", "ROI", "ease of adoption", "competitive differentiation", "outcomes"],
+      include_in_demo: ["business pain points", "before/after scenarios", "success stories", "metrics and outcomes", "industry relevance", "clear value proposition"],
+      avoid_in_demo: ["deep technical configuration", "feature dumping", "internal terminology", "long setup explanations"],
+      demo_style: ["persuasive", "outcome-oriented", "story-driven"]
+    },
+    {
+      id: "executive",
+      label: "Executive",
+      description: "Senior leaders focused on strategic outcomes, transformation, financial impact, and organizational risk.",
+      primary_focus: ["ROI", "strategic value", "business transformation", "risk reduction", "competitive advantage"],
+      include_in_demo: ["executive dashboards", "KPIs", "high-level workflows", "business outcomes", "strategic impact", "time-to-value"],
+      avoid_in_demo: ["low-level technical detail", "too many clicks", "configuration walkthroughs", "feature-by-feature demonstrations"],
+      demo_style: ["concise", "strategic", "high-level", "business-first"]
+    },
+    {
+      id: "operational",
+      label: "Operational / End User",
+      description: "Daily users focused on productivity, usability, efficiency, and simplifying routine work.",
+      primary_focus: ["ease of use", "workflow efficiency", "time savings", "daily productivity", "reduced manual work"],
+      include_in_demo: ["realistic daily workflows", "task completion scenarios", "automation", "mobile usability", "simplified navigation", "collaboration features"],
+      avoid_in_demo: ["executive strategy discussions", "deep architecture", "excessive technical jargon", "long theoretical explanations"],
+      demo_style: ["hands-on", "practical", "workflow-centric", "user-focused"]
+    },
+    {
+      id: "technical",
+      label: "Technical",
+      description: "Architects, developers, administrators, and IT stakeholders evaluating technical capabilities and implementation fit.",
+      primary_focus: ["architecture", "security", "APIs", "integrations", "performance", "extensibility", "administration"],
+      include_in_demo: ["architecture diagrams", "API examples", "integration flows", "security model", "permissions", "configuration flexibility", "data flow examples"],
+      avoid_in_demo: ["marketing-only messaging", "avoiding technical limitations", "oversimplified explanations", "non-technical buzzwords"],
+      demo_style: ["detailed", "transparent", "technical", "interactive"]
+    },
+    {
+      id: "customer",
+      label: "Customer",
+      description: "Existing customers evaluating additional capabilities, optimization opportunities, or product expansion.",
+      primary_focus: ["additional value", "optimization", "new features", "adoption", "expansion opportunities"],
+      include_in_demo: ["new capabilities", "advanced workflows", "best practices", "optimization scenarios", "customer-specific use cases", "roadmap alignment"],
+      avoid_in_demo: ["introductory product overviews", "generic positioning", "re-explaining basics", "competitive displacement messaging"],
+      demo_style: ["consultative", "personalized", "evolution-focused"]
+    },
+    {
+      id: "marketing",
+      label: "Marketing",
+      description: "Stakeholders focused on positioning, messaging, differentiation, customer engagement, and storytelling.",
+      primary_focus: ["visual appeal", "innovation", "storytelling", "differentiation", "brand alignment", "engagement"],
+      include_in_demo: ["modern UI", "high-level workflows", "AI/innovation highlights", "customer experiences", "visual storytelling", "competitive differentiation"],
+      avoid_in_demo: ["deep technical configuration", "admin-heavy flows", "complex backend discussions", "implementation deep dives"],
+      demo_style: ["engaging", "visual", "narrative-driven", "concise"]
+    },
+    {
+      id: "partner",
+      label: "Partner / Consultant",
+      description: "Implementation partners, consultants, and system integrators evaluating deployability and extensibility.",
+      primary_focus: ["implementability", "scalability", "extensibility", "repeatable delivery", "services opportunities"],
+      include_in_demo: ["configuration flexibility", "deployment approaches", "integration capabilities", "partner ecosystem", "customization examples", "implementation methodology"],
+      avoid_in_demo: ["pure marketing positioning", "hiding implementation complexity", "overly simplified delivery assumptions"],
+      demo_style: ["consultative", "solution-oriented", "implementation-aware"]
+    }
+  ],
+  recommendedContextVariables: [
+    "industry",
+    "primary_business_challenge",
+    "demo_goal",
+    "technical_depth",
+    "stakeholder_count",
+    "competitive_context",
+    "current_solution",
+    "urgency_level",
+    "deployment_preference",
+    "AI_interest_level"
+  ],
+  recommendedDemoGoals: [
+    "awareness",
+    "discovery",
+    "executive_alignment",
+    "technical_validation",
+    "competitive_replacement",
+    "expansion_opportunity",
+    "user_training",
+    "solution_workshop",
+    "proof_of_concept",
+    "implementation_planning"
+  ]
+};
+
 const server = http.createServer(async (request, response) => {
   try {
     if (request.method === "GET" && request.url === "/") return html(response);
@@ -497,6 +636,7 @@ function applyLearningRequest(manifest, body, company) {
   next.context.preDemoNotes = preDemoNotes;
   next.context.audience = audience;
   next.context.marketSegment = marketSegment;
+  next.context.targetAudience = marketSegment;
   next.context.outputLanguage = {
     ...outputLanguage,
     instruction: outputLanguageInstruction(outputLanguage)
@@ -507,13 +647,15 @@ function applyLearningRequest(manifest, body, company) {
     topic,
     audience: audience.value,
     marketSegment: marketSegment.value,
+    targetAudience: marketSegment.value,
     outputLanguage: outputLanguage.value,
     outputLanguageInstruction: outputLanguageInstruction(outputLanguage),
+    audienceInstruction: audienceExecutionInstruction(audience, marketSegment),
     inputMode,
     source: inputModeSource(inputMode),
     instructions,
     learnedAt: new Date().toISOString(),
-    instruction: "Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks."
+    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. ${audienceExecutionInstruction(audience, marketSegment)}`
   };
   next.context.navigationPolicy = {
     preferred: ["NetSuite global search", "NetSuite navigation bar"],
@@ -667,6 +809,12 @@ function outputLanguageInstruction(language) {
   return `Write SC-facing output, setup guidance, and narrator talk tracks in ${normalized.label}. Preserve NetSuite product names, field labels, menu labels, report names, and account terms as they appear in the NetSuite UI.`;
 }
 
+function selectOptionsHtml(items, selectedId) {
+  return items
+    .map((item) => `<option value="${escapeHtml(item.id)}"${item.id === selectedId ? " selected" : ""}>${escapeHtml(item.label)}</option>`)
+    .join("\n");
+}
+
 function inferDemoRequestFromNotes(preDemoNotes, company) {
   const notes = String(preDemoNotes || "");
   const priorities = company?.likelyPriorities || inferPriorities("", notes);
@@ -694,97 +842,105 @@ function inferDemoRequestFromNotes(preDemoNotes, company) {
 }
 
 function normalizeAudience(value) {
-  const raw = String(value || "").trim().toLowerCase();
-  if (raw.includes("existing") || raw.includes("customer")) {
-    return {
-      value: "existing-customer",
-      label: "Already existing customer",
-      guideAngle: "Assume some NetSuite familiarity. Focus on underused capability, adoption expansion, cleaner process, and how the customer can get more from the platform without making the demo feel like a reimplementation.",
-      narratorAngle: "For an existing NetSuite customer, anchor the story in improvement and expansion rather than first-time education."
-    };
-  }
-  if (raw.includes("marketing")) {
-    return {
-      value: "marketing-audience",
-      label: "Marketing audience",
-      guideAngle: "Keep the story accessible, outcome-led, and polished. Avoid deep configuration detail. Use crisp proof points that can work for a broader audience and make the narrative easy to reuse in campaigns or events.",
-      narratorAngle: "For a marketing audience, keep the narration crisp, visual, and outcome-led."
-    };
-  }
-  return {
-    value: "prospect",
-    label: "Prospect",
-    guideAngle: "Assume first-time NetSuite viewers. Build confidence quickly, avoid jargon, prove the main business outcomes first, and show enough detail to create trust without turning the meeting into a system walkthrough.",
-    narratorAngle: "For a prospect, explain the business reason for each step before going into detail."
-  };
+  const config = resolveAudienceConfig(demoAudienceConfiguration.audienceTypes, value, "prospect", {
+    "existing-customer": "customer",
+    "already-existing-customer": "customer",
+    "already existing customer": "customer",
+    "marketing-audience": "marketing",
+    "operational-end-user": "operational",
+    "operational / end user": "operational",
+    enduser: "operational"
+  });
+  return audienceConfigShape(config, "audience-type");
 }
 
 function normalizeMarketSegment(value) {
+  const config = resolveAudienceConfig(demoAudienceConfiguration.targetAudiences, value, "mid_market", {
+    "mid-market": "mid_market",
+    midmarket: "mid_market",
+    "emerging-smb": "emerging",
+    "emerging / smb": "emerging",
+    smb: "emerging",
+    "public-sector": "public_sector",
+    "public-sector-government": "public_sector",
+    "public sector / government": "public_sector",
+    government: "public_sector"
+  });
+  return audienceConfigShape(config, "target-audience");
+}
+
+function resolveAudienceConfig(items, value, fallbackId, aliases = {}) {
   const raw = String(value || "").trim().toLowerCase();
-  if (raw.includes("enterprise")) {
-    return {
-      value: "enterprise",
-      label: "Enterprise",
-      interests: [
-        "global consolidation and multi-entity control",
-        "governance, auditability, and segregation of duties",
-        "standardized reporting across teams, books, and subsidiaries",
-        "scalability without relying on manual spreadsheet processes"
-      ],
-      demoBias: "Lead with control, scale, governance, and trusted consolidated reporting. Keep the proof path executive enough for senior stakeholders, then drill down only to prove traceability."
-    };
-  }
-  if (raw.includes("mid")) {
-    return {
-      value: "mid-market",
-      label: "Mid-Market",
-      interests: [
-        "faster close and cleaner operational handoffs",
-        "cash visibility without manual forecast workbooks",
-        "standard reporting that scales beyond founder-led finance",
-        "repeatable processes that reduce dependency on individual users"
-      ],
-      demoBias: "Lead with operational scale, month-end speed, cash visibility, and fewer manual handoffs. Show how standard NetSuite flows make the team more repeatable."
-    };
-  }
+  const compact = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const aliasId = aliases[raw] || aliases[compact] || aliases[raw.replace(/[^a-z0-9]+/g, "")];
+  return items.find((item) => item.id === raw || item.id === compact || item.id === aliasId || item.label.toLowerCase() === raw)
+    || items.find((item) => item.id === fallbackId)
+    || items[0];
+}
+
+function audienceConfigShape(config, kind) {
+  const primaryFocus = config.primary_focus || [];
+  const includeInDemo = config.include_in_demo || [];
+  const avoidInDemo = config.avoid_in_demo || [];
+  const demoStyle = config.demo_style || [];
+  const focusText = joinHuman(primaryFocus.slice(0, 4)) || "the audience's key decision criteria";
+  const includeText = joinHuman(includeInDemo.slice(0, 4)) || "the strongest proof points";
+  const avoidText = joinHuman(avoidInDemo.slice(0, 4)) || "low-value distractions";
+  const styleText = joinHuman(demoStyle.slice(0, 4)) || "clear and outcome-led";
+
   return {
-    value: "emerging",
-    label: "Emerging",
-    interests: [
-      "quick visibility without heavy setup",
-      "fewer spreadsheets and simpler finance routines",
-      "clear cash and profitability signals",
-      "a path to grow into stronger controls"
-    ],
-    demoBias: "Lead with simplicity, fast time-to-insight, and how NetSuite gives a growing business a controlled foundation without overwhelming the team."
+    id: config.id,
+    value: config.id,
+    label: config.label,
+    description: config.description,
+    kind,
+    primaryFocus,
+    includeInDemo,
+    avoidInDemo,
+    demoStyle,
+    interests: primaryFocus,
+    guideAngle: `${config.description} Focus on ${focusText}. Include ${includeText}. Avoid ${avoidText}.`,
+    narratorAngle: `For ${config.label}, keep the narration ${styleText} and anchored in ${focusText}.`,
+    demoBias: `For ${config.label}, use a ${styleText} demo style. Prioritize ${focusText}; include ${includeText}; avoid ${avoidText}.`
   };
 }
 
 function buildAudiencePlaybook(audience, marketSegment) {
-  const audienceTypeInterests = {
-    "existing-customer": [
-      "better use of capabilities they may already own",
-      "process improvement and adoption expansion",
-      "low-disruption ways to mature current NetSuite usage"
-    ],
-    "marketing-audience": [
-      "crisp outcome-led proof points",
-      "visual moments that work in a broader story",
-      "less configuration depth and more reusable narrative"
-    ],
-    prospect: [
-      "confidence that NetSuite can solve the core business pains",
-      "clear first-time product orientation",
-      "proof that summary reporting connects to real detail"
-    ]
-  };
+  const interests = uniqueItems([...(audience.primaryFocus || []), ...(marketSegment.primaryFocus || [])]);
+  const includeInDemo = uniqueItems([...(audience.includeInDemo || []), ...(marketSegment.includeInDemo || [])]);
+  const avoidInDemo = uniqueItems([...(audience.avoidInDemo || []), ...(marketSegment.avoidInDemo || [])]);
+  const demoStyle = uniqueItems([...(audience.demoStyle || []), ...(marketSegment.demoStyle || [])]);
 
   return {
     audienceType: audience.label,
+    audienceTypeId: audience.value,
+    audienceDescription: audience.description,
+    targetAudience: marketSegment.label,
+    targetAudienceId: marketSegment.value,
+    targetAudienceDescription: marketSegment.description,
     targetSegment: marketSegment.label,
-    interests: [...(audienceTypeInterests[audience.value] || audienceTypeInterests.prospect), ...marketSegment.interests],
+    interests,
+    includeInDemo,
+    avoidInDemo,
+    demoStyle,
+    recommendedContextVariables: demoAudienceConfiguration.recommendedContextVariables,
+    recommendedDemoGoals: demoAudienceConfiguration.recommendedDemoGoals,
     demoBias: `${audience.guideAngle} ${marketSegment.demoBias}`
   };
+}
+
+function audiencePlaybookFor(manifest, audience, marketSegment) {
+  const playbook = manifest.context?.audiencePlaybook;
+  if (playbook?.includeInDemo?.length && playbook?.avoidInDemo?.length && playbook?.demoStyle?.length) return playbook;
+  return buildAudiencePlaybook(audience, marketSegment);
+}
+
+function audienceExecutionInstruction(audience, marketSegment) {
+  return `Demo to the ${audience.label} audience type in a ${marketSegment.label} target audience context. ${audience.guideAngle} ${marketSegment.demoBias}`;
+}
+
+function uniqueItems(items) {
+  return Array.from(new Set(items.filter(Boolean)));
 }
 
 function inferSetupPlan(source, company, audience, marketSegment) {
@@ -979,7 +1135,7 @@ function setupPromptPayload(manifest) {
     topic: manifest.context?.demoRequest?.topic,
     preDemoNotes: manifest.context?.preDemoNotes,
     instructions: manifest.context?.demoRequest?.instructions
-  }, manifest.context?.company || {}, normalizeAudience(manifest.context?.audience?.value), normalizeMarketSegment(manifest.context?.marketSegment?.value));
+  }, manifest.context?.company || {}, normalizeAudience(manifest.context?.audience?.value), normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value));
   const prompt = generateSetupPrompt(manifest, account, setupPlan);
 
   return {
@@ -992,10 +1148,10 @@ function setupPromptPayload(manifest) {
 
 function generateSetupPrompt(manifest, account, setupPlan) {
   const company = manifest.context?.company || {};
-  const audience = manifest.context?.audience || normalizeAudience(manifest.context?.demoRequest?.audience);
-  const marketSegment = manifest.context?.marketSegment || normalizeMarketSegment(manifest.context?.demoRequest?.marketSegment);
+  const audience = normalizeAudience(manifest.context?.audience?.value || manifest.context?.demoRequest?.audience);
+  const marketSegment = normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
   const outputLanguage = normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
-  const playbook = manifest.context?.audiencePlaybook || buildAudiencePlaybook(audience, marketSegment);
+  const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   const items = setupPlan.items?.length
     ? setupPlan.items.map((item, index) => `${index + 1}. ${item.label} (${item.type}, ${item.risk} risk): ${item.reason}`).join("\n")
     : "No create-in-account prep items were inferred. Keep the account read-only unless the SC explicitly approves new setup items.";
@@ -1019,9 +1175,14 @@ TARGET NETSUITE ACCOUNT
 DEMO CONTEXT
 - Company/prospect: ${company.companyName || "The prospect"}
 - Audience type: ${audience.label}
-- Target segment: ${marketSegment.label}
+- Audience type description: ${audience.description}
+- Target audience: ${marketSegment.label}
+- Target audience description: ${marketSegment.description}
 - Output language: ${outputLanguage.label}
 - Audience interests: ${playbook.interests?.join(", ") || "trusted reporting and cash visibility"}
+- Include in demo: ${playbook.includeInDemo?.join(", ") || "strong proof points"}
+- Avoid in demo: ${playbook.avoidInDemo?.join(", ") || "low-value distractions"}
+- Demo style: ${playbook.demoStyle?.join(", ") || "business-focused"}
 - Demo request: ${manifest.context?.demoRequest?.topic || "Not provided"}
 - Demo input mode: ${manifest.context?.demoRequest?.inputMode || "request-and-notes"}
 - Language instruction: ${outputLanguageInstruction(outputLanguage)}
@@ -1058,9 +1219,9 @@ function generateScGuide(manifest, body, company) {
   const notes = String(body.preDemoNotes || "").trim() || "No additional pre-demo notes were provided.";
   const companyName = company.companyName || "The prospect";
   const audience = normalizeAudience(body.audience || manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
-  const marketSegment = normalizeMarketSegment(body.marketSegment || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.marketSegment);
+  const marketSegment = normalizeMarketSegment(body.marketSegment || manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
   const outputLanguage = normalizeOutputLanguage(body.outputLanguage || manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
-  const playbook = manifest.context?.audiencePlaybook || buildAudiencePlaybook(audience, marketSegment);
+  const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   const setupPlan = manifest.context?.setupPlan || inferSetupPlan({
     topic: manifest.context?.demoRequest?.topic,
     preDemoNotes: manifest.context?.preDemoNotes,
@@ -1089,12 +1250,19 @@ Show how NetSuite helps ${companyName} move from trusted standard reporting into
 ## Audience Angle
 
 - Selected audience: ${audience.label}
-- Target segment: ${marketSegment.label}
+- Audience type description: ${audience.description}
+- Target audience: ${marketSegment.label}
+- Target audience description: ${marketSegment.description}
 - Output language: ${outputLanguage.label}
 - Language guidance: ${outputLanguageInstruction(outputLanguage)}
 - Demo input: ${inputMode}
 - Demo angle: ${playbook.demoBias}
 - Likely interests: ${playbook.interests.join(", ")}
+- Include in demo: ${playbook.includeInDemo.join(", ")}
+- Avoid in demo: ${playbook.avoidInDemo.join(", ")}
+- Demo style: ${playbook.demoStyle.join(", ")}
+- Context variables to consider: ${playbook.recommendedContextVariables.join(", ")}
+- Recommended demo goals: ${playbook.recommendedDemoGoals.join(", ")}
 
 ## Normal Demo Flow
 
@@ -1198,9 +1366,9 @@ function guideOutputsPayload(manifest, guide = "") {
 function guideContextFromManifest(manifest) {
   const company = manifest.context?.company || {};
   const audience = normalizeAudience(manifest.context?.audience?.value || manifest.context?.demoRequest?.audience || manifest.audience);
-  const marketSegment = normalizeMarketSegment(manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.marketSegment);
+  const marketSegment = normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value || manifest.context?.demoRequest?.targetAudience || manifest.context?.demoRequest?.marketSegment);
   const outputLanguage = normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage);
-  const playbook = manifest.context?.audiencePlaybook || buildAudiencePlaybook(audience, marketSegment);
+  const playbook = audiencePlaybookFor(manifest, audience, marketSegment);
   return {
     companyName: company.companyName || "The prospect",
     audience,
@@ -1273,7 +1441,7 @@ ${segmentTips}`;
 }
 
 function demoPersonaFor(audience, marketSegment) {
-  if (audience.value === "marketing-audience") {
+  if (audience.value === "marketing") {
     return {
       name: "Maya",
       role: "a finance transformation storyteller",
@@ -1281,11 +1449,51 @@ function demoPersonaFor(audience, marketSegment) {
     };
   }
 
-  if (audience.value === "existing-customer") {
+  if (audience.value === "customer") {
     return {
       name: "Elena",
       role: "an existing NetSuite finance leader",
       question: "what are we already licensed for that could help the team run finance with less manual effort?"
+    };
+  }
+
+  if (audience.value === "executive") {
+    return {
+      name: "Jordan",
+      role: "a CFO sponsor",
+      question: "will this improve visibility, reduce risk, and help the business make faster finance decisions?"
+    };
+  }
+
+  if (audience.value === "operational") {
+    return {
+      name: "Sam",
+      role: "a finance operations manager",
+      question: "can the team complete routine work faster without chasing spreadsheets or switching systems?"
+    };
+  }
+
+  if (audience.value === "technical") {
+    return {
+      name: "Taylor",
+      role: "an IT architect",
+      question: "does the process fit our security, integration, administration, and extensibility expectations?"
+    };
+  }
+
+  if (audience.value === "partner") {
+    return {
+      name: "Casey",
+      role: "an implementation partner",
+      question: "can we deploy this repeatably while still adapting it to the customer's operating model?"
+    };
+  }
+
+  if (marketSegment.value === "public_sector") {
+    return {
+      name: "Morgan",
+      role: "a public sector finance leader",
+      question: "can we improve transparency and control while meeting audit, accessibility, and procurement expectations?"
     };
   }
 
@@ -1302,6 +1510,14 @@ function demoPersonaFor(audience, marketSegment) {
       name: "Sofia",
       role: "a finance lead at a growing company",
       question: "can we get dependable visibility without building a heavy finance process too early?"
+    };
+  }
+
+  if (marketSegment.value === "startup") {
+    return {
+      name: "Nora",
+      role: "a startup finance lead",
+      question: "can we get dependable finance visibility quickly without slowing the team down?"
     };
   }
 
@@ -2359,20 +2575,18 @@ function html(response) {
         </div>
 
         <div class="panel">
-          <h2>Prospect Context</h2>
-          <label for="audience">Audience</label>
+          <h2>Demo Audience</h2>
+          <label for="audience">Audience type</label>
           <select id="audience">
-            <option value="existing-customer">Already existing customer</option>
-            <option value="prospect" selected>Prospect</option>
-            <option value="marketing-audience">Marketing audience</option>
+            ${selectOptionsHtml(demoAudienceConfiguration.audienceTypes, "prospect")}
           </select>
+          <p class="hint" id="audienceHint"></p>
 
-          <label>Target segment</label>
-          <div class="segmented" id="marketSegmentGroup">
-            <label class="segment-option"><input type="radio" name="marketSegment" value="emerging">Emerging</label>
-            <label class="segment-option"><input type="radio" name="marketSegment" value="mid-market" checked>Mid-Market</label>
-            <label class="segment-option"><input type="radio" name="marketSegment" value="enterprise">Enterprise</label>
-          </div>
+          <label for="marketSegment">Target audience</label>
+          <select id="marketSegment">
+            ${selectOptionsHtml(demoAudienceConfiguration.targetAudiences, "mid_market")}
+          </select>
+          <p class="hint" id="targetAudienceHint"></p>
 
           <label for="companyUrl">Company website</label>
           <input id="companyUrl" placeholder="https://www.example.com">
@@ -2558,19 +2772,24 @@ function html(response) {
     const setupPrompt = document.getElementById("setupPrompt");
     const setupAccountSummary = document.getElementById("setupAccountSummary");
     const setupItemSummary = document.getElementById("setupItemSummary");
-      const voiceSelect = document.getElementById("voiceSelect");
-      const voiceProviderSelect = document.getElementById("voiceProvider");
-      const voiceProviderHint = document.getElementById("voiceProviderHint");
-      const voiceApiKeyWrap = document.getElementById("voiceApiKeyWrap");
-      const voiceApiKeyField = document.getElementById("voiceApiKey");
-      const voiceApiKeyHint = document.getElementById("voiceApiKeyHint");
-      const audienceSelect = document.getElementById("audience");
-      const inputModeSelect = document.getElementById("inputMode");
-      const outputLanguageSelect = document.getElementById("outputLanguage");
-      const nightModeToggle = document.getElementById("nightMode");
+    const voiceSelect = document.getElementById("voiceSelect");
+    const voiceProviderSelect = document.getElementById("voiceProvider");
+    const voiceProviderHint = document.getElementById("voiceProviderHint");
+    const voiceApiKeyWrap = document.getElementById("voiceApiKeyWrap");
+    const voiceApiKeyField = document.getElementById("voiceApiKey");
+    const voiceApiKeyHint = document.getElementById("voiceApiKeyHint");
+    const audienceSelect = document.getElementById("audience");
+    const audienceHint = document.getElementById("audienceHint");
+    const targetAudienceSelect = document.getElementById("marketSegment");
+    const targetAudienceHint = document.getElementById("targetAudienceHint");
+    const inputModeSelect = document.getElementById("inputMode");
+    const outputLanguageSelect = document.getElementById("outputLanguage");
+    const nightModeToggle = document.getElementById("nightMode");
     const topicField = document.getElementById("topic");
     const preDemoNotesField = document.getElementById("preDemoNotes");
     const buttonHelpTooltip = document.getElementById("buttonHelpTooltip");
+    const audienceTypeConfig = ${JSON.stringify(demoAudienceConfiguration.audienceTypes)};
+    const targetAudienceConfig = ${JSON.stringify(demoAudienceConfiguration.targetAudiences)};
     let runInProgress = false;
     let latestSetupPrompt = null;
     let helpTimer = null;
@@ -2676,7 +2895,7 @@ function html(response) {
       renderSetupPrompt(payload.setupPrompt);
       if (payload.manifest) {
           setAudience(payload.manifest.context?.audience?.value || payload.manifest.context?.demoRequest?.audience || payload.manifest.audience);
-          setMarketSegment(payload.manifest.context?.marketSegment?.value || payload.manifest.context?.demoRequest?.marketSegment || "mid-market");
+          setMarketSegment(payload.manifest.context?.targetAudience?.value || payload.manifest.context?.marketSegment?.value || payload.manifest.context?.demoRequest?.targetAudience || payload.manifest.context?.demoRequest?.marketSegment || "mid_market");
           outputLanguageSelect.value = payload.manifest.context?.outputLanguage?.value || payload.manifest.context?.demoRequest?.outputLanguage || payload.manifest.defaults?.outputLanguage || "en";
           inputModeSelect.value = payload.manifest.context?.demoRequest?.inputMode || "request-and-notes";
           const manifestVoiceProvider = payload.manifest.defaults?.audio?.provider || "say";
@@ -2732,30 +2951,47 @@ function html(response) {
     }
 
     function setAudience(value) {
-      const raw = String(value || "").toLowerCase();
-      if (raw.includes("existing") || raw.includes("customer")) {
-        audienceSelect.value = "existing-customer";
-      } else if (raw.includes("marketing")) {
-        audienceSelect.value = "marketing-audience";
-      } else {
-        audienceSelect.value = "prospect";
-      }
+      audienceSelect.value = normalizeUiAudience(value, audienceTypeConfig, "prospect", {
+        "existing-customer": "customer",
+        "already-existing-customer": "customer",
+        "marketing-audience": "marketing",
+        enduser: "operational"
+      });
+      updateAudienceHints();
     }
 
     function setMarketSegment(value) {
-      const normalized = String(value || "").toLowerCase();
-      const target = normalized.includes("enterprise")
-        ? "enterprise"
-        : normalized.includes("emerging")
-          ? "emerging"
-          : "mid-market";
-      const input = document.querySelector('input[name="marketSegment"][value="' + target + '"]');
-      if (input) input.checked = true;
+      targetAudienceSelect.value = normalizeUiAudience(value, targetAudienceConfig, "mid_market", {
+        "mid-market": "mid_market",
+        midmarket: "mid_market",
+        "public-sector": "public_sector",
+        "public-sector-government": "public_sector",
+        "emerging-smb": "emerging"
+      });
+      updateAudienceHints();
     }
 
-      function selectedMarketSegment() {
-        return document.querySelector('input[name="marketSegment"]:checked')?.value || "mid-market";
-      }
+    function selectedMarketSegment() {
+      return targetAudienceSelect.value || "mid_market";
+    }
+
+    function normalizeUiAudience(value, items, fallback, aliases = {}) {
+      const raw = String(value || "").trim().toLowerCase();
+      const compact = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const id = aliases[raw] || aliases[compact] || aliases[raw.replace(/[^a-z0-9]+/g, "")] || compact;
+      return items.some((item) => item.id === id) ? id : fallback;
+    }
+
+    function selectedConfig(items, value, fallback) {
+      return items.find((item) => item.id === value) || items.find((item) => item.id === fallback) || items[0];
+    }
+
+    function updateAudienceHints() {
+      const audience = selectedConfig(audienceTypeConfig, audienceSelect.value, "prospect");
+      const target = selectedConfig(targetAudienceConfig, targetAudienceSelect.value, "mid_market");
+      audienceHint.textContent = audience.description + " Focus: " + audience.primary_focus.slice(0, 4).join(", ") + ". Style: " + audience.demo_style.join(", ") + ".";
+      targetAudienceHint.textContent = target.description + " Include: " + target.include_in_demo.slice(0, 4).join(", ") + ". Avoid: " + target.avoid_in_demo.slice(0, 3).join(", ") + ".";
+    }
 
       function selectedVoiceApiKey() {
         return voiceApiKeyField.value.trim();
@@ -2843,6 +3079,8 @@ function html(response) {
       }
     }
 
+      audienceSelect.onchange = updateAudienceHints;
+      targetAudienceSelect.onchange = updateAudienceHints;
       inputModeSelect.onchange = syncInputMode;
       voiceProviderSelect.onchange = () => {
         syncVoiceProviderSettings();
@@ -3099,6 +3337,7 @@ function html(response) {
     }
 
       (async () => {
+        updateAudienceHints();
         syncVoiceProviderSettings();
         await loadVoices();
         await load();
