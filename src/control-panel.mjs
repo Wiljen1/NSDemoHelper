@@ -2936,6 +2936,22 @@ function demoIntelligencePayload(manifest, scGuide = "") {
   return {
     generated_at: new Date().toISOString(),
     positioning: "AI-powered Demo Intelligence and Demo Coaching Platform for Solution Consulting",
+    demo_metadata: {
+      customer_name: context.company.companyName || context.company.title || manifest.name || "Current demo",
+      customer_url: context.company.url || "",
+      demo_name: manifest.name || "NetSuite demo",
+      demo_goal: context.topic || manifest.context?.demoRequest?.topic || "",
+      demo_scope: context.demoScope || "",
+      customer_description: context.company.description || context.company.title || "",
+      likely_priorities: context.company.likelyPriorities || [],
+      audience_type: context.audience.label,
+      target_segment: context.marketSegment.label,
+      industry: context.industry.label,
+      strategy: context.strategy.label,
+      language: normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage).label,
+      narration_voice: manifest.defaults?.audio?.voice || "Moira",
+      manifest_ready: context.manifestFlowReady
+    },
     demo_strategy: {
       id: context.strategy.id,
       label: context.strategy.label,
@@ -4535,6 +4551,314 @@ function html(response) {
       padding: 6px 9px;
       font-size: 12px;
     }
+    .intelligence-dashboard {
+      display: grid;
+      gap: 18px;
+    }
+    .readiness-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(190px, .32fr);
+      gap: 20px;
+      padding: 22px;
+      border: 1px solid #bedde0;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f5fbfb 0%, #ffffff 58%, #eef7f7 100%);
+      box-shadow: 0 12px 28px rgba(24, 33, 47, .06);
+    }
+    body.night .readiness-hero {
+      background: linear-gradient(135deg, #0f1d23 0%, #101820 62%, #12272b 100%);
+      border-color: #254650;
+    }
+    .hero-eyebrow {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 800;
+    }
+    .readiness-hero h2 {
+      margin: 0;
+      font-size: clamp(24px, 4vw, 38px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+    .hero-subline {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .readiness-score {
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      background: rgba(255,255,255,.72);
+      min-height: 150px;
+    }
+    body.night .readiness-score { background: rgba(11,18,24,.72); }
+    .score-number {
+      font-size: 54px;
+      line-height: 1;
+      font-weight: 850;
+      color: var(--accent-dark);
+      font-variant-numeric: tabular-nums;
+    }
+    body.night .score-number { color: #69d0d0; }
+    .score-caption {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .insight-badges,
+    .metadata-chips,
+    .ai-actions-bar,
+    .heatmap-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .insight-badges { margin-top: 16px; }
+    .insight-badge,
+    .metadata-chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+    body.night .insight-badge,
+    body.night .metadata-chip { background: #0f1821; }
+    .insight-badge strong,
+    .metadata-chip strong {
+      color: var(--accent-dark);
+      margin-right: 4px;
+    }
+    details.metadata-chip summary {
+      cursor: pointer;
+      list-style: none;
+    }
+    details.metadata-chip summary::-webkit-details-marker { display: none; }
+    details.metadata-chip p {
+      margin: 8px 0 0;
+      max-width: 260px;
+      white-space: normal;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .dashboard-section {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      background: #fff;
+    }
+    body.night .dashboard-section { background: #0f1821; }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+    .section-head h2,
+    .section-head h3 {
+      margin: 0;
+      font-size: 17px;
+    }
+    .section-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .ai-actions-bar {
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ai-actions-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    details.custom-ai {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfcfd;
+    }
+    body.night details.custom-ai { background: #0b1218; }
+    details.custom-ai summary {
+      cursor: pointer;
+      font-weight: 800;
+      color: var(--accent-dark);
+    }
+    .briefing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+      gap: 10px;
+    }
+    .briefing-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px;
+      background: #fbfcfd;
+      min-height: 96px;
+    }
+    body.night .briefing-item { background: #0b1218; }
+    .briefing-item strong {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--accent-dark);
+      margin-bottom: 6px;
+    }
+    .briefing-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .intelligence-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+      gap: 12px;
+    }
+    .intelligence-card {
+      text-align: left;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 13px;
+      background: #fff;
+      color: var(--ink);
+      min-height: 190px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+    .intelligence-card:hover,
+    .intelligence-card.active {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(24, 33, 47, .08);
+      border-color: var(--accent);
+    }
+    body.night .intelligence-card { background: #0f1821; }
+    .card-title-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+    }
+    .card-icon {
+      width: 30px;
+      height: 30px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 8px;
+      background: #eef8f8;
+      color: var(--accent-dark);
+      font-weight: 850;
+    }
+    body.night .card-icon { background: #102b31; color: #69d0d0; }
+    .card-title {
+      font-size: 15px;
+      font-weight: 850;
+      margin: 0;
+    }
+    .card-summary {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .status-badge {
+      display: inline-flex;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      background: #dff4e8;
+      color: #10201b;
+    }
+    .status-badge.warning { background: #fff1c6; color: #3b2b00; }
+    .status-badge.critical { background: #ffd8d1; color: #4a1409; }
+    .status-badge.advisory { background: #e8edf3; color: #26313d; }
+    .card-metric {
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 850;
+      color: var(--accent-dark);
+    }
+    body.night .card-metric { color: #69d0d0; }
+    .preview-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .detail-panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      background: #fbfcfd;
+      min-height: 170px;
+    }
+    body.night .detail-panel { background: #0b1218; }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .heatmap-tab-button {
+      background: #fff;
+      border-color: var(--line);
+      color: var(--accent-dark);
+    }
+    .heatmap-tab-button.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .simple-heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .compact-heatmap-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 11px;
+      background: #fbfcfd;
+    }
+    body.night .compact-heatmap-card { background: #0b1218; }
+    .compact-heatmap-card strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .competitive-summary {
+      cursor: pointer;
+      font-weight: 850;
+      color: var(--accent-dark);
+    }
+    .competitive-summary::marker { color: var(--danger); }
     .pill-list {
       display: flex;
       flex-wrap: wrap;
@@ -4602,6 +4926,34 @@ function html(response) {
     #cmsEditor {
       min-height: 52vh;
       font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .cms-readable {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 220px;
+      max-height: 42vh;
+      overflow: auto;
+      background: #fbfcfd;
+      color: var(--ink);
+      line-height: 1.45;
+    }
+    body.night .cms-readable { background: #0b1218; }
+    .cms-readable h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+    .cms-readable .readable-card {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 0;
+    }
+    .cms-readable .readable-card:first-child { padding-top: 0; }
+    .cms-readable .readable-card:last-child { border-bottom: 0; }
+    .cms-readable p,
+    .cms-readable ul {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
     }
     .cms-history {
       max-height: 260px;
@@ -4993,6 +5345,7 @@ function html(response) {
       .intelligence-overview-grid,
       .intel-summary,
       .priority-intelligence-grid,
+      .readiness-hero,
       .cms-auth-grid,
       .cms-editor-grid { grid-template-columns: 1fr; }
       .steps { grid-template-columns: 1fr 1fr; }
@@ -5215,79 +5568,92 @@ function html(response) {
     </section>
 
     <section class="screen" id="screen-intelligence">
-      <div class="row">
-        <button class="secondary" id="refreshIntelligence" data-help="Re-analyzes the current SC guide, pre-demo notes, audience choices, and runnable manifest status.">Refresh Intelligence</button>
-      </div>
-      <div class="grid" style="margin-top:12px">
-        <div class="panel full">
-          <h2>Demo Intelligence Overview</h2>
-          <div class="score-grid" id="intelligenceScores"></div>
-          <div class="intel-summary" id="intelligenceSummary"></div>
-          <div class="priority-intelligence-grid">
-            <div class="priority-card">
-              <h3>Winning Moments</h3>
-              <div id="winningMomentsAnalyzer"></div>
+      <div class="intelligence-dashboard">
+        <section class="readiness-hero" id="readinessHero">
+          <div>
+            <p class="hero-eyebrow">Demo Intelligence Dashboard</p>
+            <h2 id="readinessTitle">Demo readiness</h2>
+            <p class="hero-subline" id="readinessSubtitle">Refresh intelligence to see readiness, risks, and next best actions.</p>
+            <div class="insight-badges" id="readinessBadges"></div>
+          </div>
+          <div class="readiness-score">
+            <div class="score-number" id="readinessScore">-</div>
+            <div class="score-caption">Readiness score</div>
+          </div>
+        </section>
+
+        <section class="metadata-chips" id="metadataChips" aria-label="Demo metadata"></section>
+
+        <section class="dashboard-section">
+          <div class="ai-actions-bar">
+            <div>
+              <h2 style="margin:0">AI Actions</h2>
+              <p class="hint">Use these after reviewing the readiness score and risks.</p>
             </div>
-            <div class="priority-card">
-              <h3>What Not To Demo</h3>
-              <div id="avoidAnalyzer"></div>
+            <div class="ai-actions-buttons">
+              <button id="improveGuideFromIntel" data-help="Updates the SC guide with the Intelligence recommendations and guardrails.">Improve SC Guide</button>
+              <button class="secondary" id="createFollowUps" data-help="Creates follow-up discovery questions from the Intelligence heatmaps and risk areas.">Generate Follow-Up Questions</button>
+              <button class="secondary" id="compressDemo" data-help="Creates a shorter demo coaching prompt based on timing and risk.">Compress Demo</button>
+              <button class="secondary" id="generateExecutiveVersion" data-help="Creates an executive-focused version of the demo guidance.">Generate Executive Version</button>
+              <button class="secondary" id="rebuildTechnicalAudience" data-help="Creates guidance to rebuild the demo for a technical audience.">Rebuild For Technical Audience</button>
+              <button class="secondary" id="refreshIntelligence" data-help="Re-analyzes the current SC guide, pre-demo notes, audience choices, and runnable manifest status.">Refresh Intelligence</button>
             </div>
           </div>
-          <div class="row">
-            <button class="secondary" id="createFollowUps" data-help="Creates follow-up discovery questions from the Intelligence heatmaps and risk areas.">Create Follow-Up Questions</button>
-            <button id="improveGuideFromIntel" data-help="Updates the SC guide with the Intelligence recommendations and guardrails.">Improve SC Guide</button>
-          </div>
-          <textarea id="intelligenceActionOutput" spellcheck="false" readonly placeholder="Follow-up questions and applied improvements will appear here." style="min-height:130px;margin-top:12px"></textarea>
-          <p class="hint" id="intelligencePositioning"></p>
-          <div class="score-explainer" id="scoreExplainer"></div>
-          <div class="intelligence-overview-grid">
-            <div class="heatmap-panel">
-              <h3>Demo Strength Heatmap</h3>
-              <p class="hint" id="demoHeatmapSummary"></p>
-              <div id="demoHeatmap"></div>
+          <details class="custom-ai">
+            <summary>Custom AI Instruction</summary>
+            <textarea id="customAiInstruction" spellcheck="false" placeholder="Write a custom instruction for how the intelligence should be used, for example: make this sharper for a CFO and reduce the technical detail." style="min-height:95px;margin-top:10px"></textarea>
+            <div class="row" style="margin-top:10px">
+              <button class="secondary" id="copyCustomAiInstruction">Prepare Custom Instruction</button>
             </div>
-            <div class="heatmap-panel">
-              <h3>Pre-Demo Notes Heatmap</h3>
-              <p class="hint" id="notesHeatmapSummary"></p>
-              <div id="notesHeatmap"></div>
+          </details>
+          <textarea id="intelligenceActionOutput" spellcheck="false" readonly placeholder="AI action output will appear here." style="min-height:120px;margin-top:12px"></textarea>
+        </section>
+
+        <section class="dashboard-section">
+          <div class="section-head">
+            <div>
+              <h2>SC Briefing</h2>
+              <p>Concise preparation guidance before opening the detailed cards.</p>
             </div>
           </div>
-        </div>
+          <div class="briefing-grid" id="scBriefing"></div>
+        </section>
 
-        <div class="panel">
-          <h2>Risk Analyzer</h2>
-          <div id="riskAnalyzer"></div>
-        </div>
+        <section class="dashboard-section">
+          <div class="section-head">
+            <div>
+              <h2>Intelligence Areas</h2>
+              <p>Open one card at a time for deeper coaching detail.</p>
+            </div>
+          </div>
+          <div class="intelligence-card-grid" id="intelligenceCardGrid"></div>
+        </section>
 
-        <div class="panel">
-          <h2>Discovery Gaps</h2>
-          <div id="discoveryAnalyzer"></div>
-        </div>
+        <section class="detail-panel" id="intelligenceDetailPanel">
+          <p class="hint">Choose an intelligence card to see the detailed analysis.</p>
+        </section>
 
-        <div class="panel">
-          <h2>Stakeholder Coverage</h2>
-          <div id="stakeholderAnalyzer"></div>
-        </div>
+        <section class="dashboard-section">
+          <div class="section-head">
+            <div>
+              <h2>Demo Intelligence Heatmap</h2>
+              <p id="heatmapRecommendation">Select a heatmap lens to see where the demo is strong and where it needs work.</p>
+            </div>
+          </div>
+          <div class="heatmap-tabs" id="heatmapTabs">
+            <button class="secondary heatmap-tab-button active" data-heatmap-tab="demo">Demo Strength</button>
+            <button class="secondary heatmap-tab-button" data-heatmap-tab="stakeholder">Stakeholder Focus</button>
+            <button class="secondary heatmap-tab-button" data-heatmap-tab="discovery">Discovery Quality</button>
+            <button class="secondary heatmap-tab-button" data-heatmap-tab="business">Business Alignment</button>
+          </div>
+          <div id="intelligenceHeatmap"></div>
+        </section>
 
-        <div class="panel">
-          <h2>Timing And Pacing</h2>
-          <div id="timingAnalyzer"></div>
-        </div>
-
-        <div class="panel">
-          <h2>Rehearsal Coach</h2>
-          <div id="rehearsalCoachAnalyzer"></div>
-        </div>
-
-        <div class="panel full">
-          <h2>Strategy And Industry</h2>
-          <div id="strategyIndustryAnalyzer"></div>
-        </div>
-
-        <div class="panel full">
-          <h2>Competitive Positioning</h2>
-          <div id="competitiveAnalyzer"></div>
-        </div>
+        <details class="dashboard-section" id="competitiveAdvisory">
+          <summary class="competitive-summary">Competitive Guidance — Advisory Only</summary>
+          <div class="advisory" style="margin-top:12px">Competitive insights are advisory only and may be incomplete or outdated. Validate important claims before customer use.</div>
+          <div id="competitiveAnalyzer" style="margin-top:12px"></div>
+        </details>
       </div>
     </section>
 
@@ -5384,7 +5750,9 @@ function html(response) {
               <div class="cms-history" id="cmsHistory"></div>
             </div>
             <div>
-              <label for="cmsEditor">Editable content</label>
+              <label for="cmsReadable">Readable preview</label>
+              <div class="cms-readable" id="cmsReadable"></div>
+              <label for="cmsEditor" style="margin-top:14px">Raw JSON / editable content</label>
               <textarea id="cmsEditor" spellcheck="false"></textarea>
               <p class="hint" id="cmsEditorHint">Text blocks save as plain text. Playbook blocks save as JSON and are validated before they become active.</p>
             </div>
@@ -5405,6 +5773,7 @@ function html(response) {
     const setupAccountSummary = document.getElementById("setupAccountSummary");
     const setupItemSummary = document.getElementById("setupItemSummary");
     const intelligenceActionOutput = document.getElementById("intelligenceActionOutput");
+    const customAiInstruction = document.getElementById("customAiInstruction");
     const voiceSelect = document.getElementById("voiceSelect");
     const voiceProviderSelect = document.getElementById("voiceProvider");
     const voiceProviderHint = document.getElementById("voiceProviderHint");
@@ -5437,6 +5806,7 @@ function html(response) {
     const cmsBlockDescription = document.getElementById("cmsBlockDescription");
     const cmsChangeNote = document.getElementById("cmsChangeNote");
     const cmsEditor = document.getElementById("cmsEditor");
+    const cmsReadable = document.getElementById("cmsReadable");
     const cmsVersionSelect = document.getElementById("cmsVersionSelect");
     const cmsHistory = document.getElementById("cmsHistory");
     const cmsSecuritySummary = document.getElementById("cmsSecuritySummary");
@@ -5454,6 +5824,8 @@ function html(response) {
     let runInProgress = false;
     let latestSetupPrompt = null;
     let latestIntelligence = null;
+    let selectedIntelligenceCard = "risks";
+    let activeHeatmapTab = "demo";
     let cmsBlocks = [];
     const heatmapPages = { demo: 0, notes: 0 };
     let helpTimer = null;
@@ -5538,6 +5910,63 @@ function html(response) {
       document.getElementById("cmsEditorHint").textContent = block.kind === "json"
         ? "This block is JSON. The app validates the structure before it becomes active."
         : "This block is plain text. It cannot be saved blank.";
+      renderCmsReadableFromEditor();
+    }
+
+    function renderCmsReadableFromEditor() {
+      const block = cmsBlocks.find((item) => item.id === cmsBlockSelect.value) || cmsBlocks[0];
+      if (!block) {
+        cmsReadable.innerHTML = "<p class='hint'>Choose a content block to preview it.</p>";
+        return;
+      }
+      if (block.kind === "text") {
+        cmsReadable.innerHTML = readableTextHtml(cmsEditor.value);
+        return;
+      }
+      try {
+        cmsReadable.innerHTML = readableJsonHtml(JSON.parse(cmsEditor.value));
+      } catch (error) {
+        cmsReadable.innerHTML = "<p class='hint'>The JSON preview will update once the JSON is valid.</p>";
+      }
+    }
+
+    function readableTextHtml(value) {
+      const lines = String(value || "").split(/\\n+/).map((line) => line.trim()).filter(Boolean);
+      return lines.length
+        ? lines.map((line) => "<p>" + escapeClientHtml(line) + "</p>").join("")
+        : "<p class='hint'>No text yet.</p>";
+    }
+
+    function readableJsonHtml(value) {
+      if (Array.isArray(value)) {
+        return value.map((item, index) => readableObjectCard(item, index)).join("") || "<p class='hint'>Empty list.</p>";
+      }
+      if (value && typeof value === "object") {
+        return Object.entries(value).map(([key, item]) => readableObjectCard({ id: key, ...(item || {}) }, key)).join("");
+      }
+      return "<p>" + escapeClientHtml(value) + "</p>";
+    }
+
+    function readableObjectCard(item, fallback) {
+      if (!item || typeof item !== "object") return "<div class='readable-card'><p>" + escapeClientHtml(item) + "</p></div>";
+      const title = item.label || item.title || item.id || fallback;
+      const description = item.description || item.body || item.instruction || item.tone || "";
+      const lists = Object.entries(item)
+        .filter(([, value]) => Array.isArray(value) && value.length)
+        .slice(0, 4)
+        .map(([key, values]) => "<p><strong>" + escapeClientHtml(readableLabel(key)) + ":</strong> " + escapeClientHtml(values.slice(0, 6).join(", ")) + "</p>")
+        .join("");
+      const scalar = Object.entries(item)
+        .filter(([key, value]) => !["id", "label", "title", "description", "body", "instruction"].includes(key) && !Array.isArray(value) && value && typeof value !== "object")
+        .slice(0, 4)
+        .map(([key, value]) => "<p><strong>" + escapeClientHtml(readableLabel(key)) + ":</strong> " + escapeClientHtml(value) + "</p>")
+        .join("");
+      return "<div class='readable-card'><h3>" + escapeClientHtml(title) + "</h3>" +
+        (description ? "<p>" + escapeClientHtml(description) + "</p>" : "") + scalar + lists + "</div>";
+    }
+
+    function readableLabel(value) {
+      return String(value || "").replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
     }
 
     function reloadAfterCmsChange(message) {
@@ -5813,105 +6242,321 @@ function html(response) {
       const competitive = intelligence.competitive_positioning_mode || {};
       const strategy = intelligence.demo_strategy || {};
       const industry = intelligence.industry_playbook || {};
-      const demoHeatmapItems = demoHeatmap.heatmap || [];
-      const notesHeatmapItems = notes.heatmap || [];
-      heatmapPages.demo = boundedHeatmapPage("demo", demoHeatmapItems);
-      heatmapPages.notes = boundedHeatmapPage("notes", notesHeatmapItems);
+      const metadata = intelligence.demo_metadata || {};
+      const readiness = readinessScore(risk, notes, coach);
+      const strength = firstClean([...(risk.score_details?.what_is_strong || []), ...(demoHeatmap.strongest_areas || []), ...(winning.winning_moments || [])]) || "Clear proof moments are available";
+      const biggestRisk = firstClean([...(risk.warnings || []), ...(demoHeatmap.needs_work_areas || [])]) || "No major risk detected";
+      const missing = firstClean([...(discovery.missing_discovery_items || []), ...(notes.risk_areas || [])]) || "No major discovery gap";
+      const title = metadata.customer_name ? metadata.customer_name + " demo readiness" : "Demo readiness";
 
-      document.getElementById("intelligenceSummary").innerHTML = intelligenceSummary(risk, discovery, stakeholder, winning, avoid, timing, demoHeatmap, notes);
-      document.getElementById("intelligenceScores").innerHTML = [
-        scoreCard("Demo quality", risk.demo_quality_score, "Higher is better", risk.score_details?.demo_quality_summary),
-        scoreCard("Demo risk", risk.demo_risk_score, "Lower is better", risk.score_details?.demo_risk_summary, true),
-        scoreCard("Pre-demo notes", notes.overall_score, "Discovery health", notes.summary),
-        scoreCard("Notes coverage", notes.discovery_coverage_score, "Coverage of key discovery areas", notes.coverage_summary),
-        scoreCard("Business clarity", coach.clarity_score, "Manifest + SC guide", coach.basis),
-        scoreCard("Executive alignment", coach.executive_alignment_score, "Outcome focus", "Checks whether leadership outcomes are visible in the manifest and guide.")
+      document.getElementById("readinessTitle").textContent = title;
+      document.getElementById("readinessSubtitle").textContent =
+        [metadata.strategy, metadata.audience_type, metadata.target_segment, metadata.industry].filter(Boolean).join(" | ") ||
+        "Use this dashboard to decide whether the demo is ready and where to focus next.";
+      document.getElementById("readinessScore").textContent = readiness;
+      document.getElementById("readinessBadges").innerHTML = [
+        insightBadge("Biggest Strength", strength),
+        insightBadge("Biggest Risk", biggestRisk),
+        insightBadge("Missing Discovery", missing)
       ].join("");
-      document.getElementById("intelligencePositioning").textContent = intelligence.positioning || "";
-      document.getElementById("scoreExplainer").innerHTML =
-        analysisItem("What is strongest", (risk.score_details?.what_is_strong || []).join(", "), risk.score_details?.quality_explanation) +
-        analysisItem("What needs work", (risk.score_details?.what_needs_work || []).join(", "), risk.score_details?.risk_explanation) +
-        analysisItem("Notes impact", notes.word_count ? notes.word_count + " words captured" : "No notes captured", risk.score_details?.notes_dependency);
-      document.getElementById("demoHeatmapSummary").textContent = demoHeatmap.summary || "";
-      document.getElementById("notesHeatmapSummary").textContent = notes.summary || "";
-      document.getElementById("demoHeatmap").innerHTML = heatmapRows(demoHeatmapItems, "demo");
-      document.getElementById("notesHeatmap").innerHTML = heatmapRows(notesHeatmapItems, "notes");
+      document.getElementById("metadataChips").innerHTML = [
+        metadataChip("Strategy", metadata.strategy || strategy.label, strategy.description),
+        metadataChip("Industry", metadata.industry || industry.label, industry.description),
+        metadataChip("Audience", metadata.audience_type, "Primary audience type selected for this demo."),
+        metadataChip("Segment", metadata.target_segment, "Target customer segment selected for this demo."),
+        metadataChip("Language", metadata.language, "Output language for generated demo assets."),
+        metadataChip("Narration Voice", metadata.narration_voice, "Voice selected for narration.")
+      ].join("");
+      document.getElementById("scBriefing").innerHTML = scBriefingHtml(metadata, strategy, industry, winning, risk, discovery);
 
-      document.getElementById("riskAnalyzer").innerHTML =
-        listBlock("Warnings", risk.warnings) +
-        listBlock("Recommendations", risk.recommendations) +
-        hintBlock(risk.score_explanation);
-
-      document.getElementById("discoveryAnalyzer").innerHTML =
-        analysisItem("Pre-demo notes score", notes.overall_score ? notes.overall_score + "/100" : "-", notes.summary) +
-        listBlock("Missing discovery items", discovery.missing_discovery_items) +
-        listBlock("Follow-up questions", discovery.recommended_follow_up_questions) +
-        listBlock("Notes risk areas", notes.risk_areas) +
-        listBlock("Notes recommendations", notes.recommendations) +
-        pillList(discovery.found_discovery_items || []);
-
-      document.getElementById("strategyIndustryAnalyzer").innerHTML =
-        analysisItem("Demo strategy", strategy.label, strategy.description) +
-        analysisItem("Tone and pacing", strategy.tone, strategy.pacing) +
-        analysisItem("Technical depth", strategy.technical_depth, strategy.storytelling_style) +
-        analysisItem("Industry playbook", industry.label, industry.description) +
-        pillList([...(industry.terminology || []), ...(industry.kpis || [])].slice(0, 10));
-
-      document.getElementById("stakeholderAnalyzer").innerHTML =
-        coverageRows(stakeholder.stakeholder_coverage || []) +
-        hintBlock(stakeholder.recommendation);
-
-      document.getElementById("winningMomentsAnalyzer").innerHTML =
-        listBlock("Moments to slow down for", (winning.winning_moments || []).slice(0, 3)) +
-        (winning.details || []).slice(0, 2).map((item) => analysisItem(item.moment, item.segment, item.coaching_tip)).join("") +
-        ((winning.winning_moments || []).length > 3 ? hintBlock("More winning moments are included in the SC guide and full intelligence data.") : "");
-
-      document.getElementById("avoidAnalyzer").innerHTML =
-        listBlock("Avoid showing", (avoid.avoid_showing || []).slice(0, 6)) +
-        hintBlock(avoid.rationale);
-
-      document.getElementById("timingAnalyzer").innerHTML =
-        analysisItem("Estimated runtime", timing.estimated_runtime, "Overrun risk: " + (timing.overrun_risk || "unknown")) +
-        hintBlock(timing.basis) +
-        timingRows(timing.section_timing || []) +
-        listBlock("High-risk sections", timing.high_risk_sections) +
-        listBlock("Recommended cuts", timing.recommended_cuts);
-
-      document.getElementById("rehearsalCoachAnalyzer").innerHTML =
-        analysisItem("Status", coach.status, "Use rehearsal output later for transcript and pacing feedback.") +
-        hintBlock(coach.basis) +
-        listBlock("Coaching recommendations", coach.recommendations) +
-        listBlock("Future transcript metrics", coach.suggested_metrics_for_future_rehearsal_transcripts);
-
-      document.getElementById("competitiveAnalyzer").innerHTML =
-        "<div class='advisory'>" + escapeClientHtml(competitive.warning || "") + "</div>" +
-        (competitive.competitive_focus || []).map((item) => analysisItem(item.topic, item.why_it_matters, item.recommended_demo_moment)).join("");
+      const cards = intelligenceCards({ risk, discovery, stakeholder, winning, avoid, timing, coach, competitive, notes });
+      if (!cards.some((card) => card.id === selectedIntelligenceCard)) selectedIntelligenceCard = cards[0]?.id || "risks";
+      document.getElementById("intelligenceCardGrid").innerHTML = cards.map(intelligenceCardHtml).join("");
+      renderIntelligenceDetail(cards);
+      renderIntelligenceHeatmap(intelligence);
+      renderCompetitiveAdvisory(competitive);
     }
 
-    function intelligenceSummary(risk, discovery, stakeholder, winning, avoid, timing, demoHeatmap, notes) {
-      const attention = uniqueClientItems([
-        ...(demoHeatmap.needs_work_areas || []).map((item) => "Strengthen demo area: " + item),
-        ...(notes.risk_areas || []).map((item) => "Clarify pre-demo notes: " + item),
-        ...(risk.warnings || []),
-        timing.overrun_risk && timing.overrun_risk !== "low" ? "Watch pacing: " + timing.overrun_risk + " overrun risk" : "",
-        stakeholder.recommendation
-      ]).slice(0, 3);
-      const sections = uniqueClientItems([
-        (winning.winning_moments || []).length ? "Winning Moments" : "",
-        (avoid.avoid_showing || []).length ? "What Not To Demo" : "",
-        (notes.risk_areas || []).length || (discovery.missing_discovery_items || []).length ? "Discovery Gaps" : "",
-        (demoHeatmap.needs_work_areas || []).length ? "Demo Strength Heatmap" : "",
-        timing.overrun_risk && timing.overrun_risk !== "low" ? "Timing And Pacing" : "",
-        stakeholder.recommendation ? "Stakeholder Coverage" : ""
+    function firstClean(items = []) {
+      return (items || []).map((item) => String(item || "").trim()).find(Boolean) || "";
+    }
+
+    function readinessScore(risk, notes, coach) {
+      const quality = Number(risk.demo_quality_score);
+      const riskScore = Number(risk.demo_risk_score);
+      const notesScore = Number(notes.overall_score);
+      const clarity = Number(coach.clarity_score);
+      const parts = [
+        Number.isFinite(quality) ? quality * .42 : null,
+        Number.isFinite(riskScore) ? (100 - riskScore) * .26 : null,
+        Number.isFinite(notesScore) ? notesScore * .18 : null,
+        Number.isFinite(clarity) ? clarity * .14 : null
+      ].filter((value) => value !== null);
+      return Math.max(0, Math.min(100, Math.round(parts.reduce((sum, value) => sum + value, 0) || quality || 0)));
+    }
+
+    function insightBadge(label, value) {
+      return "<span class='insight-badge'><strong>" + escapeClientHtml(label) + ":</strong>" + escapeClientHtml(value || "-") + "</span>";
+    }
+
+    function metadataChip(label, value, rationale = "") {
+      return "<details class='metadata-chip'><summary><strong>" + escapeClientHtml(label) + ":</strong>" + escapeClientHtml(value || "-") + "</summary>" +
+        (rationale ? "<p>" + escapeClientHtml(rationale) + "</p>" : "") + "</details>";
+    }
+
+    function scBriefingHtml(metadata, strategy, industry, winning, risk, discovery) {
+      const drivers = uniqueClientItems([
+        ...(metadata.likely_priorities || []),
+        ...(industry.kpis || []),
+        ...(industry.pain_points || []),
+        ...(risk.score_details?.what_is_strong || [])
       ]).slice(0, 4);
-      const attentionHtml = attention.length
-        ? attention.map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("")
-        : "<li>No major risk areas detected. Still review the winning moments and pacing before rehearsal.</li>";
-      const sectionsHtml = sections.length
-        ? sections.map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("")
-        : "<li>Demo Intelligence Overview</li><li>Timing And Pacing</li>";
-      return "<div><h3>SC Attention Summary</h3><ul>" + attentionHtml + "</ul></div>" +
-        "<div><h3>Definitely Review</h3><ul>" + sectionsHtml + "</ul></div>";
+      const criticalMoments = uniqueClientItems([
+        ...(winning.winning_moments || []),
+        ...(risk.score_details?.what_needs_work || []),
+        ...(discovery.recommended_follow_up_questions || [])
+      ]).slice(0, 3);
+      return [
+        briefingItem("Customer Situation", metadata.customer_description || metadata.customer_name || "Use the pre-demo notes and company context to frame the situation."),
+        briefingItem("Demo Goal", metadata.demo_goal || metadata.demo_scope || "Make the customer confident the selected NetSuite story addresses their current priorities."),
+        briefingItem("Key Business Drivers", drivers.join(", ") || "Visibility, control, speed, and trusted decisions."),
+        briefingItem("Recommended Tone", [strategy.tone, strategy.pacing].filter(Boolean).join(". ") || "Consultative and outcome-led."),
+        briefingItem("Critical Demo Moments", criticalMoments.join(" | ") || "Open with the executive story, slow down on proof moments, and close with business impact.")
+      ].join("");
+    }
+
+    function briefingItem(title, body) {
+      return "<div class='briefing-item'><strong>" + escapeClientHtml(title) + "</strong><p>" + escapeClientHtml(body || "-") + "</p></div>";
+    }
+
+    function intelligenceCards(data) {
+      const { risk, discovery, stakeholder, winning, avoid, timing, coach, competitive, notes } = data;
+      const stakeholderItems = stakeholder.stakeholder_coverage || [];
+      const competitiveFocus = competitive.competitive_focus || [];
+      return [
+        {
+          id: "risks",
+          icon: "!",
+          title: "Demo Risks",
+          summary: risk.warnings?.[0] || "No major demo risk detected.",
+          metric: (risk.demo_risk_score ?? "-") + " risk",
+          status: statusForRisk(risk.demo_risk_score),
+          previews: (risk.warnings || risk.recommendations || []).slice(0, 3),
+          detail: listBlock("Warnings", risk.warnings) + listBlock("Recommendations", risk.recommendations) + hintBlock(risk.score_explanation)
+        },
+        {
+          id: "discovery",
+          icon: "?",
+          title: "Discovery Gaps",
+          summary: (discovery.missing_discovery_items || []).length + " missing discovery items detected.",
+          metric: (notes.overall_score ?? "-") + "/100",
+          status: statusForScore(notes.overall_score),
+          previews: [...(discovery.missing_discovery_items || []), ...(notes.risk_areas || [])].slice(0, 3),
+          detail: analysisItem("Pre-demo notes score", notes.overall_score ? notes.overall_score + "/100" : "-", notes.summary) +
+            listBlock("Missing discovery items", discovery.missing_discovery_items) +
+            listBlock("Follow-up questions", discovery.recommended_follow_up_questions) +
+            listBlock("Notes recommendations", notes.recommendations) +
+            pillList(discovery.found_discovery_items || [])
+        },
+        {
+          id: "stakeholders",
+          icon: "S",
+          title: "Stakeholder Coverage",
+          summary: stakeholder.recommendation || "Coverage looks balanced enough for rehearsal.",
+          metric: stakeholderItems.length + " roles",
+          status: stakeholderItems.some((item) => Number(item.coverage) < 25) ? "warning" : "strong",
+          previews: stakeholderItems.slice(0, 3).map((item) => item.role + ": " + item.coverage + "%"),
+          detail: coverageRows(stakeholderItems) + hintBlock(stakeholder.recommendation)
+        },
+        {
+          id: "timing",
+          icon: "T",
+          title: "Timing & Pacing",
+          summary: "Estimated runtime: " + (timing.estimated_runtime || "unknown") + ".",
+          metric: timing.overrun_risk || "unknown",
+          status: timing.overrun_risk === "high" ? "critical" : timing.overrun_risk === "medium" ? "warning" : "strong",
+          previews: [...(timing.high_risk_sections || []), ...(timing.recommended_cuts || [])].slice(0, 3),
+          detail: analysisItem("Estimated runtime", timing.estimated_runtime, "Overrun risk: " + (timing.overrun_risk || "unknown")) +
+            hintBlock(timing.basis) + timingRows(timing.section_timing || []) +
+            listBlock("Recommended cuts", timing.recommended_cuts)
+        },
+        {
+          id: "winning",
+          icon: "W",
+          title: "Winning Moments",
+          summary: (winning.winning_moments || [])[0] || "No clear winning moment detected yet.",
+          metric: (winning.winning_moments || []).length + " moments",
+          status: (winning.winning_moments || []).length >= 3 ? "strong" : "warning",
+          previews: (winning.winning_moments || []).slice(0, 3),
+          detail: listBlock("Moments to slow down for", winning.winning_moments) +
+            (winning.details || []).map((item) => analysisItem(item.moment, item.segment, item.coaching_tip)).join("")
+        },
+        {
+          id: "avoid",
+          icon: "X",
+          title: "What NOT To Demo",
+          summary: "Keep low-value or risky areas out of the main path.",
+          metric: (avoid.avoid_showing || []).length + " avoid",
+          status: "warning",
+          previews: (avoid.avoid_showing || []).slice(0, 3),
+          detail: listBlock("Avoid showing", avoid.avoid_showing) + hintBlock(avoid.rationale)
+        },
+        {
+          id: "coach",
+          icon: "C",
+          title: "Rehearsal Coach",
+          summary: coach.status || "Use rehearsal later for pacing and transcript coaching.",
+          metric: (coach.clarity_score ?? "-") + " clarity",
+          status: statusForScore(coach.clarity_score),
+          previews: (coach.recommendations || []).slice(0, 3),
+          detail: analysisItem("Status", coach.status, "Use rehearsal output later for transcript and pacing feedback.") +
+            hintBlock(coach.basis) +
+            listBlock("Coaching recommendations", coach.recommendations) +
+            listBlock("Future transcript metrics", coach.suggested_metrics_for_future_rehearsal_transcripts)
+        },
+        {
+          id: "competitive",
+          icon: "A",
+          title: "Competitive Positioning",
+          summary: "Advisory guidance only. Validate claims before customer use.",
+          metric: competitiveFocus.length + " topics",
+          status: "advisory",
+          previews: competitiveFocus.slice(0, 3).map((item) => item.topic),
+          detail: "<div class='advisory'>Competitive insights are advisory only and may be incomplete or outdated. Validate important claims before customer use.</div>" +
+            competitiveFocus.map((item) => analysisItem(item.topic, item.why_it_matters, item.recommended_demo_moment)).join("")
+        }
+      ];
+    }
+
+    function intelligenceCardHtml(card) {
+      const active = card.id === selectedIntelligenceCard ? " active" : "";
+      const previews = (card.previews || []).filter(Boolean).slice(0, 3);
+      return "<button class='intelligence-card" + active + "' data-intel-card='" + escapeClientHtml(card.id) + "'>" +
+        "<div class='card-title-row'><span class='card-icon'>" + escapeClientHtml(card.icon) + "</span><span class='status-badge " + escapeClientHtml(card.status) + "'>" + escapeClientHtml(card.status) + "</span></div>" +
+        "<h3 class='card-title'>" + escapeClientHtml(card.title) + "</h3>" +
+        "<div class='card-metric'>" + escapeClientHtml(card.metric || "-") + "</div>" +
+        "<p class='card-summary'>" + escapeClientHtml(card.summary || "") + "</p>" +
+        (previews.length ? "<ul class='preview-list'>" + previews.map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("") + "</ul>" : "<p class='hint'>No preview items detected.</p>") +
+      "</button>";
+    }
+
+    function renderIntelligenceDetail(cards) {
+      const card = cards.find((item) => item.id === selectedIntelligenceCard) || cards[0];
+      if (!card) return;
+      document.getElementById("intelligenceDetailPanel").innerHTML =
+        "<div class='section-head'><div><h2>" + escapeClientHtml(card.title) + "</h2><p>" + escapeClientHtml(card.summary || "") + "</p></div>" +
+        "<span class='status-badge " + escapeClientHtml(card.status) + "'>" + escapeClientHtml(card.status) + "</span></div>" +
+        "<div class='detail-grid'>" + (card.detail || "<p class='hint'>No detail available yet.</p>") + "</div>";
+    }
+
+    function statusForScore(score) {
+      const value = Number(score);
+      if (!Number.isFinite(value)) return "advisory";
+      if (value >= 80) return "strong";
+      if (value >= 55) return "warning";
+      return "critical";
+    }
+
+    function statusForRisk(score) {
+      const value = Number(score);
+      if (!Number.isFinite(value)) return "advisory";
+      if (value >= 75) return "critical";
+      if (value >= 45) return "warning";
+      return "strong";
+    }
+
+    function renderIntelligenceHeatmap(intelligence) {
+      document.querySelectorAll(".heatmap-tab-button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.heatmapTab === activeHeatmapTab);
+      });
+      const items = heatmapLensItems(intelligence, activeHeatmapTab);
+      document.getElementById("heatmapRecommendation").textContent = heatmapLensRecommendation(intelligence, activeHeatmapTab);
+      document.getElementById("intelligenceHeatmap").innerHTML =
+        "<div class='simple-heatmap-grid'>" + items.slice(0, 6).map(heatmapCardHtml).join("") + "</div>";
+    }
+
+    function heatmapLensItems(intelligence, lens) {
+      const demoHeatmap = intelligence.demo_heatmap_analyzer || {};
+      const notes = intelligence.pre_demo_notes_analyzer || {};
+      const stakeholder = intelligence.stakeholder_coverage_analyzer || {};
+      const risk = intelligence.demo_risk_analyzer || {};
+      if (lens === "stakeholder") {
+        return (stakeholder.stakeholder_coverage || []).map((item) => ({
+          label: item.role,
+          score: item.coverage,
+          evidence: item.coverage + "% coverage detected.",
+          recommendation: item.coverage < 40 ? "Add a proof point or discovery question for this stakeholder." : "Coverage is visible enough for the current story."
+        }));
+      }
+      if (lens === "discovery") return notes.heatmap || [];
+      if (lens === "business") {
+        const filtered = (demoHeatmap.heatmap || []).filter((item) => /business|executive|audience|winning|scope|alignment|outcome/i.test(item.label)).slice(0, 6);
+        return filtered.length ? filtered : (demoHeatmap.heatmap || []).slice(0, 4);
+      }
+      return demoHeatmap.heatmap || [];
+    }
+
+    function heatmapLensRecommendation(intelligence, lens) {
+      const demoHeatmap = intelligence.demo_heatmap_analyzer || {};
+      const notes = intelligence.pre_demo_notes_analyzer || {};
+      const stakeholder = intelligence.stakeholder_coverage_analyzer || {};
+      if (lens === "stakeholder") return stakeholder.recommendation || "Check that every important stakeholder has at least one relevant proof moment.";
+      if (lens === "discovery") return (notes.recommendations || [])[0] || "Fill the largest discovery gap before rehearsal.";
+      if (lens === "business") return "Make the business reason visible before each click, then land the proof in plain language.";
+      return (demoHeatmap.needs_work_areas || []).length
+        ? "Focus first on: " + demoHeatmap.needs_work_areas.slice(0, 3).join(", ") + "."
+        : "The demo strength profile looks healthy. Keep the winning moments prominent.";
+    }
+
+    function heatmapCardHtml(item) {
+      const score = Math.max(0, Math.min(100, Number(item.score) || 0));
+      const status = item.status || heatmapClass(score);
+      return "<div class='compact-heatmap-card'>" +
+        "<div class='heatmap-head'><strong>" + escapeClientHtml(item.label || "Heatmap item") + "</strong><span class='heatmap-score'>" + Math.round(score) + "/100</span></div>" +
+        "<div class='heatmap-track'><div class='heatmap-fill' style='width:" + score + "%'></div></div>" +
+        "<span class='status-badge " + escapeClientHtml(statusForHeatmap(status)) + "'>" + escapeClientHtml(item.status_label || status) + "</span>" +
+        "<p class='heatmap-copy'>" + escapeClientHtml(item.evidence || "") + "</p>" +
+        "<p class='heatmap-copy'><strong>Recommendation:</strong> " + escapeClientHtml(item.recommendation || "") + "</p>" +
+      "</div>";
+    }
+
+    function statusForHeatmap(status) {
+      if (status === "strong" || status === "healthy") return "strong";
+      if (status === "risk") return "critical";
+      return "warning";
+    }
+
+    function renderCompetitiveAdvisory(competitive) {
+      const focus = competitive.competitive_focus || [];
+      document.getElementById("competitiveAnalyzer").innerHTML =
+        (competitive.warning ? "<p class='hint'>" + escapeClientHtml(competitive.warning) + "</p>" : "") +
+        focus.map((item) => analysisItem(item.topic, item.why_it_matters, item.recommended_demo_moment)).join("");
+    }
+
+    function actionTextFor(mode) {
+      if (!latestIntelligence) return "Refresh Intelligence first so the helper has current analysis.";
+      const risk = latestIntelligence.demo_risk_analyzer || {};
+      const discovery = latestIntelligence.discovery_gap_analyzer || {};
+      const timing = latestIntelligence.demo_timing_pacing_analyzer || {};
+      const winning = latestIntelligence.winning_moment_detection || {};
+      const avoid = latestIntelligence.what_not_to_demo_engine || {};
+      const metadata = latestIntelligence.demo_metadata || {};
+      const common = [
+        "Customer/demo: " + (metadata.customer_name || "current demo"),
+        "Strategy: " + (metadata.strategy || "-"),
+        "Audience: " + (metadata.audience_type || "-") + " / " + (metadata.target_segment || "-"),
+        "Biggest risks: " + ((risk.warnings || []).slice(0, 3).join("; ") || "none detected"),
+        "Missing discovery: " + ((discovery.missing_discovery_items || []).slice(0, 3).join("; ") || "none detected"),
+        "Winning moments: " + ((winning.winning_moments || []).slice(0, 3).join("; ") || "none detected"),
+        "Avoid showing: " + ((avoid.avoid_showing || []).slice(0, 4).join("; ") || "none detected")
+      ];
+      const modes = {
+        compress: "Compress this demo into a shorter, sharper flow. Keep only the highest-impact proof moments, reduce lower-value sections, and preserve the strongest executive story. Pay special attention to timing: " + (timing.estimated_runtime || "unknown") + ".",
+        executive: "Generate an executive version of this demo. Use concise business language, reduce clicks, emphasize KPIs, risk reduction, financial impact, and decision confidence.",
+        technical: "Rebuild this demo for a technical audience. Keep business context, but add architecture, permissions, integration, auditability, data flow, and implementation-fit questions without making unsupported claims.",
+        custom: "Apply this custom instruction to the demo intelligence: " + (customAiInstruction.value.trim() || "No custom instruction entered.")
+      };
+      return [modes[mode] || modes.custom, "", "Context to use:", ...common.map((line) => "- " + line)].join("\\n");
     }
 
     function scoreCard(label, value, note, body = "", lowerIsBetter = false) {
@@ -6189,6 +6834,18 @@ function html(response) {
     });
 
     document.addEventListener("click", (event) => {
+      const intelligenceCard = event.target.closest("[data-intel-card]");
+      if (intelligenceCard) {
+        selectedIntelligenceCard = intelligenceCard.dataset.intelCard;
+        if (latestIntelligence) renderIntelligence(latestIntelligence);
+        return;
+      }
+      const heatmapTab = event.target.closest("[data-heatmap-tab]");
+      if (heatmapTab) {
+        activeHeatmapTab = heatmapTab.dataset.heatmapTab || "demo";
+        if (latestIntelligence) renderIntelligenceHeatmap(latestIntelligence);
+        return;
+      }
       const button = event.target.closest("[data-heatmap-key]");
       if (!button || button.disabled) return;
       const key = button.dataset.heatmapKey;
@@ -6202,6 +6859,7 @@ function html(response) {
     document.getElementById("refreshGuide").onclick = loadGuide;
     document.getElementById("refreshIntelligence").onclick = loadIntelligence;
     cmsBlockSelect.onchange = renderSelectedCmsBlock;
+    cmsEditor.oninput = renderCmsReadableFromEditor;
     document.getElementById("cmsSetupButton").onclick = async () => {
       const password = document.getElementById("cmsSetupPassword").value;
       const confirmPassword = document.getElementById("cmsSetupPasswordConfirm").value;
@@ -6294,6 +6952,22 @@ function html(response) {
       } finally {
         setBusy(false);
       }
+    };
+    document.getElementById("compressDemo").onclick = () => {
+      intelligenceActionOutput.value = actionTextFor("compress");
+      setStatus("Compressed demo instruction prepared from Intelligence.");
+    };
+    document.getElementById("generateExecutiveVersion").onclick = () => {
+      intelligenceActionOutput.value = actionTextFor("executive");
+      setStatus("Executive version instruction prepared from Intelligence.");
+    };
+    document.getElementById("rebuildTechnicalAudience").onclick = () => {
+      intelligenceActionOutput.value = actionTextFor("technical");
+      setStatus("Technical audience rebuild instruction prepared from Intelligence.");
+    };
+    document.getElementById("copyCustomAiInstruction").onclick = () => {
+      intelligenceActionOutput.value = actionTextFor("custom");
+      setStatus("Custom AI instruction prepared from Intelligence.");
     };
     document.getElementById("executeSetupPrompt").onclick = async () => {
       if (!latestSetupPrompt) {
