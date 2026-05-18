@@ -1321,15 +1321,58 @@ async function runCommand(body) {
   const valueIntensity = body.valueIntensity || "balanced";
   const voice = body.voice || "Moira";
   const voiceProvider = normalizeVoiceProvider(body.voiceProvider);
+  if (mode === "rehearse") {
+    const prep = await prepareAccountBuffer();
+    const run = await runProcess("node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--rehearse", "--audio=none", `--value-intensity=${valueIntensity}`]);
+    return {
+      ...run,
+      log: `${prep.log}\n\n${run.log || ""}`
+    };
+  }
+
   const commands = {
     open: ["node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--open-browser"]],
     dry: ["node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--dry-run", "--audio=none", `--value-intensity=${valueIntensity}`]],
-    rehearse: ["node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--rehearse", "--audio=none", `--value-intensity=${valueIntensity}`]],
     live: ["node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", `--audio=${voiceProvider}`, `--value-intensity=${valueIntensity}`, `--voice=${voice}`]]
   };
   const command = commands[mode];
   if (!command) throw new Error(`Unknown run mode: ${mode}`);
   return runProcess(command[0], command[1]);
+}
+
+async function prepareAccountBuffer() {
+  const manifest = await readManifest();
+  const payload = setupPromptPayload(manifest);
+  const bufferDir = path.join(projectRoot, "artifacts/prep-buffer");
+  await mkdir(bufferDir, { recursive: true });
+  const file = path.join(bufferDir, `${companyFileSlug(manifest)}-account-prep-buffer.json`);
+  const createdAt = new Date().toISOString();
+  const buffer = {
+    createdAt,
+    account: payload.account,
+    setupPlan: payload.setupPlan,
+    promptFile: path.join(projectRoot, "artifacts/codex-prompts", `${companyFileSlug(manifest)}-netsuite-setup-prompt.md`),
+    status: payload.setupPlan.items?.length ? "setup-items-detected" : "read-only-ready",
+    note: "Written before rehearsal so the SC can see whether the NetSuite account may need setup before the live demo."
+  };
+  await writeFile(file, `${JSON.stringify(buffer, null, 2)}\n`, "utf8");
+  await mkdir(path.dirname(buffer.promptFile), { recursive: true });
+  await writeFile(buffer.promptFile, payload.prompt, "utf8");
+
+  const items = payload.setupPlan.items || [];
+  const log = [
+    "Account prep buffer created before rehearsal.",
+    `Account: ${payload.account.account} (${payload.account.host})`,
+    `Role: ${payload.account.role}`,
+    `Setup status: ${payload.setupPlan.status}`,
+    items.length
+      ? `Potential setup items: ${items.map((item) => item.label).join(", ")}`
+      : "Potential setup items: none inferred; keep demo read-only unless requirements change.",
+    `Buffer file: ${file}`,
+    `Codex setup prompt: ${buffer.promptFile}`
+  ].join("\n");
+
+  return { ok: true, file, log };
 }
 
 function runProcess(command, args) {
@@ -2000,7 +2043,7 @@ function html(response) {
             <div class="step"><strong>2. Interpret</strong><span>Codex-style logic reads the company site and notes to infer likely ERP priorities.</span></div>
             <div class="step"><strong>3. Generate</strong><span>The helper creates an editable manifest with navigation, narration, proof points, and safe actions.</span></div>
             <div class="step"><strong>4. Guide</strong><span>It also creates a lighter SC guide that a consultant can use manually.</span></div>
-            <div class="step"><strong>5. Rehearse</strong><span>Dry runs and rehearsals check routes, timing, screenshots, and cache useful information.</span></div>
+            <div class="step"><strong>5. Rehearse</strong><span>Rehearsal buffers account prep, checks routes, timing, screenshots, and caches useful information.</span></div>
             <div class="step"><strong>6. Run</strong><span>The final demo drives NetSuite and narrates the story with the selected voice engine.</span></div>
           </div>
         </div>
@@ -2049,11 +2092,11 @@ function html(response) {
           <div class="row">
             <button class="secondary" id="openBrowser" data-help="Opens or reuses the NetSuite browser session so you can sign in before running the demo.">Open NetSuite Browser</button>
             <button class="secondary" data-run="dry" data-help="Checks the planned demo steps without controlling NetSuite or playing audio.">Dry Run</button>
-            <button class="secondary" data-run="rehearse" data-help="Runs the browser flow without narration so pages, timing, and screenshots can be prepared.">Rehearse</button>
+            <button class="secondary" data-run="rehearse" data-help="Creates an account prep buffer and Codex setup prompt, then runs the browser rehearsal without narration.">Rehearse + Prep Account</button>
             <button data-run="live" data-help="Runs the full NetSuite automation with narrator audio using the selected voice.">Live Demo</button>
             <button class="danger" id="stopRun" disabled data-help="Stops the currently running demo automation.">Stop</button>
           </div>
-          <p class="hint">Rehearse first. Then use Live Demo when the manifest and SC guide look right.</p>
+          <p class="hint">Rehearse + Prep Account first. Then use Live Demo when the manifest, SC guide, and account prep buffer look right.</p>
         </div>
 
         <div class="panel narrator-card">

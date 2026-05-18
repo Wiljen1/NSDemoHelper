@@ -9,6 +9,7 @@ node_modules/
 artifacts/audio/
 artifacts/cache/
 artifacts/codex-prompts/
+artifacts/prep-buffer/
 artifacts/runtime/
 artifacts/screenshots/
 artifacts/sc-guides/

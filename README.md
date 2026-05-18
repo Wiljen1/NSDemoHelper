@@ -8,7 +8,7 @@ This workspace contains a first finance-demo package for NetSuite:
 - live narration using either the local Mac voice engine or ElevenLabs cloud voices
 - screenshot capture for rehearsal review
 - a demo value emphasis setting: light, balanced, or heavy
-- a rehearsal/cache step before the live run
+- a rehearsal/account-prep/cache step before the live run
 
 ## Files
 
@@ -50,7 +50,7 @@ From the control panel you can:
 - generate a guarded NetSuite setup prompt when demo data/configuration may need to be created
 - restore earlier manifest versions
 - open the reusable NetSuite browser
-- dry run, rehearse, or run the live narrated demo
+- dry run, rehearse with account prep buffering, or run the live narrated demo
 
 ## Command Line Flow
 
@@ -68,7 +68,7 @@ Then run the narrated demo:
 npm run demo
 ```
 
-For a real rehearsal without audio, which also saves timing and route information:
+For a real rehearsal without audio, which also creates an account prep buffer and saves timing and route information:
 
 ```bash
 npm run demo:rehearse
@@ -90,11 +90,11 @@ npm run demo:dry
    - `npm run demo:light` for value statements only at major transitions.
    - `npm run demo` for balanced value statements.
    - `npm run demo:heavy` for value statements on every segment.
-5. Rehearse with `npm run demo:rehearse`. This verifies pages, saves screenshots, and writes a cache file.
+5. Rehearse with `npm run demo:rehearse`. This prepares the account buffer, verifies pages, saves screenshots, and writes a cache file.
 6. Amend the manifest if needed.
 7. Run the final narrated demo with `npm run demo`.
 
-The rehearsal cache is written to `artifacts/cache/finance-pl-cash360.demo-cache.json`.
+The account prep buffer is written to `artifacts/prep-buffer/`, and the rehearsal cache is written to `artifacts/cache/finance-pl-cash360.demo-cache.json`.
 
 ## Notes
 

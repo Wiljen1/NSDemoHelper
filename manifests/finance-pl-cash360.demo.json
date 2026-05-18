@@ -151,9 +151,9 @@
         "description": "Print the planned demo without opening NetSuite."
       },
       {
-        "label": "Rehearse And Cache",
+        "label": "Rehearse And Prep Account",
         "command": "npm run demo:rehearse",
-        "description": "Run the browser without audio, verify pages, save timings and screenshots."
+        "description": "Create the account prep buffer, then run the browser without audio, verify pages, save timings and screenshots."
       },
       {
         "label": "Run Live Demo",
