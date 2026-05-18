@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "id": "netsuite-demo-helper-manager-showcase",
-  "name": "NetSuite Demo Helper: Manager Showcase",
-  "audience": "Senior sales and solution consulting leadership",
+  "id": "netsuite-demo-helper-sc-showcase",
+  "name": "NetSuite Demo Helper: SC Product Demo",
+  "audience": "Solution Consultants",
   "context": {
     "application": "NetSuite Demo Helper",
-    "role": "Solution Consulting demo leader",
+    "role": "Solution Consultant",
     "baseUrl": "http://localhost:4173",
     "login": {
       "mode": "none",
@@ -49,11 +49,11 @@
   "segments": [
     {
       "id": "showcase-open",
-      "title": "Open With The SC Problem",
-      "objective": "Position the tool as a practical way for SC teams to prepare stronger demos with less risk.",
+      "title": "Open With Codex And Deal Context",
+      "objective": "Show that the helper is SC-owned, Codex-backed, and working from a saved deal snapshot.",
       "valueMoment": "major",
-      "valueStatement": "Leaders can see how the helper improves demo quality, consistency, and readiness without asking every SC to start from a blank page.",
-      "narration": "This is NetSuite Demo Helper. The purpose is not just to generate a demo. The purpose is to help Solution Consultants prepare like a senior SC: understand the audience, shape the story, avoid weak demo habits, and go into the meeting with a clearer plan. For managers, the important point is consistency. The tool gives every SC a structured way to prepare, while still leaving room for judgment and personalization.",
+      "valueStatement": "The SC can prepare from real deal inputs while keeping the slower Codex reasoning outside the live customer presentation.",
+      "narration": "This is NetSuite Demo Helper, a prep workspace built for Solution Consultants. It helps an SC get more value from discovery by turning live deal context into a practical demo plan, SC guide, and intelligence view. For this walkthrough I am using a saved mock ACS deal snapshot, so the app can show realistic prep data without waiting for a fresh Codex run. Codex is still the brain of the workflow: the app verifies that Codex is available, then combines Codex reasoning with the local demo guidelines, audience playbooks, strategy rules, and admin-controlled logic.",
       "actions": [
         {
           "type": "goto",
@@ -66,14 +66,38 @@
           "timeoutMs": 15000
         },
         {
-          "type": "highlightText",
-          "text": "SC Demo Instructions",
-          "durationMs": 1100
+          "type": "waitForText",
+          "text": "Codex active",
+          "timeoutMs": 15000
         },
         {
           "type": "highlightText",
-          "text": "Demo Audience",
-          "durationMs": 1100
+          "text": "Codex active",
+          "durationMs": 1000
+        },
+        {
+          "type": "clickRole",
+          "role": "button",
+          "name": "Backbone",
+          "exact": true,
+          "timeoutMs": 10000
+        },
+        {
+          "type": "waitForText",
+          "text": "Where Codex Is Used",
+          "timeoutMs": 10000
+        },
+        {
+          "type": "highlightText",
+          "text": "Where Codex Is Used",
+          "durationMs": 1200
+        },
+        {
+          "type": "clickRole",
+          "role": "button",
+          "name": "Close",
+          "exact": true,
+          "timeoutMs": 10000
         }
       ],
       "verifications": [
@@ -85,66 +109,47 @@
     },
     {
       "id": "showcase-prep",
-      "title": "Show Audience And Strategy Setup",
-      "objective": "Show that the SC can tailor the demo to the audience, market segment, strategy, industry, language, and notes.",
-      "valueMoment": "page",
-      "valueStatement": "The SC is guided to demo to the right audience and the right buying moment instead of running a generic feature tour.",
-      "narration": "The Prep screen is where the SC shapes the demo before anything is generated. In this example we can choose Prospect, Mid-Market, Standard Platform Demo, General Business, English, and pre-demo notes only. That matters because the same product demo should not sound the same for a CFO, IT director, finance controller, or operational stakeholder. The helper makes those choices explicit, so the SC is less likely to miss the real audience in the room.",
+      "title": "Prep From A Live Deal Snapshot",
+      "objective": "Show that the Prep page turns account context, scope, and notes into a structured demo request.",
+      "valueMoment": "major",
+      "valueStatement": "The SC starts with the same deal context they would normally carry in notes, then makes audience, scope, and strategy explicit.",
+      "narration": "The Prep screen is where the SC shapes the demo before anything is generated. The audience options are here because a prospect, an existing customer, an executive, or a technical stakeholder should not get the same story. The target segment, such as mid-market or enterprise, changes the level of detail, pacing, risk focus, and proof points. The demo scope tells the helper what is in and out of bounds; in this example it is Financials First Services Premium, including SuiteProjects and Fixed Asset Management. The SC can use a demo request when they already know the desired demo topic, pre-demo notes when they want the tool to learn from discovery, or both when the notes and requested flow need to work together.",
       "actions": [
         {
+          "type": "clickRole",
+          "role": "button",
+          "name": "Prep",
+          "exact": true,
+          "timeoutMs": 10000
+        },
+        {
           "type": "highlightText",
-          "text": "Audience type",
+          "text": "Company website",
           "durationMs": 900
         },
         {
           "type": "highlightText",
-          "text": "Target audience",
-          "durationMs": 900
-        },
-        {
-          "type": "highlightText",
-          "text": "Demo strategy",
-          "durationMs": 900
-        },
-        {
-          "type": "highlightText",
-          "text": "Industry playbook",
-          "durationMs": 900
+          "text": "What should this demo cover?",
+          "durationMs": 1000
         },
         {
           "type": "highlightText",
           "text": "Pre-demo notes",
           "durationMs": 900
-        }
-      ],
-      "verifications": [
-        {
-          "type": "text",
-          "text": "Demo strategy"
-        }
-      ]
-    },
-    {
-      "id": "showcase-generate",
-      "title": "Explain Learn And Generate",
-      "objective": "Show the moment where the helper turns company context and notes into demo assets.",
-      "valueMoment": "page",
-      "valueStatement": "The SC gets a repeatable prep workflow that turns discovery into a manifest, guide, setup prompt, and coaching view.",
-      "narration": "Once the inputs are ready, the SC uses Learn and Create Demo. The helper reads the company context, combines it with discovery notes, and creates a demo manifest and SC guide. For a prospect like Air Charter Service, the notes point to multi-country consolidation, local reporting, approvals, integrations, project-style flight tracking, cash visibility, and finance transformation. Instead of relying on memory, the tool turns those signals into a structured demo plan.",
-      "actions": [
+        },
         {
           "type": "highlightText",
           "text": "Learn / Create Demo",
-          "durationMs": 1400
+          "durationMs": 1000
+        },
+        {
+          "type": "highlightText",
+          "text": "Learn / Create Demo & Dry-Run",
+          "durationMs": 1000
         },
         {
           "type": "highlightText",
           "text": "How NetSuite Demo Helper Works",
-          "durationMs": 1100
-        },
-        {
-          "type": "highlightText",
-          "text": "5. Check",
           "durationMs": 1000
         }
       ],
@@ -156,50 +161,12 @@
       ]
     },
     {
-      "id": "showcase-manifest",
-      "title": "Show The Automation Manifest",
-      "objective": "Show the detailed run plan that can drive or guide the product demo.",
-      "valueMoment": "page",
-      "valueStatement": "The manifest gives the SC a concrete route through the demo, reducing wandering, dead clicks, and last-minute improvisation.",
-      "narration": "The Manifest tab is the detailed plan. It contains the segments, navigation, narration, proof points, and safe actions. A manager does not need every SC to run this automatically every time. The value is that the team now has a structured demo artifact that can be reviewed, amended, versioned, and rehearsed. It turns demo prep into something visible instead of something hidden inside one person's notes.",
-      "actions": [
-        {
-          "type": "clickRole",
-          "role": "button",
-          "name": "Manifest",
-          "exact": true,
-          "timeoutMs": 10000
-        },
-        {
-          "type": "waitForText",
-          "text": "Editable manifest",
-          "timeoutMs": 10000
-        },
-        {
-          "type": "highlightText",
-          "text": "Save Manifest",
-          "durationMs": 900
-        },
-        {
-          "type": "highlightText",
-          "text": "Earlier versions",
-          "durationMs": 900
-        }
-      ],
-      "verifications": [
-        {
-          "type": "text",
-          "text": "Editable manifest"
-        }
-      ]
-    },
-    {
       "id": "showcase-sc-guide",
       "title": "Show The SC Guide",
-      "objective": "Show the human-readable story, runbook, setup prompt, and asset prompt.",
+      "objective": "Show the human runbook, persona story, asset prompt, and account setup prompt.",
       "valueMoment": "major",
-      "valueStatement": "The SC guide translates the technical manifest into a practical story the consultant can actually use in preparation.",
-      "narration": "The SC Guide is the human side of the workflow. It gives the personalized story, the talk track, what to show, why it matters, and what setup may be needed before the meeting. It also creates an asset prompt for supporting slides and persona visuals. This helps newer SCs learn what good looks like, and it helps experienced SCs save time without lowering quality.",
+      "valueStatement": "The guide converts deal data into an SC-ready story, talk track, demo order, and preparation checklist.",
+      "narration": "The SC Guide is the main working output. This is where Codex turns the deal context and local guidelines into a personalized story and runbook: what to show, what to say, what to avoid, and how to keep the flow ordered from the strongest business proof moments to supporting detail. The asset prompt is intentionally lighter now: it is there to help create a persona-led PowerPoint support story. A sample persona deck and a dry-run clickthrough video can be shared separately after this demo.",
       "actions": [
         {
           "type": "clickRole",
@@ -216,6 +183,11 @@
         {
           "type": "highlightText",
           "text": "Personalized SC story and runbook",
+          "durationMs": 1100
+        },
+        {
+          "type": "highlightText",
+          "text": "Source: Codex-authored SC guide section.",
           "durationMs": 1000
         },
         {
@@ -239,10 +211,10 @@
     {
       "id": "showcase-intelligence",
       "title": "Show Demo Intelligence",
-      "objective": "Show the coaching layer: risk, discovery gaps, stakeholder coverage, winning moments, and pacing.",
+      "objective": "Show how the intelligence dashboard helps the SC find vulnerabilities before the customer meeting.",
       "valueMoment": "major",
-      "valueStatement": "The Intelligence tab helps managers raise demo quality by making risks and coaching opportunities visible before the customer meeting.",
-      "narration": "The Intelligence tab is where this becomes a coaching platform. It checks demo quality, demo risk, discovery gaps, stakeholder coverage, what not to demo, timing risk, and winning moments. This is useful for competitive readiness as well. The tool does not invent competitive claims. It helps the SC prepare the strongest proof moments, stay aligned to the audience, and avoid losing the room through weak pacing or irrelevant detail.",
+      "valueStatement": "The Intelligence page gives the SC a practical coaching layer: what is strong, what is risky, what is missing, and what to fix before the demo.",
+      "narration": "The Intelligence tab is where the SC gets a second set of eyes on the demo plan. It answers the questions that matter before the meeting: am I ready, what could weaken this demo, what discovery is missing, which stakeholders are under-served, and where should I slow down because the moment really matters. For an SC, this is valuable because it turns vague prep risk into specific actions. If the notes are missing active countries, local reporting requirements, success metrics, or phase-one scope, the dashboard surfaces that. If the flow is too broad, too technical, or too light on business outcomes, it shows where to tighten the story before the customer ever sees it.",
       "actions": [
         {
           "type": "clickRole",
@@ -253,49 +225,129 @@
         },
         {
           "type": "waitForText",
-          "text": "Demo Intelligence Overview",
+          "text": "Demo Intelligence Dashboard",
+          "timeoutMs": 10000
+        },
+        {
+          "type": "highlightText",
+          "text": "Readiness score",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Discovery Quality",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "SC Briefing",
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Intelligence Areas",
+          "durationMs": 900
+        },
+        {
+          "type": "clickText",
+          "text": "Discovery Gaps",
+          "timeoutMs": 10000,
+          "optional": true
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "Demo Intelligence Dashboard"
+        }
+      ]
+    },
+    {
+      "id": "showcase-ai-actions",
+      "title": "Show Intelligence Actions",
+      "objective": "Show how the SC can use intelligence to ask better discovery questions or improve the guide.",
+      "valueMoment": "page",
+      "valueStatement": "The SC can move from insight to action without copying recommendations into a separate prompt.",
+      "narration": "Under the intelligence areas, the AI actions turn those findings into next steps. Follow-up questions are discovery-only and are meant to help the SC go back to the account team with sharper questions. The shorten, executive, technical, and custom actions create editable output first. Applying all recommendations is the one-step option when the SC wants the guide improved based on the risks and coaching points already visible on the page.",
+      "actions": [
+        {
+          "type": "highlightText",
+          "text": "Generate Discovery Follow-Up Questions",
+          "durationMs": 1100
+        },
+        {
+          "type": "highlightText",
+          "text": "Shorten Demo",
+          "durationMs": 800
+        },
+        {
+          "type": "highlightText",
+          "text": "Generate Executive Demo",
+          "durationMs": 800
+        },
+        {
+          "type": "highlightText",
+          "text": "Apply All Recommendations To SC Guide",
+          "durationMs": 1100
+        }
+      ],
+      "verifications": [
+        {
+          "type": "text",
+          "text": "AI Actions"
+        }
+      ]
+    },
+    {
+      "id": "showcase-manifest",
+      "title": "Explain The Manifest",
+      "objective": "Explain that the manifest is built after the SC guide to make the route rehearseable.",
+      "valueMoment": "page",
+      "valueStatement": "The manifest gives the SC a repeatable route through the browser, reducing demo wandering and rehearsal risk.",
+      "narration": "After prep, guide, and intelligence, the Dry-Run tab turns the SC story into a browser-ready run plan. This is not the first thing the SC needs to care about. It is built in so the story can become repeatable: segments, navigation, narration, proof moments, and safe actions. The separate dry-run clickthrough video can show what that route looks like without spending time generating it live.",
+      "actions": [
+        {
+          "type": "clickRole",
+          "role": "button",
+          "name": "Dry-Run",
+          "exact": true,
           "timeoutMs": 10000
         },
         {
           "type": "waitForText",
-          "text": "Risk Analyzer",
+          "text": "Editable manifest",
           "timeoutMs": 10000
         },
         {
           "type": "highlightText",
-          "text": "Risk Analyzer",
+          "text": "Create Manifest From SC Guide",
+          "durationMs": 1100
+        },
+        {
+          "type": "highlightText",
+          "text": "Editable manifest",
           "durationMs": 900
         },
         {
           "type": "highlightText",
-          "text": "Discovery Gaps",
-          "durationMs": 900
-        },
-        {
-          "type": "highlightText",
-          "text": "Stakeholder Coverage",
-          "durationMs": 900
-        },
-        {
-          "type": "highlightText",
-          "text": "Winning Moments",
+          "text": "Earlier versions",
           "durationMs": 900
         }
       ],
       "verifications": [
         {
           "type": "text",
-          "text": "Demo Intelligence Overview"
+          "text": "Editable manifest"
         }
       ]
     },
     {
       "id": "showcase-run",
-      "title": "Show Rehearsal And Live Readiness",
-      "objective": "Show how the SC can rehearse, dry run, prep the account, and then run with narration.",
+      "title": "Explain Run And Rehearsal",
+      "objective": "Show why run controls are included after prep and intelligence.",
       "valueMoment": "page",
-      "valueStatement": "The run controls reduce customer-facing risk by letting the SC test the script, prepare the account, review required setup, and feel the demo before presenting it live.",
-      "narration": "Finally, the Run screen is where preparation turns into a controlled rehearsal. The SC can dry run the script, rehearse the browser clickthroughs, and use Rehearse plus Prep Account to create the account-prep buffer and setup prompt for any approved demo data or customizations. That means the SC can see how the demo will look and feel before the customer meeting: the route, the timing, the narration, the account readiness, and the places where the story needs to slow down. Only after that does the SC use Live Demo.",
+      "valueStatement": "Run controls help the SC rehearse the route, check timing, prepare the account buffer, and avoid customer-facing surprises.",
+      "narration": "The Run tab is there for rehearsal and risk reduction. The SC can dry run the manifest, prepare the account buffer, rehearse the clickthroughs, and only then run the live narrated demo. This is also where the stop control matters: if something is running by mistake, the SC has a way to stop the active automation. The main value is still prep, guide, and intelligence; run is the safety layer that helps the SC feel the demo before the customer sees it.",
       "actions": [
         {
           "type": "clickRole",
@@ -311,18 +363,23 @@
         },
         {
           "type": "highlightText",
-          "text": "Dry Run",
+          "text": "Dry-Run Prep",
           "durationMs": 900
         },
         {
           "type": "highlightText",
-          "text": "Rehearse + Prep Account",
-          "durationMs": 1400
+          "text": "Buffer Dry-Run",
+          "durationMs": 1100
         },
         {
           "type": "highlightText",
           "text": "Live Demo",
-          "durationMs": 1200
+          "durationMs": 900
+        },
+        {
+          "type": "highlightText",
+          "text": "Stop",
+          "durationMs": 900
         }
       ],
       "verifications": [
@@ -333,27 +390,51 @@
       ]
     },
     {
-      "id": "showcase-close",
-      "title": "Close With Management Value",
-      "objective": "Summarize why the tool matters to SC leadership.",
-      "valueMoment": "major",
-      "valueStatement": "Managers get a scalable way to improve demo consistency, coach SC behavior, and reduce the risk of missed value in customer meetings.",
-      "narration": "The management story is simple. This tool helps SCs prepare faster, but more importantly it helps them prepare better. It encourages the right audience focus, stronger business storytelling, clearer value moments, safer rehearsal, and better consistency across the team. For leaders, that means fewer weak demos, better coaching for junior SCs, more confidence against competitors, and a clearer way to make every demo feel purposeful instead of improvised.",
+      "id": "showcase-admin-close",
+      "title": "Close With Admin Control",
+      "objective": "Show that local guidance and scoring logic can be updated through Admin.",
+      "valueMoment": "page",
+      "valueStatement": "The admin area lets teams keep the local guidance current so Codex is steered by the right SC standards and playbooks.",
+      "narration": "The Admin section is where the hardcoded guidance becomes maintainable. Teams can update audience playbooks, strategy logic, scoring guidance, labels, and additional demo sources that should steer how the helper creates guides and scores pre-demo notes. That matters because Codex is powerful, but it should be guided by the team’s own standards. The result is a practical SC prep assistant: faster preparation, better discovery hygiene, stronger demo stories, and fewer missed risks before the customer meeting.",
       "actions": [
         {
+          "type": "clickRole",
+          "role": "button",
+          "name": "Admin",
+          "exact": true,
+          "timeoutMs": 10000
+        },
+        {
+          "type": "waitForText",
+          "text": "Protected local admin area",
+          "timeoutMs": 10000
+        },
+        {
           "type": "highlightText",
-          "text": "Run Controls",
-          "durationMs": 800
+          "text": "Protected local admin area",
+          "durationMs": 1200
+        },
+        {
+          "type": "highlightText",
+          "text": "Content block",
+          "durationMs": 900,
+          "optional": true
+        },
+        {
+          "type": "highlightText",
+          "text": "Restore older CMS version",
+          "durationMs": 900,
+          "optional": true
         },
         {
           "type": "screenshot",
-          "name": "manager-showcase-close"
+          "name": "sc-showcase-close"
         }
       ],
       "verifications": [
         {
           "type": "text",
-          "text": "Run Controls"
+          "text": "Protected local admin area"
         }
       ]
     }

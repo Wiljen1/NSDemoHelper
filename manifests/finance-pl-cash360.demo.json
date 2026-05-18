@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "id": "netsuite-finance-pl-cash360",
-  "name": "NetSuite Finance Demo: P&L to Cash 360",
+  "id": "netsuite-finance-standard-reporting",
+  "name": "NetSuite Finance Demo: Standard Reporting and Drilldown",
   "audience": "Prospect - Mid-Market",
   "context": {
     "application": "NetSuite",
@@ -25,91 +25,507 @@
       "instructions": "Open the browser window, sign in to NetSuite, and leave it on any authenticated page. The runner waits for the global Search box before starting."
     },
     "demoRequest": {
-      "topic": "Finance demo for a prospect: standard income statement, filters, drilldown, export, and Cash 360.",
+      "topic": "Generate a finance demo from the pre-demo notes. Focus on standard income statement and profitability reporting, drilldown from summary to transaction detail, export options and fewer spreadsheet handoffs and subsidiary and consolidated finance views. Demo scope: Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management..",
+      "demoScope": "Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management.",
       "audience": "prospect",
       "marketSegment": "mid_market",
       "targetAudience": "mid_market",
       "outputLanguage": "en",
-      "demoStrategy": "vision_demo",
+      "manifestDemoMode": "customer_story",
+      "manifestDemoModeLabel": "Customer story",
+      "manifestDemoModeInstruction": "Turn the manifest into a customer-centered story. Use the selected audience and target audience playbook to personalize narration, proof moments, and the SC runbook.",
+      "demoStrategy": "standard_platform_demo",
+      "demoStrategyLabel": "Standard Platform Demo",
+      "demoStrategyInstruction": "Demo strategy: Standard Platform Demo. Keep the tone polished, structured, and business-focused, pacing balanced and time-aware, with high-value workflows first, technical depth light to moderate unless requested, and story style broad end-to-end platform story connecting multiple stakeholder perspectives. Prioritize end-to-end business flows, cross-functional workflows, executive dashboards, reporting and analytics and automation examples. Behavior rules: prioritize breadth over deep specialization, ensure all major departments are represented, maintain consistent pacing, avoid excessive technical depth unless requested and make executive-level value visible throughout. Adapt the examples to General Business using finance visibility, operational control and growth readiness.",
       "industry": "general_business",
-      "inputMode": "request-and-notes",
-      "source": "demo-request-and-pre-demo-notes",
-      "instructions": "Lead with the audience's business problem and desired outcome before showing screens.\nOpen with the biggest business hitters first: executive visibility, trusted numbers, cash control, close speed, auditability, and fewer spreadsheets.\nUse a crisp tell-show-tell rhythm: frame the point, show the shortest proof path, then land why it matters in plain language.\nUse NetSuite global search and the navigation bar as the primary way to move through the product.\nUse standard NetSuite reports for finance demos unless the audience explicitly asks for custom reporting.\nChoose the optimal demo flow, even if the product can do more. Show the path an excellent SC would choose in a live meeting.\nConnect each screen to the audience's likely role, pressure, and decision criteria. Make the story feel specific, not generic.\nKeep the demo read-only unless the SC intentionally chooses to create or edit a record.\nPause for smart discovery questions at natural decision points, especially before drilling into detail or switching modules.\nShow drilldown only when it proves trust, auditability, or actionability. Do not drill for the sake of clicking.\nUse realistic business language. Avoid NetSuite jargon unless the audience already uses it.\nNever announce internal labels such as 'value statement' during narration.\nAvoid feature tours, menu wandering, slow setup, dead clicks, custom report shortcuts, and explaining every field on the page.\nAvoid showing unconfigured areas, risky transactions, preference saves, or anything that could distract from the core story.\nIf a page takes time to load, narrate the business reason for the next step instead of filling the silence with product trivia.",
-      "learnedAt": "2026-05-18T15:06:12.706Z",
-      "instruction": "Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks."
+      "industryLabel": "General Business",
+      "industryInstruction": "Industry playbook: General Business. Use terminology such as finance visibility, operational control and growth readiness, emphasize KPIs such as cash position, profitability, close speed and forecast accuracy, and avoid industry-specific claims without discovery and unsupported benchmark statements.",
+      "outputLanguageInstruction": "Write SC-facing output, setup guidance, and narrator talk tracks in English.",
+      "audienceInstruction": "Demo to the Prospect audience type in a Mid-Market target audience context. Potential buyers evaluating whether the solution solves their business challenges and delivers measurable value. Focus on business value, ROI, ease of adoption and competitive differentiation. Include business pain points, before/after scenarios, success stories and metrics and outcomes. Avoid deep technical configuration, feature dumping, internal terminology and long setup explanations. For Mid-Market, use a process-oriented, business-value focused and real-world operational scenarios demo style. Prioritize process efficiency, visibility, integration and cross-team collaboration; include role-based workflows, analytics dashboards, integrations and approval processes; avoid oversimplified startup messaging, feature dumping, extremely technical implementation details and unnecessary enterprise governance complexity.",
+      "inputMode": "notes-only",
+      "source": "pre-demo-notes",
+      "includeCash360": false,
+      "instructions": "Lead with the customer's business problem and desired outcome before showing screens.\nOpen with the biggest business hitters first: executive visibility, trusted numbers, consolidation confidence, close speed, project profitability, auditability, approvals, and fewer spreadsheets.\nUse a crisp tell-show-tell rhythm: frame the point, show the shortest proof path, then land why it matters in plain language.\nUse NetSuite global search and the navigation bar as the primary way to move through the product.\nUse standard NetSuite reports for prospect-facing finance demos unless the audience explicitly asks for custom reporting.\nChoose the optimal demo flow and put the highest-impact moments first.\nStart with a general executive overview of NetSuite before moving into the specific workflow.\nKeep SuiteProjects and Fixed Asset Management within the agreed scope, but do not let them overshadow the primary financials story.\nAvoid feature tours, menu wandering, slow setup, dead clicks, and deep configuration unless intentionally requested.\nNever announce internal labels such as value statement during narration.",
+      "additionalDemoSources": [
+        {
+          "id": "standard-reports-first",
+          "label": "Use Standard NetSuite Reports First",
+          "sourceType": "SC best practice",
+          "active": true,
+          "appliesTo": [
+            "finance",
+            "prospect",
+            "standard_platform_demo"
+          ],
+          "content": "For prospect-facing finance demos, prioritize standard NetSuite reports and dashboards before custom reporting or saved-search detail.",
+          "guidance": "Use this as a routing and narration rule when the demo touches financial reporting, P&L, drilldown, export, or finance visibility.",
+          "logic": "If the demo asks for reporting or finance visibility, keep standard reports in the primary path and park custom reporting as an optional follow-up."
+        }
+      ],
+      "learnedAt": "2026-05-18T21:45:36.209Z",
+      "instruction": "Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. Start with a short general or executive NetSuite overview, then order the demo from highest-value proof moments to supporting detail. Demo scope: Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management. Demo to the Prospect audience type in a Mid-Market target audience context. Potential buyers evaluating whether the solution solves their business challenges and delivers measurable value. Focus on business value, ROI, ease of adoption and competitive differentiation. Include business pain points, before/after scenarios, success stories and metrics and outcomes. Avoid deep technical configuration, feature dumping, internal terminology and long setup explanations. For Mid-Market, use a process-oriented, business-value focused and real-world operational scenarios demo style. Prioritize process efficiency, visibility, integration and cross-team collaboration; include role-based workflows, analytics dashboards, integrations and approval processes; avoid oversimplified startup messaging, feature dumping, extremely technical implementation details and unnecessary enterprise governance complexity. Demo strategy: Standard Platform Demo. Keep the tone polished, structured, and business-focused, pacing balanced and time-aware, with high-value workflows first, technical depth light to moderate unless requested, and story style broad end-to-end platform story connecting multiple stakeholder perspectives. Prioritize end-to-end business flows, cross-functional workflows, executive dashboards, reporting and analytics and automation examples. Behavior rules: prioritize breadth over deep specialization, ensure all major departments are represented, maintain consistent pacing, avoid excessive technical depth unless requested and make executive-level value visible throughout. Adapt the examples to General Business using finance visibility, operational control and growth readiness. Additional Admin logic to consider: Use Standard NetSuite Reports First: Use this as a routing and narration rule when the demo touches financial reporting, P&L, drilldown, export, or finance visibility."
     },
     "company": {
-      "companyName": "The prospect",
-      "url": "",
-      "title": "",
-      "description": "",
+      "companyName": "Private Jet & Cargo Charters",
+      "url": "https://www.aircharterservice.com/",
+      "title": "Private Jet & Cargo Charters - Air Charter Service",
+      "description": "Global leader in private jet, helicopter, airliner & cargo aircraft charters. Over 25,000 charters per year, offices worldwide, contact us 24/7.",
       "likelyPriorities": [
         "trusted reporting",
-        "cash visibility",
         "drilldown from summary to detail",
         "faster close with fewer spreadsheets",
-        "cash forecasting and working capital control"
+        "multi-entity consolidation",
+        "project profitability",
+        "auditability and control"
       ],
       "industrySignals": [
-        "financial visibility and operational control"
+        "manufacturing, inventory, or distribution complexity",
+        "project or services profitability",
+        "multi-entity or international reporting"
       ],
-      "source": "notes-only"
+      "source": "company-website",
+      "codexPrepAnalysis": {
+        "ok": true,
+        "analysis": "# Codex Prep Operator Analysis\nTask title: created by demo helper - Private Jet & Cargo Charters\n\n## Company Context That Should Shape The Demo\n- Air Charter Service is a global aircraft charter brokerage, not an aircraft operator; finance should see charter/booking economics clearly without implying owned aircraft operations.\n- The public site currently states **35,000+ flights per year**, **40+ offices across 6 continents**, and access to **50,000 aircraft**, so the demo should emphasize scale, entity growth, currencies, local reporting, and control.\n- The business spans private jet, group charter, cargo, emergency/time-critical, humanitarian, dangerous goods, and specialist sectors, which implies varied booking types, margins, vendors, and operational metadata.\n- The operating model depends on 24/7 dedicated account managers, local office knowledge, and post-flight detail capture, so finance needs transaction context from bookings, not just GL totals.\n- ACS presents financial transparency and annual revenue above $1B on its financials page, making consolidated reporting confidence and auditability especially important.\n- Cargo services reference permits, clearances, trucking, customs partners, aircraft documents, and insurance checks, suggesting approvals and documentation context are likely business-relevant.\n\n## Likely ERP Priorities\n- Consolidated executive visibility across countries, entities, currencies, and business lines.\n- Faster, trusted close with drilldown from group financials to local entity and transaction detail.\n- Reduced spreadsheet dependency for consolidation, FP&A handoffs, fixed assets, and management reporting.\n- Flight or booking-level profitability: revenue, vendor costs, customer, broker, route, aircraft type, timing, and margin.\n- Approval workflows with enough context for approvers to understand what they are approving.\n- Working-capital visibility, especially AR, dunning, payment delays, and incomplete billing data.\n- Scalable finance architecture that can support local reporting, tax, e-invoicing, and new-country expansion.\n- Controlled integration path from CRM or booking references into finance without making the first demo too technical.\n\n## Recommended Demo Direction\nStart with a short executive overview: NetSuite as one finance platform for global visibility, trusted numbers, approvals, reporting, and drilldown. Lead with the business problem: ACS-like scale creates pressure when bookings, entities, close activities, approvals, assets, and management reporting are split across systems and spreadsheets.\n\nThe highest-value proof path should be:\n1. Executive dashboard or standard financial reporting view showing consolidated performance.\n2. Standard Income Statement / P&L with subsidiary, department, class, location, or project-style views.\n3. Drill from summary to transaction detail to prove confidence in the numbers.\n4. Cash 360 / AR visibility to connect incomplete data and payment delays to action.\n5. Approval queue or transaction approval example with booking context visible.\n6. SuiteProjects as a controlled profitability lens for charter bookings, not a full project-management deep dive.\n7. Fixed Asset Management last, framed as moving office equipment and intangible asset tracking out of spreadsheets.\n\nUse NetSuite global search and navigation bar for movement. Keep the story financials-first and use SuiteProjects/FAM as supporting proof points.\n\n## Scope And Account Prep Implications\n- Demo account needs multiple subsidiaries, currencies, intercompany/consolidation-ready structure, and credible local entity examples.\n- Standard reports should be prepared: Income Statement, Balance Sheet, Cash Flow or cash visibility, AR aging, and transaction drilldowns.\n- Add mock charter booking/project records with route, start/end date, customer, vendor, aircraft type, broker, revenue, and costs.\n- Prepare transactions linked to bookings: customer invoice, vendor bill, expenses, payment status, and approval state.\n- Configure sample approval thresholds and approver roles with enough memo/custom-field context to make approvals meaningful.\n- Include a small fixed asset register with straight-line depreciation examples for office equipment and intangible assets.\n- Prepare saved searches or standard list views only where needed to show booking context; avoid making custom reporting the main story.\n- Have a simple integration talk track ready: CRM/booking reference flows into finance as controlled master/transaction data, with technical detail deferred.\n\n## Discovery Gaps That Could Hurt The Demo\n- Active countries, currencies, local statutory reporting needs, and required local languages.\n- Which countries require e-invoicing send/receive and what tax localization expectations exist.\n- Current ERP, consolidation, planning, expenses, CRM, and booking-reference architecture.\n- Whether consolidation and FP&A replacement are phase-one goals or longer-term outcomes.\n- Executive success metrics: close days, reporting confidence, spreadsheet reduction, audit readiness, working-capital improvement.\n- Whether SuiteProjects should be positioned as phase one or as a future controlled extension.\n- Whether Fixed Asset Management is initial scope or only a prepared extension.\n- Demo timebox and stakeholder attendance, especially CFO, Controller, IT, Transformation, and Operations.\n\nSources used: Air Charter Service [homepage](https://www.aircharterservice.com/), [How ACS Works](https://www.aircharterservice.com/about-us/how-air-charter-service-works), [Cargo Charter](https://www.aircharterservice.com/cargo-charter/), and [Financials](https://www.aircharterservice.com/about-us/financials).",
+        "promptFile": "/Users/wiljan.h/Documents/Automation/artifacts/codex-operators/2026-05-18T21-44-49-887Z-aircharterservice-prep-analysis-prompt.md",
+        "outputFile": "/Users/wiljan.h/Documents/Automation/artifacts/codex-operators/2026-05-18T21-44-49-887Z-aircharterservice-prep-analysis-output.md",
+        "sessionTitle": "created by demo helper - Private Jet & Cargo Charters",
+        "error": ""
+      }
     },
-    "preDemoNotes": "Prospect wants better cash visibility and fewer spreadsheet reconciliations.",
+    "preDemoNotes": "MOCK DEAL DATA ONLY - for NetSuite Demo Helper product demonstration.\nCustomer website: https://www.aircharterservice.com/\nAudience: Prospect, mid-market, standard platform demo, general business.\nDemo scope: Financials first Services premium. Include core financials, multi-entity reporting, approvals, SuiteProjects for flight/booking profitability, and Fixed Asset Management for office equipment and intangible assets.\n\nMock stakeholder map:\n- Group CFO wants consolidated visibility, stronger confidence in group reporting, and fewer spreadsheet handoffs.\n- Financial Controller wants trusted close reporting, local entity views, local GAAP considerations, and better drilldown from summary to detail.\n- Finance Transformation Manager wants a scalable ERP foundation that can grow beyond a UK-centric process.\n- IT Director wants integration fit, architecture clarity, and controlled data flow from CRM/booking references into finance.\n- Operations stakeholder wants flight or booking-level context visible enough for finance to understand revenue, cost, route, aircraft type, and broker involvement.\n\nMock current-state notes:\n- The prospect initially explored procure-to-pay, then widened the conversation into a broader ERP evaluation.\n- Current process is fragmented across a UK-focused ERP setup, external consolidation/planning, spreadsheets, email-heavy invoice handling, and disconnected expense processes.\n- Multi-country growth creates issues with new companies, local reporting, tax, e-invoicing, and chart-of-account/local GAAP requirements.\n- Consolidation and FP&A are handled outside the ERP today; the demo should show how NetSuite can reduce dependency on external spreadsheets and disconnected reporting.\n- Each flight or charter booking behaves like a project: route, start/end date, aircraft type, broker, customer, vendor costs, revenue, and associated transactions need to be explainable.\n- The team wants to understand how SuiteProjects could support services/project-style profitability without turning the first demo into a deep implementation workshop.\n- Fixed assets are currently tracked in spreadsheets with straight-line depreciation; show Fixed Asset Management as part of the prepared scope, but keep it behind the biggest finance proof moments.\n- Approvals and thresholds exist, but approvers may not always understand what they are approving.\n- Dunning and payment delays are often caused by incomplete data and lack of centralized context.\n- Integration with existing CRM or booking references matters, but the first demo should keep integration discussion business-facing rather than technical.\n\nMock open discovery gaps to surface in Intelligence:\n- Confirm active countries, currencies, local language needs, and which countries require e-invoicing send/receive.\n- Confirm the current ERP, consolidation, planning, expense, and CRM architecture.\n- Confirm executive success metrics for the ERP project.\n- Confirm whether SuiteProjects should be positioned as phase one or controlled future scope.\n- Confirm whether Fixed Asset Management is in initial scope or shown as a prepared extension.\n- Confirm demo timebox and stakeholder attendance.",
     "audience": {
+      "id": "prospect",
       "value": "prospect",
       "label": "Prospect",
-      "guideAngle": "Assume first-time NetSuite viewers. Build confidence quickly, avoid jargon, prove the main business outcomes first, and show enough detail to create trust without turning the meeting into a system walkthrough.",
-      "narratorAngle": "For a prospect, explain the business reason for each step before going into detail."
+      "description": "Potential buyers evaluating whether the solution solves their business challenges and delivers measurable value.",
+      "kind": "audience-type",
+      "primaryFocus": [
+        "business value",
+        "ROI",
+        "ease of adoption",
+        "competitive differentiation",
+        "outcomes"
+      ],
+      "includeInDemo": [
+        "business pain points",
+        "before/after scenarios",
+        "success stories",
+        "metrics and outcomes",
+        "industry relevance",
+        "clear value proposition"
+      ],
+      "avoidInDemo": [
+        "deep technical configuration",
+        "feature dumping",
+        "internal terminology",
+        "long setup explanations"
+      ],
+      "demoStyle": [
+        "persuasive",
+        "outcome-oriented",
+        "story-driven"
+      ],
+      "interests": [
+        "business value",
+        "ROI",
+        "ease of adoption",
+        "competitive differentiation",
+        "outcomes"
+      ],
+      "guideAngle": "Potential buyers evaluating whether the solution solves their business challenges and delivers measurable value. Focus on business value, ROI, ease of adoption and competitive differentiation. Include business pain points, before/after scenarios, success stories and metrics and outcomes. Avoid deep technical configuration, feature dumping, internal terminology and long setup explanations.",
+      "narratorAngle": "For Prospect, keep the narration persuasive, outcome-oriented and story-driven and anchored in business value, ROI, ease of adoption and competitive differentiation.",
+      "demoBias": "For Prospect, use a persuasive, outcome-oriented and story-driven demo style. Prioritize business value, ROI, ease of adoption and competitive differentiation; include business pain points, before/after scenarios, success stories and metrics and outcomes; avoid deep technical configuration, feature dumping, internal terminology and long setup explanations."
     },
     "marketSegment": {
+      "id": "mid_market",
       "value": "mid_market",
       "label": "Mid-Market",
-      "interests": [
-        "faster close and cleaner operational handoffs",
-        "cash visibility without manual forecast workbooks",
-        "standard reporting that scales beyond founder-led finance",
-        "repeatable processes that reduce dependency on individual users"
+      "description": "Growing organizations with defined business processes that require scalability, visibility, and operational control.",
+      "kind": "target-audience",
+      "primaryFocus": [
+        "process efficiency",
+        "visibility",
+        "integration",
+        "cross-team collaboration",
+        "scalable operations",
+        "reporting"
       ],
-      "demoBias": "Lead with operational scale, month-end speed, cash visibility, and fewer manual handoffs. Show how standard NetSuite flows make the team more repeatable."
+      "includeInDemo": [
+        "role-based workflows",
+        "analytics dashboards",
+        "integrations",
+        "approval processes",
+        "department collaboration",
+        "automation across teams"
+      ],
+      "avoidInDemo": [
+        "oversimplified startup messaging",
+        "feature dumping",
+        "extremely technical implementation details",
+        "unnecessary enterprise governance complexity"
+      ],
+      "demoStyle": [
+        "process-oriented",
+        "business-value focused",
+        "real-world operational scenarios"
+      ],
+      "interests": [
+        "process efficiency",
+        "visibility",
+        "integration",
+        "cross-team collaboration",
+        "scalable operations",
+        "reporting"
+      ],
+      "guideAngle": "Growing organizations with defined business processes that require scalability, visibility, and operational control. Focus on process efficiency, visibility, integration and cross-team collaboration. Include role-based workflows, analytics dashboards, integrations and approval processes. Avoid oversimplified startup messaging, feature dumping, extremely technical implementation details and unnecessary enterprise governance complexity.",
+      "narratorAngle": "For Mid-Market, keep the narration process-oriented, business-value focused and real-world operational scenarios and anchored in process efficiency, visibility, integration and cross-team collaboration.",
+      "demoBias": "For Mid-Market, use a process-oriented, business-value focused and real-world operational scenarios demo style. Prioritize process efficiency, visibility, integration and cross-team collaboration; include role-based workflows, analytics dashboards, integrations and approval processes; avoid oversimplified startup messaging, feature dumping, extremely technical implementation details and unnecessary enterprise governance complexity."
     },
     "audiencePlaybook": {
       "audienceType": "Prospect",
+      "audienceTypeId": "prospect",
+      "audienceDescription": "Potential buyers evaluating whether the solution solves their business challenges and delivers measurable value.",
+      "targetAudience": "Mid-Market",
+      "targetAudienceId": "mid_market",
+      "targetAudienceDescription": "Growing organizations with defined business processes that require scalability, visibility, and operational control.",
       "targetSegment": "Mid-Market",
       "interests": [
-        "confidence that NetSuite can solve the core business pains",
-        "clear first-time product orientation",
-        "proof that summary reporting connects to real detail",
-        "faster close and cleaner operational handoffs",
-        "cash visibility without manual forecast workbooks",
-        "standard reporting that scales beyond founder-led finance",
-        "repeatable processes that reduce dependency on individual users"
+        "business value",
+        "ROI",
+        "ease of adoption",
+        "competitive differentiation",
+        "outcomes",
+        "process efficiency",
+        "visibility",
+        "integration",
+        "cross-team collaboration",
+        "scalable operations",
+        "reporting"
       ],
-      "demoBias": "Assume first-time NetSuite viewers. Build confidence quickly, avoid jargon, prove the main business outcomes first, and show enough detail to create trust without turning the meeting into a system walkthrough. Lead with operational scale, month-end speed, cash visibility, and fewer manual handoffs. Show how standard NetSuite flows make the team more repeatable."
+      "includeInDemo": [
+        "business pain points",
+        "before/after scenarios",
+        "success stories",
+        "metrics and outcomes",
+        "industry relevance",
+        "clear value proposition",
+        "role-based workflows",
+        "analytics dashboards",
+        "integrations",
+        "approval processes",
+        "department collaboration",
+        "automation across teams"
+      ],
+      "avoidInDemo": [
+        "deep technical configuration",
+        "feature dumping",
+        "internal terminology",
+        "long setup explanations",
+        "oversimplified startup messaging",
+        "extremely technical implementation details",
+        "unnecessary enterprise governance complexity"
+      ],
+      "demoStyle": [
+        "persuasive",
+        "outcome-oriented",
+        "story-driven",
+        "process-oriented",
+        "business-value focused",
+        "real-world operational scenarios"
+      ],
+      "recommendedContextVariables": [
+        "industry",
+        "primary_business_challenge",
+        "demo_goal",
+        "technical_depth",
+        "stakeholder_count",
+        "competitive_context",
+        "current_solution",
+        "urgency_level",
+        "deployment_preference",
+        "AI_interest_level"
+      ],
+      "recommendedDemoGoals": [
+        "awareness",
+        "discovery",
+        "executive_alignment",
+        "technical_validation",
+        "competitive_replacement",
+        "expansion_opportunity",
+        "user_training",
+        "solution_workshop",
+        "proof_of_concept",
+        "implementation_planning"
+      ],
+      "demoBias": "Potential buyers evaluating whether the solution solves their business challenges and delivers measurable value. Focus on business value, ROI, ease of adoption and competitive differentiation. Include business pain points, before/after scenarios, success stories and metrics and outcomes. Avoid deep technical configuration, feature dumping, internal terminology and long setup explanations. For Mid-Market, use a process-oriented, business-value focused and real-world operational scenarios demo style. Prioritize process efficiency, visibility, integration and cross-team collaboration; include role-based workflows, analytics dashboards, integrations and approval processes; avoid oversimplified startup messaging, feature dumping, extremely technical implementation details and unnecessary enterprise governance complexity."
     },
     "demoStrategy": {
-      "id": "vision_demo",
-      "label": "Vision Demo",
-      "description": "Show the future operating model and help the audience picture a better way of working."
+      "id": "standard_platform_demo",
+      "label": "Standard Platform Demo",
+      "description": "A broad, structured product demonstration that showcases the overall platform, major capabilities, and end-to-end business value within a fixed timeframe.",
+      "tone": "polished, structured, and business-focused",
+      "pacing": "balanced and time-aware, with high-value workflows first",
+      "technicalDepth": "light to moderate unless requested",
+      "storytelling": "broad end-to-end platform story connecting multiple stakeholder perspectives",
+      "includeWorkflows": [
+        "end-to-end business flows",
+        "cross-functional workflows",
+        "executive dashboards",
+        "reporting and analytics",
+        "automation examples",
+        "role-based experiences",
+        "standard best-practice flows",
+        "platform navigation and usability"
+      ],
+      "avoid": [
+        "extremely deep configuration walkthroughs",
+        "long admin setup sequences",
+        "technical implementation deep dives",
+        "spending too much time in one module",
+        "feature dumping without business context",
+        "excessive customization discussions",
+        "low-value or unfinished areas"
+      ],
+      "primaryObjectives": [
+        "demonstrate overall platform breadth",
+        "showcase key modules and workflows",
+        "establish credibility and platform maturity",
+        "highlight integration between departments",
+        "show scalability and flexibility",
+        "deliver a polished end-to-end story",
+        "create excitement and confidence"
+      ],
+      "recommendedRuntime": [
+        "1 hour",
+        "2 hour",
+        "half-day showcase",
+        "multi-session overview"
+      ],
+      "behaviorRules": [
+        "prioritize breadth over deep specialization",
+        "ensure all major departments are represented",
+        "maintain consistent pacing",
+        "avoid excessive technical depth unless requested",
+        "make executive-level value visible throughout",
+        "include multiple stakeholder perspectives",
+        "maintain a polished showcase style",
+        "connect workflows through one narrative story where possible"
+      ]
     },
     "industry": {
       "id": "general_business",
       "label": "General Business",
-      "description": "Use when no specific industry has been identified yet."
+      "description": "Use when no specific industry has been identified yet.",
+      "terminology": [
+        "finance visibility",
+        "operational control",
+        "growth readiness"
+      ],
+      "kpis": [
+        "cash position",
+        "profitability",
+        "close speed",
+        "forecast accuracy"
+      ],
+      "workflows": [
+        "standard reporting",
+        "drilldown",
+        "cash forecasting",
+        "controlled export"
+      ],
+      "painPoints": [
+        "spreadsheet dependency",
+        "slow reporting",
+        "limited cash visibility"
+      ],
+      "emotionalDrivers": [
+        "confidence in the numbers",
+        "less firefighting",
+        "clearer decisions"
+      ],
+      "avoid": [
+        "industry-specific claims without discovery",
+        "unsupported benchmark statements"
+      ]
     },
     "setupPlan": {
-      "needsSetup": false,
-      "status": "read-only-demo-ready",
+      "needsSetup": true,
+      "status": "setup-may-be-required",
       "accountCreateWarning": "Creating records or configuration in NetSuite can affect the connected account. Always confirm the exact account, role, and records before executing.",
-      "items": [],
-      "promptInstruction": "No create-in-account prep was detected. Keep the demo read-only unless the SC explicitly adds setup requirements."
+      "items": [
+        {
+          "type": "entity",
+          "label": "sample customer",
+          "reason": "needed if the demo story should show customer-level activity or receivables",
+          "risk": "medium"
+        },
+        {
+          "type": "entity",
+          "label": "sample vendor",
+          "reason": "needed if the story should show payables, bills, or supplier exposure",
+          "risk": "medium"
+        },
+        {
+          "type": "item",
+          "label": "sample item",
+          "reason": "needed if operational transactions require item detail",
+          "risk": "medium"
+        },
+        {
+          "type": "transaction",
+          "label": "sample customer invoice",
+          "reason": "needed to demonstrate receivables, collections, and cash inflow",
+          "risk": "high"
+        },
+        {
+          "type": "transaction",
+          "label": "sample purchase order",
+          "reason": "needed to demonstrate future outflow or procure-to-pay context",
+          "risk": "high"
+        },
+        {
+          "type": "configuration",
+          "label": "subsidiary or entity demo context",
+          "reason": "needed to demonstrate multi-entity filtering or consolidation",
+          "risk": "medium"
+        },
+        {
+          "type": "configuration",
+          "label": "role/permission or approval setup",
+          "reason": "needed if the story requires controls, approvals, or role-based access",
+          "risk": "high"
+        },
+        {
+          "type": "configuration",
+          "label": "fixed assets demo context",
+          "reason": "needed if fixed assets are in scope for the personalized story or setup prompt",
+          "risk": "medium"
+        },
+        {
+          "type": "configuration",
+          "label": "planning and budgeting demo context",
+          "reason": "needed if FP&A, budgets, or planning are in scope for the demo",
+          "risk": "medium"
+        },
+        {
+          "type": "item",
+          "label": "services SKU or project demo context",
+          "reason": "needed if the scoped demo should show services-led financials or project profitability",
+          "risk": "medium"
+        }
+      ],
+      "promptInstruction": "Use the generated Codex prompt to inspect the account, confirm front-end and back-end access, identify gaps, and create only the approved demo data/configuration."
+    },
+    "targetAudience": {
+      "id": "mid_market",
+      "value": "mid_market",
+      "label": "Mid-Market",
+      "description": "Growing organizations with defined business processes that require scalability, visibility, and operational control.",
+      "kind": "target-audience",
+      "primaryFocus": [
+        "process efficiency",
+        "visibility",
+        "integration",
+        "cross-team collaboration",
+        "scalable operations",
+        "reporting"
+      ],
+      "includeInDemo": [
+        "role-based workflows",
+        "analytics dashboards",
+        "integrations",
+        "approval processes",
+        "department collaboration",
+        "automation across teams"
+      ],
+      "avoidInDemo": [
+        "oversimplified startup messaging",
+        "feature dumping",
+        "extremely technical implementation details",
+        "unnecessary enterprise governance complexity"
+      ],
+      "demoStyle": [
+        "process-oriented",
+        "business-value focused",
+        "real-world operational scenarios"
+      ],
+      "interests": [
+        "process efficiency",
+        "visibility",
+        "integration",
+        "cross-team collaboration",
+        "scalable operations",
+        "reporting"
+      ],
+      "guideAngle": "Growing organizations with defined business processes that require scalability, visibility, and operational control. Focus on process efficiency, visibility, integration and cross-team collaboration. Include role-based workflows, analytics dashboards, integrations and approval processes. Avoid oversimplified startup messaging, feature dumping, extremely technical implementation details and unnecessary enterprise governance complexity.",
+      "narratorAngle": "For Mid-Market, keep the narration process-oriented, business-value focused and real-world operational scenarios and anchored in process efficiency, visibility, integration and cross-team collaboration.",
+      "demoBias": "For Mid-Market, use a process-oriented, business-value focused and real-world operational scenarios demo style. Prioritize process efficiency, visibility, integration and cross-team collaboration; include role-based workflows, analytics dashboards, integrations and approval processes; avoid oversimplified startup messaging, feature dumping, extremely technical implementation details and unnecessary enterprise governance complexity."
+    },
+    "manifestDemoMode": {
+      "id": "customer_story",
+      "label": "Customer story",
+      "description": "A personalized demo story that uses the company context, audience, persona, pain points, and business outcomes to shape the flow and talk track.",
+      "instruction": "Turn the manifest into a customer-centered story. Use the selected audience and target audience playbook to personalize narration, proof moments, and the SC runbook."
+    },
+    "outputLanguage": {
+      "value": "en",
+      "label": "English",
+      "instruction": "Write SC-facing output, setup guidance, and narrator talk tracks in English."
+    },
+    "codexPrepAnalysis": {
+      "ok": true,
+      "analysis": "# Codex Prep Operator Analysis\nTask title: created by demo helper - Private Jet & Cargo Charters\n\n## Company Context That Should Shape The Demo\n- Air Charter Service is a global aircraft charter brokerage, not an aircraft operator; finance should see charter/booking economics clearly without implying owned aircraft operations.\n- The public site currently states **35,000+ flights per year**, **40+ offices across 6 continents**, and access to **50,000 aircraft**, so the demo should emphasize scale, entity growth, currencies, local reporting, and control.\n- The business spans private jet, group charter, cargo, emergency/time-critical, humanitarian, dangerous goods, and specialist sectors, which implies varied booking types, margins, vendors, and operational metadata.\n- The operating model depends on 24/7 dedicated account managers, local office knowledge, and post-flight detail capture, so finance needs transaction context from bookings, not just GL totals.\n- ACS presents financial transparency and annual revenue above $1B on its financials page, making consolidated reporting confidence and auditability especially important.\n- Cargo services reference permits, clearances, trucking, customs partners, aircraft documents, and insurance checks, suggesting approvals and documentation context are likely business-relevant.\n\n## Likely ERP Priorities\n- Consolidated executive visibility across countries, entities, currencies, and business lines.\n- Faster, trusted close with drilldown from group financials to local entity and transaction detail.\n- Reduced spreadsheet dependency for consolidation, FP&A handoffs, fixed assets, and management reporting.\n- Flight or booking-level profitability: revenue, vendor costs, customer, broker, route, aircraft type, timing, and margin.\n- Approval workflows with enough context for approvers to understand what they are approving.\n- Working-capital visibility, especially AR, dunning, payment delays, and incomplete billing data.\n- Scalable finance architecture that can support local reporting, tax, e-invoicing, and new-country expansion.\n- Controlled integration path from CRM or booking references into finance without making the first demo too technical.\n\n## Recommended Demo Direction\nStart with a short executive overview: NetSuite as one finance platform for global visibility, trusted numbers, approvals, reporting, and drilldown. Lead with the business problem: ACS-like scale creates pressure when bookings, entities, close activities, approvals, assets, and management reporting are split across systems and spreadsheets.\n\nThe highest-value proof path should be:\n1. Executive dashboard or standard financial reporting view showing consolidated performance.\n2. Standard Income Statement / P&L with subsidiary, department, class, location, or project-style views.\n3. Drill from summary to transaction detail to prove confidence in the numbers.\n4. Cash 360 / AR visibility to connect incomplete data and payment delays to action.\n5. Approval queue or transaction approval example with booking context visible.\n6. SuiteProjects as a controlled profitability lens for charter bookings, not a full project-management deep dive.\n7. Fixed Asset Management last, framed as moving office equipment and intangible asset tracking out of spreadsheets.\n\nUse NetSuite global search and navigation bar for movement. Keep the story financials-first and use SuiteProjects/FAM as supporting proof points.\n\n## Scope And Account Prep Implications\n- Demo account needs multiple subsidiaries, currencies, intercompany/consolidation-ready structure, and credible local entity examples.\n- Standard reports should be prepared: Income Statement, Balance Sheet, Cash Flow or cash visibility, AR aging, and transaction drilldowns.\n- Add mock charter booking/project records with route, start/end date, customer, vendor, aircraft type, broker, revenue, and costs.\n- Prepare transactions linked to bookings: customer invoice, vendor bill, expenses, payment status, and approval state.\n- Configure sample approval thresholds and approver roles with enough memo/custom-field context to make approvals meaningful.\n- Include a small fixed asset register with straight-line depreciation examples for office equipment and intangible assets.\n- Prepare saved searches or standard list views only where needed to show booking context; avoid making custom reporting the main story.\n- Have a simple integration talk track ready: CRM/booking reference flows into finance as controlled master/transaction data, with technical detail deferred.\n\n## Discovery Gaps That Could Hurt The Demo\n- Active countries, currencies, local statutory reporting needs, and required local languages.\n- Which countries require e-invoicing send/receive and what tax localization expectations exist.\n- Current ERP, consolidation, planning, expenses, CRM, and booking-reference architecture.\n- Whether consolidation and FP&A replacement are phase-one goals or longer-term outcomes.\n- Executive success metrics: close days, reporting confidence, spreadsheet reduction, audit readiness, working-capital improvement.\n- Whether SuiteProjects should be positioned as phase one or as a future controlled extension.\n- Whether Fixed Asset Management is initial scope or only a prepared extension.\n- Demo timebox and stakeholder attendance, especially CFO, Controller, IT, Transformation, and Operations.\n\nSources used: Air Charter Service [homepage](https://www.aircharterservice.com/), [How ACS Works](https://www.aircharterservice.com/about-us/how-air-charter-service-works), [Cargo Charter](https://www.aircharterservice.com/cargo-charter/), and [Financials](https://www.aircharterservice.com/about-us/financials).",
+      "promptFile": "/Users/wiljan.h/Documents/Automation/artifacts/codex-operators/2026-05-18T21-44-49-887Z-aircharterservice-prep-analysis-prompt.md",
+      "outputFile": "/Users/wiljan.h/Documents/Automation/artifacts/codex-operators/2026-05-18T21-44-49-887Z-aircharterservice-prep-analysis-output.md",
+      "sessionTitle": "created by demo helper - Private Jet & Cargo Charters",
+      "error": ""
+    },
+    "demoScope": "Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management.",
+    "additionalDemoSources": [
+      {
+        "id": "standard-reports-first",
+        "label": "Use Standard NetSuite Reports First",
+        "sourceType": "SC best practice",
+        "active": true,
+        "appliesTo": [
+          "finance",
+          "prospect",
+          "standard_platform_demo"
+        ],
+        "content": "For prospect-facing finance demos, prioritize standard NetSuite reports and dashboards before custom reporting or saved-search detail.",
+        "guidance": "Use this as a routing and narration rule when the demo touches financial reporting, P&L, drilldown, export, or finance visibility.",
+        "logic": "If the demo asks for reporting or finance visibility, keep standard reports in the primary path and park custom reporting as an optional follow-up."
+      }
+    ],
+    "demoPrep": {
+      "scope": "Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management.",
+      "opening": "Start with a short general or executive NetSuite overview before the first detailed workflow.",
+      "ordering": "Order the demo from strongest business impact to supporting detail: executive overview, trusted reporting, filters, drilldown, controlled sharing, the next in-scope proof point, then close.",
+      "scopeInstruction": "Stay inside this demo scope unless the SC deliberately branches: Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management..",
+      "audienceInstruction": "Demo to the Prospect audience type in a Mid-Market target audience context. Potential buyers evaluating whether the solution solves their business challenges and delivers measurable value. Focus on business value, ROI, ease of adoption and competitive differentiation. Include business pain points, before/after scenarios, success stories and metrics and outcomes. Avoid deep technical configuration, feature dumping, internal terminology and long setup explanations. For Mid-Market, use a process-oriented, business-value focused and real-world operational scenarios demo style. Prioritize process efficiency, visibility, integration and cross-team collaboration; include role-based workflows, analytics dashboards, integrations and approval processes; avoid oversimplified startup messaging, feature dumping, extremely technical implementation details and unnecessary enterprise governance complexity.",
+      "strategyInstruction": "Demo strategy: Standard Platform Demo. Keep the tone polished, structured, and business-focused, pacing balanced and time-aware, with high-value workflows first, technical depth light to moderate unless requested, and story style broad end-to-end platform story connecting multiple stakeholder perspectives. Prioritize end-to-end business flows, cross-functional workflows, executive dashboards, reporting and analytics and automation examples. Behavior rules: prioritize breadth over deep specialization, ensure all major departments are represented, maintain consistent pacing, avoid excessive technical depth unless requested and make executive-level value visible throughout. Adapt the examples to General Business using finance visibility, operational control and growth readiness.",
+      "principles": [
+        "Start with the general NetSuite story and why the platform matters to leadership.",
+        "Show the highest-value proof moments before lower-level configuration or optional detail.",
+        "Use the stated demo scope as a hard planning input even when the notes do not mention it.",
+        "Keep standard NetSuite reports and navigation in the main path.",
+        "Defer lower-value or out-of-scope topics to Q&A or appendix."
+      ]
+    },
+    "manifestBuild": {
+      "status": "guide-ready-manifest-not-built",
+      "source": "sc-guide",
+      "createdFromGuide": false,
+      "updatedAt": "2026-05-18T21:46:31.683Z",
+      "instruction": "The SC guide has been generated. Create the runnable manifest from the guide before relying on the Manifest tab or browser rehearsal."
     }
   },
   "defaults": {
     "valueStatementIntensity": "balanced",
     "outputLanguage": "en",
     "manifestDemoMode": "customer_story",
-    "demoStrategy": "vision_demo",
+    "demoStrategy": "standard_platform_demo",
     "industry": "general_business",
     "pace": {
       "beforeSegmentMs": 500,
@@ -118,7 +534,7 @@
     },
     "audio": {
       "provider": "say",
-      "voice": "Moira",
+      "voice": "Samantha",
       "rate": 175
     },
     "browser": {
@@ -197,12 +613,30 @@
   },
   "segments": [
     {
+      "id": "executive-overview",
+      "title": "Frame The Executive NetSuite Overview",
+      "objective": "Set up the general NetSuite platform story before opening detailed finance workflows.",
+      "valueStatement": "Private Jet & Cargo Charters first sees why NetSuite matters at the executive level: visibility, control, trusted numbers, and a clear path from summary to action.",
+      "narration": "Before we open the first report, frame the executive view for Private Jet & Cargo Charters: NetSuite is the operating system where finance can see performance, prove the detail, and make decisions from one controlled place. We will start with the highest-value proof moments, then move into supporting detail. Keep the live path inside this scope: Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management..",
+      "actions": [
+        {
+          "type": "note",
+          "text": "Executive overview. Audience: Prospect. Target: Mid-Market. Strategy: Standard Platform Demo. Industry: General Business. Stay inside this demo scope unless the SC deliberately branches: Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management.."
+        },
+        {
+          "type": "wait",
+          "ms": 400
+        }
+      ],
+      "verifications": []
+    },
+    {
       "id": "open-pl",
       "title": "Open The Standard Income Statement",
       "objective": "Use NetSuite search/navigation to open a standard profitability report.",
       "valueMoment": "major",
-      "valueStatement": "The prospect gets a fast, trusted performance view that connects directly to trusted reporting and cash visibility.",
-      "narration": "For The prospect, let's start where a finance leader usually wants to start: the standard income statement. This gives a quick view of revenue, margin, overheads, and net profit from one controlled place in NetSuite.",
+      "valueStatement": "Private Jet & Cargo Charters gets a fast, trusted performance view that connects directly to trusted reporting and drilldown from summary to detail.",
+      "narration": "For Prospect, keep the narration persuasive, outcome-oriented and story-driven and anchored in business value, ROI, ease of adoption and competitive differentiation. For Private Jet & Cargo Charters, let's start where a finance leader usually wants to start: the standard income statement. This gives a quick view of revenue, margin, overheads, and net profit from one controlled place in NetSuite.",
       "actions": [
         {
           "type": "globalSearchOpen",
@@ -282,7 +716,7 @@
       "title": "Show Report Filters",
       "objective": "Highlight the filter set finance can use to re-slice the result.",
       "valueMoment": "page",
-      "valueStatement": "The prospect can re-run the same standard report by period, subsidiary, and accounting book, which supports trusted reporting and cash visibility.",
+      "valueStatement": "Private Jet & Cargo Charters can re-run the same standard report by period, subsidiary, and accounting book, which supports trusted reporting and drilldown from summary to detail.",
       "narration": "Now let's look at how a team can change the lens. In the standard report, the most important controls are period, date range, subsidiary context, and accounting book.",
       "actions": [
         {
@@ -418,217 +852,6 @@
         {
           "type": "text",
           "text": "Export - CSV"
-        }
-      ]
-    },
-    {
-      "id": "open-cash360-dashboard",
-      "title": "Open Cash 360",
-      "objective": "Transition from profitability to liquidity.",
-      "valueMoment": "major",
-      "valueStatement": "A prospect can see how NetSuite connects profitability with liquidity in the same operating system.",
-      "narration": "Once we have looked at profitability, the natural next question is cash. Cash 360 gives a clear view of current cash position and what is expected to happen next.",
-      "actions": [
-        {
-          "type": "globalSearchOpen",
-          "query": "Cash 360",
-          "resultText": "Cash 360 - Redirect",
-          "fallbackUrl": "${baseUrl}/spa-app/com.netsuite.cash360/cash360?whence=",
-          "timeoutMs": 25000
-        },
-        {
-          "type": "waitForText",
-          "text": "Cash 360 Dashboard",
-          "timeoutMs": 25000
-        },
-        {
-          "type": "highlightText",
-          "text": "Cash Position"
-        }
-      ],
-      "verifications": [
-        {
-          "type": "text",
-          "text": "Bank Balance"
-        },
-        {
-          "type": "text",
-          "text": "Receivables"
-        },
-        {
-          "type": "text",
-          "text": "Payables"
-        }
-      ]
-    },
-    {
-      "id": "cash360-actions",
-      "title": "Show Cash Actions",
-      "objective": "Highlight the operational actions available from the Cash 360 dashboard.",
-      "valueMoment": "detail",
-      "valueStatement": "The dashboard points people toward the work that affects cash, not just the numbers they need to read.",
-      "narration": "This is not only a dashboard. The action panel gives the team direct paths to invoices, bills, aging summaries, and account categories that influence the cash view.",
-      "actions": [
-        {
-          "type": "highlightText",
-          "text": "View Invoices"
-        },
-        {
-          "type": "highlightText",
-          "text": "Approve Invoices"
-        },
-        {
-          "type": "highlightText",
-          "text": "View Bills"
-        },
-        {
-          "type": "highlightText",
-          "text": "View A/P Aging Summary"
-        },
-        {
-          "type": "highlightText",
-          "text": "View A/R Aging Summary"
-        },
-        {
-          "type": "highlightText",
-          "text": "View Account Categories"
-        }
-      ],
-      "verifications": [
-        {
-          "type": "text",
-          "text": "Actions"
-        },
-        {
-          "type": "text",
-          "text": "View Bills"
-        }
-      ]
-    },
-    {
-      "id": "cash360-forecast",
-      "title": "Show Cash Forecast",
-      "objective": "Show the month-by-month liquidity projection.",
-      "valueMoment": "page",
-      "valueStatement": "The team can spot future cash pressure earlier, using live operational data rather than a disconnected forecast file.",
-      "narration": "The forecast table is the forward-looking view. It separates opening balance, inflows, outflows, net balance, and closing balance by period, so the team can see the cash trajectory over the next months.",
-      "actions": [
-        {
-          "type": "goto",
-          "url": "${baseUrl}/spa-app/com.netsuite.cash360/cash360?whence=#/forecast-table"
-        },
-        {
-          "type": "waitForText",
-          "text": "Cash Forecast",
-          "timeoutMs": 20000
-        },
-        {
-          "type": "highlightText",
-          "text": "Opening Balance"
-        },
-        {
-          "type": "highlightText",
-          "text": "Inflow"
-        },
-        {
-          "type": "highlightText",
-          "text": "Outflow"
-        },
-        {
-          "type": "highlightText",
-          "text": "Net Balance"
-        },
-        {
-          "type": "highlightText",
-          "text": "Closing Balance"
-        }
-      ],
-      "verifications": [
-        {
-          "type": "text",
-          "text": "Account Category"
-        },
-        {
-          "type": "text",
-          "text": "Opening Balance"
-        },
-        {
-          "type": "text",
-          "text": "Closing Balance"
-        }
-      ]
-    },
-    {
-      "id": "cash360-preferences",
-      "title": "Show Forecast Controls",
-      "objective": "Show how finance governs the forecast assumptions.",
-      "valueMoment": "page",
-      "valueStatement": "Forecast assumptions are visible and configurable, so the cash view can match how the business actually plans.",
-      "narration": "Finally, the preferences page shows how the forecast is governed. The team can set the forecast period, choose which inputs to include, and manage the account categories and assumptions behind the projection.",
-      "actions": [
-        {
-          "type": "goto",
-          "url": "${baseUrl}/spa-app/com.netsuite.cash360/cash360?whence=#/preference"
-        },
-        {
-          "type": "waitForText",
-          "text": "Preferences",
-          "timeoutMs": 20000
-        },
-        {
-          "type": "highlightText",
-          "text": "Forecast Period"
-        },
-        {
-          "type": "highlightText",
-          "text": "Include Opening Balance",
-          "optional": true
-        },
-        {
-          "type": "highlightText",
-          "text": "Include Sales Orders",
-          "optional": true
-        },
-        {
-          "type": "highlightText",
-          "text": "Include Purchase Orders",
-          "optional": true
-        },
-        {
-          "type": "highlightText",
-          "text": "Account Categories"
-        },
-        {
-          "type": "highlightText",
-          "text": "Data to Use"
-        }
-      ],
-      "verifications": [
-        {
-          "type": "text",
-          "text": "Forecast Period"
-        },
-        {
-          "type": "text",
-          "text": "Account Categories"
-        },
-        {
-          "type": "text",
-          "text": "Save"
-        }
-      ]
-    },
-    {
-      "id": "close",
-      "title": "Close The Story",
-      "objective": "Tie profitability and cash together.",
-      "valueMoment": "major",
-      "valueStatement": "A finance team can move from performance reporting to cash planning with fewer handoffs and less spreadsheet chasing.",
-      "narration": "That is the finance story end to end: profitability in the P&L, explainability through filters and drilldown, controlled sharing through exports, and liquidity planning in Cash 360.",
-      "actions": [
-        {
-          "type": "screenshot",
-          "name": "closing-cash360-preferences"
         }
       ]
     }

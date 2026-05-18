@@ -9,7 +9,9 @@ node_modules/
 artifacts/audio/
 artifacts/cache/
 artifacts/cms/
+artifacts/codex-operators/
 artifacts/codex-prompts/
+artifacts/presentations/
 artifacts/prep-buffer/
 artifacts/runtime/
 artifacts/screenshots/
