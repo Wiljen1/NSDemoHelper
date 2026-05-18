@@ -2278,9 +2278,8 @@ function html(response) {
         color: #0b1117;
       }
       main {
-        display: grid;
-        grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
-        min-height: calc(100vh - 66px);
+        width: 100%;
+        min-height: calc(100vh - 116px);
       }
     aside {
       border-right: 1px solid var(--line);
@@ -2290,7 +2289,7 @@ function html(response) {
     }
     section {
       padding: 20px;
-      overflow: auto;
+      overflow: visible;
     }
     label {
       display: block;
@@ -2422,8 +2421,9 @@ function html(response) {
     .screen.active { display: block; }
     .grid {
       display: grid;
-      grid-template-columns: minmax(320px, .8fr) minmax(420px, 1.2fr);
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
       gap: 18px;
+      width: 100%;
     }
     .panel {
       border: 1px solid var(--line);
@@ -2732,7 +2732,6 @@ function html(response) {
       font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
     @media (max-width: 880px) {
-      main { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
       .steps { grid-template-columns: 1fr 1fr; }
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
