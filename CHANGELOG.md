@@ -1,5 +1,16 @@
 # Changelog
 
+Each release entry should include:
+
+- Version
+- Date
+- Added
+- Changed
+- Fixed
+- Known issues
+
+Do not create future release notes before the release exists.
+
 ## v0.1.0-alpha
 
 First internal MVP baseline for NetSuite Demo Helper.

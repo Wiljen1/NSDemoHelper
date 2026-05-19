@@ -65,7 +65,19 @@ const defaultOutputLanguage = "en";
 const defaultDemoStrategy = "standard_platform_demo";
 const defaultIndustry = "general_business";
 const appVersion = "v0.1.0-alpha";
+const appEnvironment = normalizeAppEnvironment(process.env.APP_ENV);
+const buildMetadata = {
+  version: appVersion,
+  environment: appEnvironment,
+  commit: process.env.APP_COMMIT || process.env.GIT_COMMIT || "",
+  buildDate: process.env.APP_BUILD_DATE || process.env.BUILD_DATE || ""
+};
 const cash360SegmentIds = new Set(["open-cash360-dashboard", "cash360-actions", "cash360-forecast", "cash360-preferences"]);
+
+function normalizeAppEnvironment(value) {
+  const env = String(value || "development").trim().toLowerCase();
+  return ["development", "staging", "production"].includes(env) ? env : "development";
+}
 
 function defaultTestPrepData() {
   return {
@@ -1126,6 +1138,7 @@ async function manifestPayload() {
   return {
     featureFlags: featureFlagsPayload(),
     appVersion,
+    buildMetadata,
     manifest,
     versions: await listVersions(),
     guide,
@@ -10170,9 +10183,14 @@ function html(response) {
           <span class="dot" aria-hidden="true"></span>
           <span id="codexRuntimeText">Checking Codex</span>
         </div>
-        <span class="codex-runtime-badge" title="First internal MVP baseline version.">
+        <span class="codex-runtime-badge" title="${escapeHtml([
+          "First internal MVP baseline.",
+          `Environment: ${buildMetadata.environment}`,
+          buildMetadata.commit ? `Commit: ${buildMetadata.commit}` : "",
+          buildMetadata.buildDate ? `Build date: ${buildMetadata.buildDate}` : ""
+        ].filter(Boolean).join("\n"))}">
           <span class="dot" aria-hidden="true"></span>
-          <span>${escapeHtml(appVersion)}</span>
+          <span>${escapeHtml(`${buildMetadata.version} | ${buildMetadata.environment}`)}</span>
         </span>
         <button class="codex-info-button" id="codexInfoButton" data-help="Shows which parts of the helper are using Codex and where the latest Codex output was saved.">Backbone</button>
         <label class="theme-toggle" for="nightMode">
