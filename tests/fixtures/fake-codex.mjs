@@ -288,6 +288,31 @@ function intelligencePayload() {
         }
       ]
     },
+    win_strategy_analyzer: {
+      summary: "Win by tying the demo to finance trust, standard reporting, and controlled scope.",
+      competition_context: "Status quo and current ERP.",
+      guidance_only: true,
+      strategies: [
+        {
+          title: "Lead with finance trust",
+          why_we_can_win: "The notes show reporting confidence and drilldown matter.",
+          competitor_likely_move: "A competitor may lead with broad platform breadth.",
+          demo_move: "Open with the standard report and prove drilldown."
+        },
+        {
+          title: "Keep scope controlled",
+          why_we_can_win: "The scope is finance-first with clear next-step modules.",
+          competitor_likely_move: "A competitor may over-demo implementation detail.",
+          demo_move: "Sequence the highest-value finance proof moments first."
+        },
+        {
+          title: "Use discovery gaps as next-step control",
+          why_we_can_win: "The SC can show what is ready and what must be validated.",
+          competitor_likely_move: "A competitor may avoid weak discovery areas.",
+          demo_move: "Close with precise follow-up questions."
+        }
+      ]
+    },
     internal_best_practices_library: {
       reusable_patterns_to_capture: ["Business-first opening"],
       recommended_structures: ["Tell-show-tell"]

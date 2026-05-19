@@ -219,7 +219,7 @@
         {
           "type": "clickRole",
           "role": "button",
-          "name": "Intelligence",
+          "name": "Demo Intelligence",
           "exact": true,
           "timeoutMs": 10000
         },
@@ -304,7 +304,7 @@
       "objective": "Explain that the manifest is built after the SC guide to make the route rehearseable.",
       "valueMoment": "page",
       "valueStatement": "The manifest gives the SC a repeatable route through the browser, reducing demo wandering and rehearsal risk.",
-      "narration": "After prep, guide, and intelligence, the Dry-Run tab turns the SC story into a browser-ready run plan. This is not the first thing the SC needs to care about. It is built in so the story can become repeatable: segments, navigation, narration, proof moments, and safe actions. The separate dry-run clickthrough video can show what that route looks like without spending time generating it live.",
+      "narration": "After prep, guide, and intelligence, the Dry-Run tab turns the SC Guide page's dry-run creation prompt into a browser-ready run plan. This is not the first thing the SC needs to care about. It is built in so the story can become repeatable: segments, navigation, narration, proof moments, and safe actions. The separate dry-run clickthrough video can show what that route looks like without spending time generating it live.",
       "actions": [
         {
           "type": "clickRole",
@@ -320,7 +320,7 @@
         },
         {
           "type": "highlightText",
-          "text": "Create Manifest From SC Guide",
+          "text": "Create Dry-Run From Prompt",
           "durationMs": 1100
         },
         {

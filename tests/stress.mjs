@@ -35,6 +35,15 @@ const scenarios = [
     })
   },
   {
+    name: "button-instructions",
+    run: async () => {
+      const payload = await requestJson(server, "/api/button-instructions");
+      if (!payload.buttons?.some((button) => button.id === "learn-create-demo")) {
+        throw new Error("button instruction catalog is missing learn-create-demo");
+      }
+    }
+  },
+  {
     name: "sc-guide",
     run: () => requestJson(server, "/api/sc-guide")
   },
@@ -48,6 +57,15 @@ const scenarios = [
       method: "POST",
       body: JSON.stringify(draftPrepPayload({
         preDemoNotes: `Stress request ${index}: check draft scoring, missing success metrics, active countries, and current ERP.`
+      }))
+    })
+  },
+  {
+    name: "pre-demo-intelligence",
+    run: (index) => requestJson(server, "/api/pre-demo-intelligence", {
+      method: "POST",
+      body: JSON.stringify(draftPrepPayload({
+        preDemoNotes: `Stress request ${index}: pre-demo notes mention finance stakeholders, current ERP, integration constraints, country gaps, and missing timeline.`
       }))
     })
   }

@@ -83,6 +83,7 @@ export function draftPrepPayload(overrides = {}) {
     outputLanguage: "en",
     instructions: "Use standard reports first and avoid low-value setup.",
     demoScope: "Financials first Services premium, including SuiteProjects and Fixed Asset Management.",
+    competition: "Status quo, current ERP, and spreadsheet-heavy reporting.",
     companyUrl: "https://example.com/",
     preDemoNotes: "Automated test notes: missing current ERP, success metrics, active countries, and stakeholder priorities.",
     valueIntensity: "balanced",

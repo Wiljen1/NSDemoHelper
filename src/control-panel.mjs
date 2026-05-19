@@ -13,8 +13,11 @@ const generatedManifestsDir = path.join(projectRoot, "manifests/generated");
 const versionsDir = path.join(projectRoot, "manifests/versions");
 const scGuidePath = path.join(projectRoot, "artifacts/sc-demo-guide.md");
 const narratorStatePath = path.join(projectRoot, "artifacts/runtime/narrator-state.json");
+const latestIntelligencePath = path.join(projectRoot, "artifacts/runtime/latest-intelligence.json");
+const latestPreDemoIntelligencePath = path.join(projectRoot, "artifacts/runtime/latest-pre-demo-intelligence.json");
 const cmsContentPath = path.join(projectRoot, "artifacts/cms/content.json");
 const cmsVersionsDir = path.join(projectRoot, "artifacts/cms/versions");
+const buttonInstructionsDir = path.join(projectRoot, "artifacts/button-api-instructions");
 const cmsAdminPath = path.join(projectRoot, ".auth/cms-admin.json");
 const cmsSessionsPath = path.join(projectRoot, ".auth/cms-sessions.json");
 const port = Number(process.env.PORT || 4173);
@@ -25,6 +28,12 @@ let defaultScInstructionsOverride = "";
 let helperIntroOverride = "";
 let helperStepsOverride = null;
 let additionalDemoSources = [];
+let dryRunCreationGuidanceOverride = "";
+let preDemoIntelligenceGuidanceOverride = "";
+let scStoryRunbookGuidanceOverride = "";
+let demoAssetPromptGuidanceOverride = "";
+let codexAccountSetupGuidanceOverride = "";
+let liveDemoFunctionalityEnabled = true;
 
 const voiceProviders = {
   say: {
@@ -53,9 +62,346 @@ let outputLanguages = {
 const defaultAudienceType = "prospect";
 const defaultTargetAudience = "mid_market";
 const defaultOutputLanguage = "en";
-const defaultDemoStrategy = "vision_demo";
+const defaultDemoStrategy = "standard_platform_demo";
 const defaultIndustry = "general_business";
 const cash360SegmentIds = new Set(["open-cash360-dashboard", "cash360-actions", "cash360-forecast", "cash360-preferences"]);
+
+function defaultTestPrepData() {
+  return {
+    topic: "Prepare a prospect-facing NetSuite finance-first demo for Air Charter Service. Focus on executive visibility, multi-country consolidation, local GAAP, tax and e-invoicing context, approvals, project or flight profitability, integration fit, SuiteProjects, and Fixed Asset Management.",
+    inputMode: "request-and-notes",
+    manifestDemoMode: "customer_story",
+    demoStrategy: "standard_platform_demo",
+    industry: "general_business",
+    audience: "prospect",
+    marketSegment: "mid_market",
+    outputLanguage: "en",
+    demoScope: "Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management. Advanced inventory, FP&A, Payhawk or expenses, and broader procure-to-pay are discovery or phase considerations unless confirmed.",
+    competition: "Known competition/status quo: SAP S/4HANA and Microsoft Dynamics are being considered alongside the current architecture of Access ERP, Jedox consolidation/planning, spreadsheets, email-heavy AP, and Payhawk/Access Expense in parts of the business.",
+    companyUrl: "https://www.aircharterservice.com/",
+    preDemoNotes: `# Discovery & Demo Preparation Notes
+
+## Current Scope & Discussion Areas
+
+* Procure-to-Pay Phase 2 discussion
+* Number of Payhawk expense users?
+* Budget holders and approval workflows
+* FP&A requirements
+* Advanced Inventory requirements
+* Multi-Book accounting considerations
+* ACS considerations
+* Role separation between AR/AP teams and finance operations
+
+---
+
+# Key Stakeholders
+
+| Name        | Role                           | Notes                                                   |
+| ----------- | ------------------------------ | ------------------------------------------------------- |
+| Paul Miles  | Project Manager                | Overall project coordination                            |
+| Henry Davis | Business Analyst               | Business process analysis                               |
+| Rob         | IT Director                    | Responsible for technical architecture and integrations |
+| Jo          | Head of IT Operations          | Responsible for production operations                   |
+| Jonathan    | Financial Controller           | Core finance stakeholder                                |
+| Tom         | Finance Transformation Manager | Previously Financial Controller                         |
+| Cary        | Group CFO                      | Executive sponsor / financial leadership                |
+
+---
+
+# Project Context
+
+The customer initially explored a standalone Procure-to-Pay initiative but has since expanded the conversation into a broader ERP transformation project.
+
+The organization operates across multiple countries and legal entities, creating significant consolidation and reporting complexity.
+
+---
+
+# Current Systems & Processes
+
+## Expense Management
+
+* Payhawk is currently used for part of the business expense process
+* Not used for the core air charter business
+* Some entities still rely on Access Expense or manual/paper-based processes
+
+## Consolidation & Reporting
+
+Current challenges:
+
+* Group consolidations
+* Multi-country reporting
+* UK-centric ERP limitations
+* Local GAAP chart of accounts requirements
+* Country-specific tax reporting
+* E-invoicing complexity
+* Difficulty scaling into new regions/entities
+
+Consolidation is currently performed in Jedox due to limitations in the existing ERP system.
+
+Important positioning opportunity:
+
+* NetSuite OneWorld and native consolidation capabilities should be highlighted strongly during the demo.
+
+---
+
+# International & Localization Requirements
+
+Need clarity on:
+
+* Active countries/legal entities
+* Language requirements by country
+* Dual-language requirements in some regions
+* Country-specific tax and e-invoicing regulations
+
+Important discovery question:
+
+> Which countries are currently sending and/or receiving e-invoices?
+
+---
+
+# Integration Challenges
+
+Integration complexity is a major concern.
+
+Key focus areas:
+
+* Existing architecture compatibility
+* Integration flexibility
+* ODBC/reporting requirements
+* Data flow between systems
+* CRM integration strategy
+
+Current CRM:
+
+* IBOS CRM
+* Potential future replacement opportunity
+* Current scope remains finance-focused
+
+Likely integration requirements:
+
+* Booking references
+* Credit notes
+* Flight/project data synchronization
+
+---
+
+# Core Business Process - Flight Project Tracking
+
+Each flight is treated as a unique project.
+
+Key project tracking requirements:
+
+* Flight start/end date
+* Route information
+* Aircraft type
+* Broker involved
+* Customer information
+* Associated transactions
+* Revenue and cost tracking
+* Operational ownership
+
+The customer wants complete financial visibility tied directly to each flight/project.
+
+---
+
+# Aircraft Management Business Model
+
+Veluxis operates as a private jet management company.
+
+Business model:
+
+* Wealthy individuals/companies own aircraft
+* Veluxis manages operations on their behalf
+* Veluxis arranges:
+
+  * maintenance
+  * charter flights
+  * operational coordination
+
+Operational complexity:
+
+* Costs are incurred by Veluxis
+* Costs are then recharged/disbursed to aircraft owners
+* Current handling relies heavily on separate balance sheet accounts
+
+Potential demo focus:
+
+* Intercompany/accounting visibility
+* Project profitability
+* Cost allocation transparency
+
+---
+
+# Procure-to-Pay & AP Challenges
+
+Current process is highly manual and email-driven.
+
+Current state:
+
+* No formal PO process
+* Each booking/flight is bespoke
+* Brokers send invoices from airlines
+* Heavy reliance on email communication
+* Manual payment coordination
+* Limited centralized visibility
+
+Potential opportunity areas:
+
+* Approval workflows
+* Vendor bill automation
+* Centralized document management
+* Workflow tracking
+* Payment visibility
+
+---
+
+# Accounts Receivable & Dunning
+
+The organization can report effectively on outstanding balances.
+
+Main challenge:
+
+* Delayed customer payments often caused by incomplete or incorrect supporting documentation
+* No centralized storage for customer-facing information
+
+Potential positioning:
+
+* Document management
+* Transaction visibility
+* Automated communication
+* Customer record centralization
+
+---
+
+# Revenue Recognition
+
+Revenue recognition occurs:
+
+* On the date/month the flight takes place
+
+Revenue must be tracked by:
+
+* Legal entity
+* Office/location
+* Business type
+
+Examples:
+
+* Cargo flights
+* Private jets
+* Passenger flights
+
+Complexity example:
+
+* Revenue may involve both Dubai and India operations simultaneously
+
+Need visibility into:
+
+* Entity ownership
+* Department allocation
+* Cross-border operational reporting
+
+---
+
+# FP&A & Budgeting
+
+Current state:
+
+* FP&A primarily handled in Jedox
+* Additional budgeting work handled in spreadsheets
+* Budgets maintained globally in GBP
+* Budget data is not written back into ERP dimensions
+
+Future opportunity:
+
+* FP&A modernization
+* Planning and budgeting centralization
+* Expanded reporting visibility
+
+Potential Phase 2 discussion:
+
+* Native planning/budgeting capabilities
+
+---
+
+# Fixed Assets & Expense Deferrals
+
+## Fixed Assets
+
+Current process:
+
+* Spreadsheets
+* Straight-line depreciation
+* Office equipment
+* Intangible assets
+
+## Expense Deferrals
+
+* Limited use currently
+* Primarily bill-related
+
+---
+
+# Reporting & Analytics
+
+ODBC access is important.
+
+However:
+
+* Many required reports appear achievable with standard NetSuite reporting
+
+Important demo guidance:
+
+* Strongly highlight out-of-the-box reporting capabilities
+* Avoid over-positioning custom reports unless truly necessary
+
+---
+
+# Templates & Document Configuration
+
+Customer sends templates externally.
+
+Demo should include:
+
+* Template configuration capabilities
+* Document customization
+* Customer-facing output flexibility
+
+---
+
+# E-Invoicing
+
+Current approach:
+
+* Third-party provider handles many e-invoicing submissions
+
+Some countries may benefit from direct handling internally, while others prefer outsourcing.
+
+Need clarity on:
+
+* Sending vs receiving requirements
+* Country-by-country obligations
+* Integration expectations
+
+---
+
+# Approval Workflows
+
+Approval matrix already exists with thresholds and hierarchies.
+
+Current challenge:
+
+* Approvers often lack visibility/context into what they are approving
+
+Potential demo focus:
+
+* Approval visibility
+* Supporting documentation
+* Workflow clarity
+* Context-aware approvals
+* Mobile approvals`
+  };
+}
 
 let demoStrategies = [
   {
@@ -492,6 +838,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/") return html(response);
     if (request.method === "GET" && request.url === "/api/cms/status") return json(response, await cmsStatus(request));
     if (request.method === "GET" && request.url === "/api/codex/status") return json(response, await codexRuntimeStatus());
+    if (request.method === "GET" && request.url === "/api/feature-flags") return json(response, { ok: true, featureFlags: featureFlagsPayload() });
     if (request.method === "POST" && request.url === "/api/codex/stop") return json(response, stopCurrentCodexOperator());
     if (request.method === "POST" && request.url === "/api/cms/setup") {
       const body = await readBody(request);
@@ -516,23 +863,54 @@ const server = http.createServer(async (request, response) => {
       const body = await readBody(request);
       return json(response, await saveCmsBlock(body));
     }
+    if (request.method === "POST" && request.url === "/api/cms/feature-flags") {
+      await requireCmsAuth(request);
+      const body = await readBody(request);
+      return json(response, await saveFeatureFlags(body));
+    }
     if (request.method === "POST" && request.url === "/api/cms/restore") {
       await requireCmsAuth(request);
       const body = await readBody(request);
       return json(response, await restoreCmsVersion(body.file));
     }
+    if (request.method === "GET" && request.url === "/api/button-instructions") {
+      return json(response, await buttonInstructionsPayload());
+    }
+    if (request.method === "POST" && request.url === "/api/button-instructions/export") {
+      return json(response, await exportButtonInstructionFiles());
+    }
+    if (request.method === "GET" && request.url?.startsWith("/api/button-instructions/download/")) {
+      const fileName = decodeURIComponent(path.basename(request.url.replace("/api/button-instructions/download/", "")));
+      if (!fileName.endsWith(".json")) return json(response, { ok: false, error: "Only JSON instruction files are available here." }, 400);
+      return sendFile(response, path.join(buttonInstructionsDir, fileName), "application/json");
+    }
     if (request.method === "GET" && request.url === "/api/manifest") return json(response, await manifestPayload());
     if (request.method === "GET" && request.url === "/api/intelligence") {
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
-      return json(response, { ok: true, intelligence: await demoIntelligencePayloadWithCodex(manifest, guide) });
+      const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
+      return json(response, { ok: true, intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
     }
     if (request.method === "POST" && request.url === "/api/intelligence") {
       const body = await readBody(request);
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
-      const draftManifest = manifestWithCurrentPrepInputs(manifest, body);
-      return json(response, { ok: true, draft: true, intelligence: await demoIntelligencePayloadWithCodex(draftManifest, guide) });
+      const draftManifest = await manifestWithCurrentPrepInputsAndWebsite(manifest, body, {
+        preferStoredPreDemoWebsiteContext: true,
+        allowWebsiteScan: false
+      });
+      const intelligence = await demoIntelligencePayloadWithCodex(draftManifest, guide);
+      return json(response, { ok: true, draft: true, intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
+    }
+    if (request.method === "POST" && request.url === "/api/pre-demo-intelligence") {
+      const body = await readBody(request);
+      const manifest = await readManifest();
+      const draftManifest = await manifestWithCurrentPrepInputsAndWebsite(manifest, body, {
+        preferStoredPreDemoWebsiteContext: true,
+        allowWebsiteScan: true
+      });
+      const preDemoIntelligence = await preDemoIntelligencePayloadWithCodex(draftManifest);
+      return json(response, { ok: true, draft: true, preDemoIntelligence });
     }
     if (request.method === "GET" && request.url === "/api/versions") return json(response, { versions: await listVersions() });
     if (request.method === "GET" && request.url === "/api/run-state") return json(response, runState());
@@ -549,27 +927,62 @@ const server = http.createServer(async (request, response) => {
       const guide = await readOrGenerateScGuide(manifest);
       return json(response, { guide, guideOutputs: guideOutputsPayload(manifest, guide) });
     }
+    if (request.method === "POST" && request.url === "/api/dry-run-prompt/refresh") {
+      ensureLiveDemoFunctionalityEnabled();
+      await saveVersion("before-dry-run-prompt-refresh");
+      const manifest = await readManifest();
+      const guide = await readOrGenerateScGuide(manifest);
+      const nextManifest = refreshDryRunPromptMetadata(manifest, guide);
+      await writeFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`, "utf8");
+      const namedManifestPath = await writeNamedManifestCopy(nextManifest);
+      return json(response, {
+        ok: true,
+        manifest: nextManifest,
+        versions: await listVersions(),
+        guide,
+        guideOutputs: guideOutputsPayload(nextManifest, guide),
+        namedManifestPath,
+        setupPrompt: setupPromptPayload(nextManifest, guide)
+      });
+    }
     if (request.method === "GET" && request.url === "/api/setup-prompt") {
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
       return json(response, { ok: true, setupPrompt: setupPromptPayload(manifest, guide) });
     }
     if (request.method === "POST" && request.url === "/api/intelligence/follow-up-questions") {
-      const manifest = await readManifest();
-      const guide = await readOrGenerateScGuide(manifest);
+      const body = await readBody(request);
+      const savedManifest = await readManifest();
+      const manifest = hasPrepPayload(body)
+        ? await manifestWithCurrentPrepInputsAndWebsite(savedManifest, body, {
+            preferStoredPreDemoWebsiteContext: true,
+            allowWebsiteScan: false
+          })
+        : savedManifest;
+      const guide = await readOrGenerateScGuide(savedManifest);
       const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
-      return json(response, { ok: true, ...(await codexDiscoveryFollowUpQuestions(manifest, guide, intelligence)) });
+      const questionsPayload = await codexDiscoveryFollowUpQuestions(manifest, guide, intelligence, {
+        additionalComments: body.additionalComments
+      });
+      return json(response, {
+        ok: true,
+        ...questionsPayload,
+        intelligence,
+        preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence)
+      });
     }
     if (request.method === "POST" && request.url === "/api/intelligence/improve-guide") {
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
       const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
       const improvedGuide = await writeImprovedScGuide(manifest, guide, intelligence);
+      const updatedIntelligence = await demoIntelligencePayloadWithCodex(manifest, improvedGuide);
       return json(response, {
         ok: true,
         guide: improvedGuide,
         guideOutputs: guideOutputsPayload(manifest, improvedGuide),
-        intelligence: await demoIntelligencePayloadWithCodex(manifest, improvedGuide)
+        intelligence: updatedIntelligence,
+        preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(updatedIntelligence)
       });
     }
     if (request.method === "POST" && request.url === "/api/intelligence/apply-action") {
@@ -578,11 +991,13 @@ const server = http.createServer(async (request, response) => {
       const guide = await readOrGenerateScGuide(manifest);
       const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
       const updatedGuide = await writeActionScGuide(manifest, guide, intelligence, body);
+      const updatedIntelligence = await demoIntelligencePayloadWithCodex(manifest, updatedGuide);
       return json(response, {
         ok: true,
         guide: updatedGuide,
         guideOutputs: guideOutputsPayload(manifest, updatedGuide),
-        intelligence: await demoIntelligencePayloadWithCodex(manifest, updatedGuide),
+        intelligence: updatedIntelligence,
+        preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(updatedIntelligence),
         message: "Applied action to SC guide."
       });
     }
@@ -602,17 +1017,20 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${nextManifest}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(parsedManifest);
       const guide = await readOrGenerateScGuide(parsedManifest);
-      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest, guide), intelligence: await demoIntelligencePayloadWithCodex(parsedManifest, guide) });
+      const intelligence = await demoIntelligencePayloadWithCodex(parsedManifest, guide);
+      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
     }
 
     if (request.method === "POST" && request.url === "/api/manifest/from-guide") {
+      ensureLiveDemoFunctionalityEnabled();
       await saveVersion("before-manifest-from-guide");
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
-      const nextManifest = applyGuideToRunnableManifest(manifest, guide);
+      const nextManifest = applyDryRunCreationPromptToRunnableManifest(manifest, guide, { runSource: "dry-run-tab" });
       await writeFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(nextManifest);
-      return json(response, { ok: true, manifest: nextManifest, versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(nextManifest, guide), setupPrompt: setupPromptPayload(nextManifest, guide), intelligence: await demoIntelligencePayloadWithCodex(nextManifest, guide) });
+      const intelligence = await demoIntelligencePayloadWithCodex(nextManifest, guide);
+      return json(response, { ok: true, manifest: nextManifest, versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(nextManifest, guide), setupPrompt: setupPromptPayload(nextManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
     }
 
     if (request.method === "POST" && request.url === "/api/learn") {
@@ -626,12 +1044,14 @@ const server = http.createServer(async (request, response) => {
       }
       const learned = applyLearningRequest(manifest, body, company);
       const guide = await writeScGuide(learned, body, company);
+      if (body.createRunnableManifest) ensureLiveDemoFunctionalityEnabled();
       const finalManifest = body.createRunnableManifest
-        ? applyGuideToRunnableManifest(learned, guide)
-        : markManifestGuideOnly(learned);
+        ? applyDryRunCreationPromptToRunnableManifest(learned, guide, { runSource: "learn-create-demo-dry-run" })
+        : markManifestGuideOnly(learned, guide);
       await writeFile(manifestPath, `${JSON.stringify(finalManifest, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(finalManifest);
-      return json(response, { ok: true, manifest: finalManifest, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(finalManifest, guide), namedManifestPath, setupPrompt: setupPromptPayload(finalManifest, guide), intelligence: await demoIntelligencePayloadWithCodex(finalManifest, guide), runnableManifestCreated: Boolean(body.createRunnableManifest) });
+      const intelligence = await demoIntelligencePayloadWithCodex(finalManifest, guide);
+      return json(response, { ok: true, manifest: finalManifest, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(finalManifest, guide), namedManifestPath, setupPrompt: setupPromptPayload(finalManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence), runnableManifestCreated: Boolean(body.createRunnableManifest) });
     }
 
     if (request.method === "POST" && request.url === "/api/restore") {
@@ -641,12 +1061,26 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, await readFile(source, "utf8"), "utf8");
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
-      return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest, guide), intelligence: await demoIntelligencePayloadWithCodex(manifest, guide) });
+      const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
+      return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
     }
 
     if (request.method === "POST" && request.url === "/api/run") {
+      ensureLiveDemoFunctionalityEnabled();
       const body = await readBody(request);
       return json(response, await runCommand(body));
+    }
+
+    if (request.method === "POST" && request.url === "/api/dataset-analysis") {
+      ensureLiveDemoFunctionalityEnabled();
+      const body = await readBody(request);
+      return json(response, await runDatasetAnalysis(body));
+    }
+
+    if (request.method === "POST" && request.url === "/api/dataset-analysis/execute-prompt") {
+      ensureLiveDemoFunctionalityEnabled();
+      const body = await readBody(request);
+      return json(response, await executeDatasetSetupPrompt(body));
     }
 
     if (request.method === "POST" && request.url === "/api/stop") {
@@ -654,12 +1088,17 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && request.url === "/api/voice-sample") {
+      ensureLiveDemoFunctionalityEnabled();
       const body = await readBody(request);
       return json(response, await playVoiceSample(body));
     }
 
     if (request.method === "POST" && request.url === "/api/export-guide-docx") {
       return json(response, await exportScGuideDocx());
+    }
+    if (request.method === "POST" && request.url === "/api/export-follow-up-questions-docx") {
+      const body = await readBody(request);
+      return json(response, await exportFollowUpQuestionsDocx(body));
     }
 
     if (request.method === "POST" && request.url === "/api/execute-setup-prompt") {
@@ -681,15 +1120,30 @@ server.listen(port, () => {
 
 async function manifestPayload() {
   const manifest = await readManifest();
-  const guide = await readOrGenerateScGuide(manifest);
+  const guide = await readSavedOrLocalScGuide(manifest);
+  const intelligence = await readLatestIntelligence(manifest, guide);
   return {
+    featureFlags: featureFlagsPayload(),
     manifest,
     versions: await listVersions(),
     guide,
     guideOutputs: guideOutputsPayload(manifest, guide),
     setupPrompt: setupPromptPayload(manifest, guide),
-    intelligence: await demoIntelligencePayloadWithCodex(manifest, guide)
+    intelligence,
+    preDemoIntelligence: await readLatestPreDemoIntelligence(manifest, intelligence)
   };
+}
+
+function featureFlagsPayload() {
+  return {
+    liveDemoFunctionality: liveDemoFunctionalityEnabled
+  };
+}
+
+function ensureLiveDemoFunctionalityEnabled() {
+  if (!liveDemoFunctionalityEnabled) {
+    throw httpError("Live demo functionality is switched off in Admin. Turn it on to use dry-run, dataset analysis, run controls, narration, or live demo automation.", 403);
+  }
 }
 
 function manifestWithCurrentPrepInputs(manifest, body = {}) {
@@ -704,6 +1158,7 @@ function manifestWithCurrentPrepInputs(manifest, body = {}) {
     ? ""
     : String(body.preDemoNotes ?? next.context.preDemoNotes ?? "").trim();
   const demoScope = String(body.demoScope ?? next.context.demoScope ?? next.context.demoRequest.demoScope ?? "").trim();
+  const competition = String(body.competition ?? next.context.competition ?? next.context.demoRequest.competition ?? "").trim();
   const audience = normalizeAudience(body.audience || next.context.audience?.value || next.context.demoRequest.audience);
   const marketSegment = normalizeMarketSegment(body.marketSegment || next.context.targetAudience?.value || next.context.marketSegment?.value || next.context.demoRequest.targetAudience || next.context.demoRequest.marketSegment);
   const demoStrategy = normalizeDemoStrategy(body.demoStrategy || next.context.demoStrategy?.id || next.context.demoRequest.demoStrategy || next.defaults.demoStrategy);
@@ -714,6 +1169,7 @@ function manifestWithCurrentPrepInputs(manifest, body = {}) {
 
   next.context.preDemoNotes = preDemoNotes;
   next.context.demoScope = demoScope;
+  next.context.competition = competition;
   next.context.audience = audience;
   next.context.marketSegment = marketSegment;
   next.context.targetAudience = marketSegment;
@@ -745,6 +1201,7 @@ function manifestWithCurrentPrepInputs(manifest, body = {}) {
     industryLabel: industry.label,
     outputLanguage: outputLanguage.value,
     demoScope,
+    competition,
     instructions: String(body.instructions ?? next.context.demoRequest.instructions ?? "")
   };
   next.defaults.valueStatementIntensity = body.valueIntensity || next.defaults.valueStatementIntensity || "balanced";
@@ -758,6 +1215,125 @@ function manifestWithCurrentPrepInputs(manifest, body = {}) {
   return next;
 }
 
+async function manifestWithCurrentPrepInputsAndWebsite(manifest, body = {}, options = {}) {
+  const next = manifestWithCurrentPrepInputs(manifest, body);
+  const companyUrl = normalizeCompanyUrl(body.companyUrl || next.context?.company?.url || "");
+  if (!companyUrl) return next;
+  const notes = notesForCompanyAnalysis(body);
+  if (options.preferStoredPreDemoWebsiteContext) {
+    const storedWebsiteContext = await readStoredPreDemoWebsiteContext(companyUrl, notes);
+    if (storedWebsiteContext) {
+      attachWebsiteContextToManifest(next, storedWebsiteContext, notes);
+      return next;
+    }
+  }
+  if (options.allowWebsiteScan === false) {
+    const existingContext = normalizedWebsiteContext(next.context?.company?.websiteContext);
+    if (hasUsableWebsiteContext(existingContext) && sameCompanyUrl(existingContext.url, companyUrl)) {
+      attachWebsiteContextToManifest(next, refreshWebsiteContextForNotes(existingContext, notes), notes);
+      return next;
+    }
+    const pendingContext = websiteContextFromContent({
+      url: companyUrl,
+      notes,
+      source: "pre-demo-intelligence-required"
+    });
+    pendingContext.summary = "Website context has not been scanned for this URL yet. Run Pre-demo scoring first so Demo Intelligence can reuse the saved website context without scanning again.";
+    pendingContext.interesting_points = [];
+    pendingContext.evidence = [];
+    attachWebsiteContextToManifest(next, pendingContext, notes);
+    return next;
+  }
+  const company = await analyseCompany(companyUrl, notes);
+  next.context.company = {
+    ...(next.context.company || {}),
+    ...company
+  };
+  next.context.websiteContextScannedAt = company.websiteContext?.scanned_at || new Date().toISOString();
+  return next;
+}
+
+async function readStoredPreDemoWebsiteContext(companyUrl, notes = "") {
+  const savedPreDemo = await readLatestJson(latestPreDemoIntelligencePath);
+  const websiteContext = normalizedWebsiteContext(savedPreDemo?.website_context);
+  if (!hasUsableWebsiteContext(websiteContext) || !sameCompanyUrl(websiteContext.url, companyUrl)) return null;
+  return refreshWebsiteContextForNotes(websiteContext, notes);
+}
+
+function attachWebsiteContextToManifest(manifest, websiteContext, notes = "") {
+  const context = refreshWebsiteContextForNotes(websiteContext, notes);
+  manifest.context = manifest.context || {};
+  manifest.context.company = {
+    ...(manifest.context.company || {}),
+    url: normalizeCompanyUrl(context.url || manifest.context.company?.url || ""),
+    title: context.title || manifest.context.company?.title || "",
+    description: context.description || manifest.context.company?.description || "",
+    companyName: manifest.context.company?.companyName || deriveCompanyNameFromWebsiteContext(context),
+    likelyPriorities: inferPriorities(websiteContextComparableText(context), notes),
+    industrySignals: inferIndustrySignals(websiteContextComparableText(context), notes),
+    websiteContext: context,
+    source: context.source || "pre-demo-intelligence"
+  };
+  manifest.context.websiteContextScannedAt = context.scanned_at || manifest.context.websiteContextScannedAt || new Date().toISOString();
+}
+
+function refreshWebsiteContextForNotes(websiteContext, notes = "") {
+  const context = normalizedWebsiteContext(websiteContext);
+  const comparisonText = websiteContextComparableText(context);
+  return {
+    ...context,
+    contradictions_or_checks: websiteContradictionsOrChecks(comparisonText, notes),
+    scanned_at: context.scanned_at || new Date().toISOString()
+  };
+}
+
+function hasUsableWebsiteContext(websiteContext) {
+  const context = normalizedWebsiteContext(websiteContext);
+  if (context.source === "pre-demo-intelligence-required") return false;
+  return Boolean(context.url && (context.summary || context.title || context.description || context.interesting_points.length || context.evidence.length));
+}
+
+function sameCompanyUrl(left, right) {
+  const normalize = (value) => {
+    const url = normalizeCompanyUrl(value);
+    if (!url) return "";
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+      const pathName = parsed.pathname.replace(/\/+$/, "");
+      return `${host}${pathName && pathName !== "/" ? pathName : ""}`;
+    } catch {
+      return url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "").toLowerCase();
+    }
+  };
+  return normalize(left) === normalize(right);
+}
+
+function websiteContextComparableText(websiteContext) {
+  const context = normalizedWebsiteContext(websiteContext);
+  return [
+    context.title,
+    context.description,
+    context.summary,
+    ...(context.interesting_points || []),
+    ...(context.evidence || [])
+  ].filter(Boolean).join("\n");
+}
+
+function deriveCompanyNameFromWebsiteContext(websiteContext) {
+  const context = normalizedWebsiteContext(websiteContext);
+  if (context.title || context.url) {
+    try {
+      return deriveCompanyName(context.title, normalizeCompanyUrl(context.url));
+    } catch {}
+  }
+  return context.url ? websiteNameSlug(context.url) || "The prospect" : "The prospect";
+}
+
+function hasPrepPayload(body = {}) {
+  return ["topic", "inputMode", "demoScope", "competition", "audience", "marketSegment", "demoStrategy", "industry", "manifestDemoMode", "outputLanguage", "companyUrl", "preDemoNotes", "instructions"].some((key) => Object.hasOwn(body, key));
+}
+
 async function loadCmsContentIntoRuntime() {
   const content = await readCmsContent();
   applyCmsContentToRuntime(content);
@@ -769,6 +1345,7 @@ async function cmsStatus(request) {
     ok: true,
     setupRequired,
     authenticated: setupRequired ? false : await isCmsAuthenticated(request),
+    featureFlags: featureFlagsPayload(),
     security: {
       passwordStorage: "scrypt salted hash",
       session: "http-only same-site cookie",
@@ -783,7 +1360,230 @@ async function cmsPayload() {
     ok: true,
     content,
     blocks: cmsBlocksForUi(content),
-    versions: await listCmsVersions()
+    versions: await listCmsVersions(),
+    featureFlags: featureFlagsPayload()
+  };
+}
+
+async function buttonInstructionsPayload() {
+  const generatedAt = new Date().toISOString();
+  const buttons = buttonInstructionCatalog();
+  const files = await listButtonInstructionFiles(buttons);
+  return {
+    ok: true,
+    generatedAt,
+    description: "Reference JSON payloads for the NetSuite Demo Helper buttons that call the local API.",
+    note: "These examples show the shape of the JSON sent by each button. Runtime values come from the visible form fields, selected voice, selected manifest version, or edited text.",
+    buttons,
+    files
+  };
+}
+
+async function exportButtonInstructionFiles() {
+  const payload = await buttonInstructionsPayload();
+  await mkdir(buttonInstructionsDir, { recursive: true });
+  const index = {
+    ...payload,
+    files: payload.buttons.map((button) => ({
+      id: button.id,
+      label: button.label,
+      file: `${button.id}.json`,
+      downloadUrl: `/api/button-instructions/download/${button.id}.json`
+    }))
+  };
+  await writeFile(path.join(buttonInstructionsDir, "index.json"), `${JSON.stringify(index, null, 2)}\n`, "utf8");
+  for (const button of payload.buttons) {
+    await writeFile(path.join(buttonInstructionsDir, `${button.id}.json`), `${JSON.stringify(button, null, 2)}\n`, "utf8");
+  }
+  return {
+    ok: true,
+    generatedAt: payload.generatedAt,
+    directory: buttonInstructionsDir,
+    files: [
+      {
+        id: "index",
+        label: "Complete button/API instruction index",
+        file: "index.json",
+        downloadUrl: "/api/button-instructions/download/index.json"
+      },
+      ...index.files
+    ]
+  };
+}
+
+async function listButtonInstructionFiles(buttons = buttonInstructionCatalog()) {
+  try {
+    const existing = new Set((await readdir(buttonInstructionsDir)).filter((file) => file.endsWith(".json")));
+    const files = [
+      existing.has("index.json")
+        ? {
+            id: "index",
+            label: "Complete button/API instruction index",
+            file: "index.json",
+            downloadUrl: "/api/button-instructions/download/index.json"
+          }
+        : null,
+      ...buttons.map((button) => existing.has(`${button.id}.json`)
+        ? {
+            id: button.id,
+            label: button.label,
+            file: `${button.id}.json`,
+            downloadUrl: `/api/button-instructions/download/${button.id}.json`
+          }
+        : null)
+    ].filter(Boolean);
+    return files;
+  } catch {
+    return [];
+  }
+}
+
+function buttonInstructionCatalog() {
+  const prepPayload = buttonPrepPayloadExample();
+  const runPayload = {
+    mode: "live",
+    valueIntensity: "balanced",
+    voiceProvider: "say",
+    voiceApiKey: "",
+    voice: "Samantha"
+  };
+  const guideActionPayload = {
+    mode: "executive",
+    instruction: "Editable output from the AI action preview. This text is applied to the SC guide only when the user clicks Apply Edited Output To SC Guide."
+  };
+  const buttons = [
+    buttonInstruction("pre-demo-scoring", "Pre-demo scoring", "Prep", "POST", "/api/pre-demo-intelligence", prepPayload, "Runs a Codex pre-demo operator to score only the pre-demo input quality. This is where the company website is scanned once and stored for reuse.", true),
+    buttonInstruction("learn-create-demo", "Learn / Create Demo", "Prep", "POST", "/api/learn", { ...prepPayload, createRunnableManifest: false }, "Runs the Codex prep operator, generates the SC guide, generates Demo Intelligence once, then derives Pre-Demo Intelligence from that result.", true),
+    buttonInstruction("learn-create-demo-dry-run", "Learn / Create Demo & Dry-Run", "Prep", "POST", "/api/learn", { ...prepPayload, createRunnableManifest: true }, "Same as Learn / Create Demo, plus creates the dry-run creation prompt and builds the runnable manifest from that prompt. The browser dry-run is then started through /api/run.", true, [
+      { method: "POST", endpoint: "/api/run", body: { ...runPayload, mode: "browser-dry-run" } }
+    ]),
+    buttonInstruction("reload-workspace", "Reload", "Prep", "GET", "/api/manifest", null, "Reloads the saved manifest, SC guide, setup prompt, Demo Intelligence, and derived Pre-Demo Intelligence.", true, [
+      { method: "GET", endpoint: "/api/sc-guide", body: null },
+      { method: "GET", endpoint: "/api/setup-prompt", body: null }
+    ]),
+    buttonInstruction("play-sample-voice", "Play Sample", "Prep", "POST", "/api/voice-sample", {
+      voice: "Samantha",
+      voiceProvider: "say",
+      voiceApiKey: "",
+      line: "Let's show how NetSuite gives finance teams a clearer view of performance and the decisions behind it."
+    }, "Plays a short sample through the selected narration provider.", false),
+    buttonInstruction("voice-provider-change", "Narration engine / Voice refresh", "Prep", "POST", "/api/voices", {
+      provider: "elevenlabs",
+      apiKey: "session-only-api-key-if-cloud-provider-is-selected"
+    }, "Loads available voices for the selected narration provider. API keys are session-only and are not saved in the manifest.", false),
+    buttonInstruction("codex-backbone-status", "Codex active / Backbone check", "Header", "GET", "/api/codex/status", null, "Checks whether the local Codex runtime is available.", false),
+    buttonInstruction("stop-codex-action", "Stop Codex Action", "Header", "POST", "/api/codex/stop", {}, "Requests cancellation of the currently running Codex background action.", false),
+    buttonInstruction("export-guide-word", "Export To Word", "SC Guide", "POST", "/api/export-guide-docx", {}, "Exports the current SC guide as a Word document.", false),
+    buttonInstruction("execute-setup-prompt", "Execute Now", "SC Guide", "POST", "/api/execute-setup-prompt", {
+      confirmed: true,
+      account: "td2963620"
+    }, "After user confirmation, prepares the Codex handoff for NetSuite account setup.", true),
+    buttonInstruction("save-dry-run-manifest", "Save Manifest", "Dry-Run", "POST", "/api/manifest", {
+      manifest: "{\\n  \"name\": \"Edited manifest JSON from the editor\"\\n}"
+    }, "Saves the edited manifest JSON and refreshes the guide/setup/intelligence payloads.", true),
+    buttonInstruction("create-dry-run-from-prompt", "Create Dry-Run From Prompt", "Dry-Run", "POST", "/api/manifest/from-guide", {}, "Builds the runnable dry-run manifest from the SC Guide tab's Dry-run creation prompt, then refreshes Demo Intelligence once and derives Pre-Demo Intelligence.", true),
+    buttonInstruction("refresh-dry-run-creation-prompt", "Recreate Dry-Run Creation Prompt", "SC Guide / Run", "POST", "/api/dry-run-prompt/refresh", {}, "Refreshes the Dry-run creation prompt timestamp and hash from the latest SC guide without running full Codex Intelligence.", false),
+    buttonInstruction("reload-manifest", "Reload Manifest", "Dry-Run", "GET", "/api/manifest", null, "Reloads the saved dry-run manifest and associated generated outputs.", true),
+    buttonInstruction("restore-version", "Restore Selected", "Dry-Run", "POST", "/api/restore", {
+      file: "2026-05-19T00-00-00-000Z-aircharterservice-before-learn.json"
+    }, "Restores an earlier manifest version and refreshes generated outputs.", true),
+    buttonInstruction("run-dataset-analysis", "Run Dataset Analysis", "Dataset Analysis", "POST", "/api/dataset-analysis", {
+      valueIntensity: "balanced"
+    }, "Refreshes the dry-run manifest from the Dry-run creation prompt, opens/reuses NetSuite for login, runs the dry-run through the browser, scores dataset readiness, and generates a Codex setup prompt.", false),
+    buttonInstruction("execute-dataset-prompt", "Execute Dataset Prompt In Codex", "Dataset Analysis", "POST", "/api/dataset-analysis/execute-prompt", {
+      confirmed: true,
+      account: "td2963620"
+    }, "After user confirmation, copies the dataset setup prompt, opens NetSuite and Codex, and prepares the Codex handoff. Codex must verify front-end and back-end NetSuite access before write actions.", true),
+    buttonInstruction("reanalyze-updated-guide", "Re-analyze Updated Guide", "Demo Intelligence", "POST", "/api/intelligence", prepPayload, "Runs full Codex-backed Demo Intelligence from the current Prep fields, reusing the saved Pre-Demo website context instead of scanning the website again.", true),
+    buttonInstruction("generate-discovery-followups", "Generate Discovery Follow-Up Questions", "Demo Intelligence / Pre-Demo Intelligence", "POST", "/api/intelligence/follow-up-questions", {
+      ...prepPayload,
+      additionalComments: "Optional SC comments to steer the discovery questions."
+    }, "Runs a Codex discovery operator. Output is for discovery only and is not applied to the SC guide.", true),
+    buttonInstruction("apply-all-recommendations", "Apply All Recommendations To SC Guide", "Demo Intelligence", "POST", "/api/intelligence/improve-guide", {}, "Runs Codex to rewrite the SC guide using visible intelligence recommendations, then refreshes Demo Intelligence and derived Pre-Demo Intelligence.", true),
+    buttonInstruction("apply-edited-ai-output", "Apply Edited Output To SC Guide", "Demo Intelligence", "POST", "/api/intelligence/apply-action", guideActionPayload, "Applies the editable AI action output to the SC guide. Shorten, executive, technical, and custom preview buttons are local until this button is clicked.", true),
+    buttonInstruction("refresh-pre-demo-scoring", "Refresh Pre-Demo Scoring", "Pre-Demo Intelligence", "POST", "/api/pre-demo-intelligence", prepPayload, "Runs the Codex pre-demo operator again for the current Prep inputs. If the same website was already scanned, it reuses that website context and refreshes the notes comparison.", true),
+    buttonInstruction("export-discovery-followups", "Export Follow-Up Questions To Word", "Pre-Demo Intelligence", "POST", "/api/export-follow-up-questions-docx", {
+      ...prepPayload,
+      additionalComments: "Optional SC comments included in the export.",
+      questions: ["Which success metric should the demo prove?"],
+      questionsMarkdown: "# Optional Codex-generated question markdown"
+    }, "Exports the current recommended discovery follow-up questions and SC comments as a Word document.", false),
+    buttonInstruction("dry-run-prep", "Dry-Run Prep", "Run", "POST", "/api/run", { ...runPayload, mode: "dry-run-prep" }, "Confirms the Dry-run creation prompt timestamp, rebuilds the runnable manifest from that prompt, prepares the buffer, and opens NetSuite for login.", false),
+    buttonInstruction("buffer-dry-run", "Buffer Dry-Run", "Run", "POST", "/api/run", { ...runPayload, mode: "buffer-dry-run" }, "Confirms the Dry-run creation prompt timestamp, rebuilds the dry-run manifest from that prompt, then clicks through it without narration.", false),
+    buttonInstruction("live-demo", "Live Demo", "Run", "POST", "/api/run", runPayload, "Confirms the Dry-run creation prompt timestamp, refreshes the runnable manifest from that prompt, then runs the live demo with narration.", false),
+    buttonInstruction("stop-demo-run", "Stop", "Run", "POST", "/api/stop", {}, "Stops the currently running browser demo automation.", false),
+    buttonInstruction("cms-create-admin-login", "Create Admin Login", "Admin", "POST", "/api/cms/setup", {
+      password: "at-least-12-characters"
+    }, "Creates the local Admin login using a salted scrypt hash.", false),
+    buttonInstruction("cms-login", "Login", "Admin", "POST", "/api/cms/login", {
+      password: "admin-password"
+    }, "Starts a local Admin session with an http-only same-site cookie.", false),
+    buttonInstruction("cms-logout", "Logout", "Admin", "POST", "/api/cms/logout", {}, "Clears the Admin session cookie.", false),
+    buttonInstruction("cms-reload", "Reload CMS", "Admin", "GET", "/api/cms", null, "Reloads editable CMS content blocks and version history.", false),
+    buttonInstruction("cms-save-content-block", "Save Content Block", "Admin", "POST", "/api/cms/save", {
+      blockId: "preDemoIntelligenceGuidance",
+      rawValue: "Updated text or JSON string for the selected content block.",
+      changeNote: "Explain what changed."
+    }, "Saves one Admin content block and creates a rollback version.", false),
+    buttonInstruction("cms-restore-version", "Restore Selected Version", "Admin", "POST", "/api/cms/restore", {
+      file: "2026-05-19T00-00-00-000Z-before-cms-save.json"
+    }, "Restores a previous CMS content snapshot.", false),
+    buttonInstruction("export-button-api-json", "Generate Button/API JSON Files", "Admin", "POST", "/api/button-instructions/export", {}, "Writes one JSON file per API-driving button plus an index file for download.", false)
+  ];
+  if (!liveDemoFunctionalityEnabled) {
+    const liveDemoOnly = new Set([
+      "learn-create-demo-dry-run",
+      "play-sample-voice",
+      "voice-provider-change",
+      "save-dry-run-manifest",
+      "create-dry-run-from-prompt",
+      "refresh-dry-run-creation-prompt",
+      "reload-manifest",
+      "restore-version",
+      "run-dataset-analysis",
+      "execute-dataset-prompt",
+      "dry-run-prep",
+      "buffer-dry-run",
+      "live-demo"
+    ]);
+    return buttons.filter((button) => !liveDemoOnly.has(button.id));
+  }
+  return buttons;
+}
+
+function buttonInstruction(id, label, screen, method, endpoint, body, description, codexBacked, followUpRequests = []) {
+  return {
+    id,
+    label,
+    screen,
+    method,
+    endpoint,
+    requestBodyExample: body,
+    followUpRequests,
+    codexBacked,
+    description
+  };
+}
+
+function buttonPrepPayloadExample() {
+  const defaults = defaultTestPrepData();
+  return {
+    topic: defaults.topic,
+    inputMode: defaults.inputMode,
+    manifestDemoMode: defaults.manifestDemoMode,
+    demoStrategy: defaults.demoStrategy,
+    industry: defaults.industry,
+    audience: defaults.audience,
+    marketSegment: defaults.marketSegment,
+    outputLanguage: defaults.outputLanguage,
+    instructions: "Use standard reports first, lead with business outcomes, and avoid low-value setup.",
+    demoScope: defaults.demoScope,
+    competition: defaults.competition,
+    companyUrl: defaults.companyUrl,
+    preDemoNotes: defaults.preDemoNotes,
+    valueIntensity: "balanced",
+    voiceProvider: "say",
+    voice: "Samantha"
   };
 }
 
@@ -846,6 +1646,39 @@ async function saveCmsBlock(body) {
   };
 }
 
+async function saveFeatureFlags(body = {}) {
+  const content = await readCmsContent();
+  const block = content.blocks?.featureFlags;
+  if (!block) throw httpError("Feature flags CMS block is not available.", 400);
+  await saveCmsVersion("before-feature-flags");
+  const current = block.value && typeof block.value === "object" && !Array.isArray(block.value) ? block.value : {};
+  block.value = {
+    ...current,
+    liveDemoFunctionality: body.liveDemoFunctionality !== false
+  };
+  block.updatedAt = new Date().toISOString();
+  content.updatedAt = block.updatedAt;
+  content.history = [
+    {
+      id: randomBytes(8).toString("hex"),
+      blockId: "featureFlags",
+      label: "Feature Flags",
+      note: `Live demo functionality ${block.value.liveDemoFunctionality ? "enabled" : "disabled"}`,
+      changedAt: block.updatedAt
+    },
+    ...(content.history || [])
+  ].slice(0, 80);
+  await writeCmsContent(content);
+  applyCmsContentToRuntime(content);
+  return {
+    ok: true,
+    featureFlags: featureFlagsPayload(),
+    content,
+    blocks: cmsBlocksForUi(content),
+    versions: await listCmsVersions()
+  };
+}
+
 async function restoreCmsVersion(file) {
   await saveCmsVersion("before-cms-restore");
   const restored = JSON.parse(await readFile(safeCmsVersionPath(file), "utf8"));
@@ -894,8 +1727,14 @@ function defaultCmsContent() {
     blocks: {
       defaultScInstructions: cmsTextBlock("Default SC Instructions", "The baseline guidance pre-filled into the Prep screen.", defaultScInstructions(), now),
       helperIntro: cmsTextBlock("How The Helper Works Intro", "The short explanation shown on the Prep page.", helperIntroText(), now),
+      featureFlags: cmsJsonBlock("Feature Flags", "Admin-controlled app capabilities. Switch live demo functionality off to focus the app on prep, SC guide, and intelligence only.", { liveDemoFunctionality: true }, now),
       helperSteps: cmsJsonBlock("How The Helper Works Steps", "The explanation steps shown on the Prep page.", helperSteps(), now),
       additionalDemoSources: cmsJsonBlock("Additional Sources / Demo Logic", "Add internal playbooks, source notes, reusable rules, and generation logic the helper should consider when creating demos.", defaultAdditionalDemoSources(), now),
+      preDemoIntelligenceGuidance: cmsTextBlock("Pre-Demo Intelligence Guidance", "Editable rules sent to Codex for scoring pre-demo notes and discovery quality.", defaultPreDemoIntelligenceGuidance(), now),
+      scStoryRunbookGuidance: cmsTextBlock("Personalized SC Story And Runbook Logic", "Admin-only rules sent to Codex for creating the Personalized Demo Story And Runbook section.", defaultScStoryRunbookGuidance(), now),
+      demoAssetPromptGuidance: cmsTextBlock("Demo Asset / PowerPoint Prompt Logic", "Admin-only rules sent to Codex for creating the Demo Asset Generation Prompt section.", defaultDemoAssetPromptGuidance(), now),
+      codexAccountSetupGuidance: cmsTextBlock("Codex Account Setup Prompt Logic", "Admin-only rules used after the Personalized SC Story And Runbook is completed to derive the NetSuite Prep Summary and account setup prompt.", defaultCodexAccountSetupGuidance(), now),
+      dryRunCreationGuidance: cmsTextBlock("Dry-Run Creation Prompt Logic", "Admin-only rules used after the Personalized SC Story And Runbook is completed to create the Dry-run creation prompt.", defaultDryRunCreationGuidance(), now),
       demoStrategies: cmsJsonBlock("Demo Strategies", "Selectable demo strategy playbooks and behavior rules.", demoStrategies, now),
       industryPlaybooks: cmsJsonBlock("Industry Playbooks", "Industry-specific terminology, KPIs, workflows, pain points, and avoid rules.", industryPlaybooks, now),
       targetAudiences: cmsJsonBlock("Target Audiences", "Company-size/segment playbooks such as Startup, Mid-Market, and Enterprise.", demoAudienceConfiguration.targetAudiences, now),
@@ -988,14 +1827,24 @@ function validateCmsJsonBlock(block, value) {
   if (id === "outputLanguages" && (!value || typeof value !== "object" || Array.isArray(value))) {
     throw httpError("Output Languages must be a JSON object keyed by language code.", 400);
   }
+  if (id === "featureFlags") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw httpError("Feature Flags must be a JSON object.", 400);
+    if (typeof value.liveDemoFunctionality !== "boolean") throw httpError("Feature Flags needs a boolean liveDemoFunctionality value.", 400);
+  }
 }
 
 function applyCmsContentToRuntime(content) {
   const blocks = content.blocks || {};
   defaultScInstructionsOverride = String(blocks.defaultScInstructions?.value || "").trim();
   helperIntroOverride = String(blocks.helperIntro?.value || "").trim();
+  liveDemoFunctionalityEnabled = blocks.featureFlags?.value?.liveDemoFunctionality !== false;
   helperStepsOverride = Array.isArray(blocks.helperSteps?.value) ? structuredClone(blocks.helperSteps.value) : null;
   additionalDemoSources = Array.isArray(blocks.additionalDemoSources?.value) ? structuredClone(blocks.additionalDemoSources.value) : [];
+  preDemoIntelligenceGuidanceOverride = String(blocks.preDemoIntelligenceGuidance?.value || "").trim();
+  scStoryRunbookGuidanceOverride = String(blocks.scStoryRunbookGuidance?.value || "").trim();
+  demoAssetPromptGuidanceOverride = String(blocks.demoAssetPromptGuidance?.value || "").trim();
+  codexAccountSetupGuidanceOverride = String(blocks.codexAccountSetupGuidance?.value || "").trim();
+  dryRunCreationGuidanceOverride = String(blocks.dryRunCreationGuidance?.value || "").trim();
   if (Array.isArray(blocks.demoStrategies?.value)) demoStrategies = structuredClone(blocks.demoStrategies.value);
   if (Array.isArray(blocks.industryPlaybooks?.value)) industryPlaybooks = structuredClone(blocks.industryPlaybooks.value);
   if (Array.isArray(blocks.manifestDemoModes?.value)) manifestDemoModes = structuredClone(blocks.manifestDemoModes.value);
@@ -1285,6 +2134,84 @@ function helperStepsHtml() {
   return helperSteps().map((step) => `<div class="step"><strong>${escapeHtml(step.title)}</strong><span>${escapeHtml(step.body)}</span></div>`).join("");
 }
 
+function preDemoIntelligenceGuidance() {
+  return preDemoIntelligenceGuidanceOverride || defaultPreDemoIntelligenceGuidance();
+}
+
+function defaultPreDemoIntelligenceGuidance() {
+  return [
+    "Score the quality of discovery notes before full demo generation.",
+    "Look for current systems, business pain, stakeholders, success criteria, scope clarity, process detail, technical/integration context, urgency, risks, and decision context.",
+    "Keep this lighter than Demo Intelligence. It should help an SC decide what discovery is missing before asking Codex to build the full guide.",
+    "Do not score generated demo flow, manifest pacing, rehearsal quality, or demo run behavior on this page.",
+    "Make follow-up questions specific to what is missing from the notes, company website context, selected audience, target segment, strategy, industry, and scope."
+  ].join("\n");
+}
+
+function dryRunCreationGuidance() {
+  return dryRunCreationGuidanceOverride || defaultDryRunCreationGuidance();
+}
+
+function scStoryRunbookGuidance() {
+  return scStoryRunbookGuidanceOverride || defaultScStoryRunbookGuidance();
+}
+
+function demoAssetPromptGuidance() {
+  return demoAssetPromptGuidanceOverride || defaultDemoAssetPromptGuidance();
+}
+
+function codexAccountSetupGuidance() {
+  return codexAccountSetupGuidanceOverride || defaultCodexAccountSetupGuidance();
+}
+
+function defaultScStoryRunbookGuidance() {
+  return [
+    "Create the Personalized Demo Story And Runbook as the main SC-facing story, not a generic product walkthrough.",
+    "Interpret the prep JSON as hard context: audience, target segment, strategy, industry, company website, demo scope, input mode, demo request, and pre-demo notes all shape the runbook.",
+    "Start with the general or executive NetSuite overview, then order proof moments from strongest business impact to supporting detail.",
+    "Use personas when the demo mode is customer story: name the business pressure, the person feeling it, what they need to prove, and how the demo resolves it.",
+    "For each runbook step include what to do, what to say, the proof point to land, and the SC tip.",
+    "Keep the SC practical: include navigation intent, discovery hooks, setup assumptions, timing caution, and what to avoid.",
+    "Stay inside the demo scope even if the notes mention adjacent areas. Put out-of-scope ideas into parking-lot language."
+  ].join("\n");
+}
+
+function defaultDemoAssetPromptGuidance() {
+  return [
+    "Create the Demo Asset Generation Prompt as a concise prompt for supporting slides or presentation assets.",
+    "Align assets to the Personalized Demo Story And Runbook rather than repeating every requirement from the notes.",
+    "Bring the personas to life visually: who is under pressure, what is hard today, and what changes after the NetSuite story lands.",
+    "Prefer a small number of useful assets: persona slide, current-state pain slide, future-state proof slide, and optional closing visual.",
+    "Include stock-image or AI-image direction for realistic business personas and scenes, but avoid fake customer logos or unsupported claims.",
+    "Keep it useful for an SC creating a PPT companion, not a full implementation deck."
+  ].join("\n");
+}
+
+function defaultCodexAccountSetupGuidance() {
+  return [
+    "Derive the NetSuite Prep Summary and Prompt For Codex Account Setup from the completed Personalized Demo Story And Runbook.",
+    "Treat the story/runbook as the source of truth: setup exists only to support the story, demo scope, and dry-run route.",
+    "Separate safe read-only checks from any write actions.",
+    "Always require Codex to verify front-end browser access, back-end NetSuite access, account, role, and logged-in state before proposing setup changes.",
+    "List only setup items that directly support the finalized story, demo scope, or dry-run route.",
+    "When setup is uncertain, ask Codex to inspect first and produce a gap list before creating anything.",
+    "Require explicit confirmation before creating, editing, saving, approving, posting, importing, or deleting anything.",
+    "Prefer standard NetSuite objects, standard reports, and minimal demo data. Do not create custom reports unless the SC guide explicitly requires them."
+  ].join("\n");
+}
+
+function defaultDryRunCreationGuidance() {
+  return [
+    "Convert the SC guide into a repeatable browser dry-run manifest, not a new SC guide.",
+    "Use NetSuite navigation bar and global search first.",
+    "Use standard NetSuite reports, dashboards, centers, lists, and forms before custom reports.",
+    "Start with a general or executive overview, then move from highest business proof to supporting detail.",
+    "Include verification text after navigation so the dry-run can detect whether it is on the right page.",
+    "Keep the route read-only unless an approved setup prompt has already prepared records or configuration.",
+    "Mark uncertain selectors, slow pages, or account setup assumptions as rehearsal risks."
+  ].join("\n");
+}
+
 function defaultAdditionalDemoSources() {
   return [
     {
@@ -1365,12 +2292,19 @@ async function readOrGenerateScGuide(manifest) {
   return writeScGuide(manifest, guideBodyFromManifest(manifest), manifest.context?.company || {});
 }
 
+async function readSavedOrLocalScGuide(manifest) {
+  const existing = await readScGuide();
+  if (existing.trim()) return existing;
+  return generateScGuide(manifest, guideBodyFromManifest(manifest), manifest.context?.company || {});
+}
+
 function guideBodyFromManifest(manifest) {
   const request = manifest.context?.demoRequest || {};
   return {
     topic: request.topic || manifest.name || "",
     inputMode: request.inputMode || "request-and-notes",
     demoScope: manifest.context?.demoScope || request.demoScope || "",
+    competition: manifest.context?.competition || request.competition || "",
     audience: manifest.context?.audience?.value || request.audience || manifest.audience || "prospect",
     marketSegment: manifest.context?.marketSegment?.value || manifest.context?.targetAudience?.value || request.marketSegment || request.targetAudience || "mid_market",
     demoStrategy: manifest.context?.demoStrategy?.id || request.demoStrategy || manifest.defaults?.demoStrategy || "standard_platform_demo",
@@ -1388,8 +2322,32 @@ async function exportScGuideDocx() {
   const guide = await readOrGenerateScGuide(manifest);
   if (!guide.trim()) throw new Error("Create an SC guide before exporting to Word.");
   const fileName = `${companyFileSlug(manifest)}-sc-demo-guide.docx`;
-  const outputPath = path.join(projectRoot, "artifacts", fileName);
+  const result = await writeMarkdownDocx(guide, fileName);
+  return {
+    ok: true,
+    path: result.outputPath,
+    downloadUrl: result.downloadUrl
+  };
+}
 
+async function exportFollowUpQuestionsDocx(body = {}) {
+  const savedManifest = await readManifest();
+  const manifest = hasPrepPayload(body) ? manifestWithCurrentPrepInputs(savedManifest, body) : savedManifest;
+  const preDemo = body.preDemoIntelligence && typeof body.preDemoIntelligence === "object"
+    ? body.preDemoIntelligence
+    : preDemoIntelligencePayload(manifest);
+  const markdown = followUpQuestionsExportMarkdown(manifest, preDemo, body);
+  const fileName = `${companyFileSlug(manifest)}-discovery-follow-up-questions.docx`;
+  const result = await writeMarkdownDocx(markdown, fileName);
+  return {
+    ok: true,
+    path: result.outputPath,
+    downloadUrl: result.downloadUrl
+  };
+}
+
+async function writeMarkdownDocx(markdown, fileName) {
+  const outputPath = path.join(projectRoot, "artifacts", fileName);
   const {
     AlignmentType,
     BorderStyle,
@@ -1401,7 +2359,7 @@ async function exportScGuideDocx() {
     TextRun
   } = loadDocx();
 
-  const children = markdownToDocxChildren(guide, { AlignmentType, BorderStyle, HeadingLevel, Paragraph, ShadingType, TextRun });
+  const children = markdownToDocxChildren(markdown, { AlignmentType, BorderStyle, HeadingLevel, Paragraph, ShadingType, TextRun });
   const document = new Document({
     styles: {
       paragraphStyles: [
@@ -1455,10 +2413,49 @@ async function exportScGuideDocx() {
   const buffer = await Packer.toBuffer(document);
   await writeFile(outputPath, buffer);
   return {
-    ok: true,
-    path: outputPath,
+    outputPath,
     downloadUrl: `/api/download/${encodeURIComponent(fileName)}`
   };
+}
+
+function followUpQuestionsExportMarkdown(manifest, preDemo, body = {}) {
+  const metadata = preDemo.metadata || {};
+  const additionalComments = String(body.additionalComments || "").trim();
+  const codexQuestions = String(body.questionsMarkdown || body.codexQuestions || "").trim();
+  const questions = stringArray(body.questions?.length ? body.questions : preDemo.recommended_follow_up_questions);
+  const missing = stringArray(preDemo.missing_discovery_items);
+  const covered = stringArray(preDemo.found_discovery_items);
+  const recommendations = stringArray(preDemo.recommendations);
+  const questionSection = codexQuestions
+    ? codexQuestions
+    : questions.map((question, index) => `${index + 1}. ${question}`).join("\n");
+  return `# Discovery Follow-Up Questions
+
+## Demo Context
+- Customer: ${metadata.customer_name || manifest.context?.company?.companyName || manifest.name || "Current demo"}
+- Website: ${metadata.customer_url || manifest.context?.company?.url || "Not provided"}
+- Audience: ${metadata.audience_type || manifest.context?.audience?.label || "Not selected"}
+- Target segment: ${metadata.target_segment || manifest.context?.marketSegment?.label || manifest.context?.targetAudience?.label || "Not selected"}
+- Industry: ${metadata.industry || manifest.context?.industry?.label || "Not selected"}
+- Demo strategy: ${metadata.demo_strategy || manifest.context?.demoStrategy?.label || "Not selected"}
+- Demo scope: ${metadata.demo_scope || manifest.context?.demoScope || "Not specified"}
+- Notes score: ${preDemo.overall_score ?? "-"} / 100
+
+## Additional SC Comments
+${additionalComments || "No additional SC comments were added."}
+
+## Recommended Follow-Up Questions
+${questionSection || "No follow-up questions were generated yet."}
+
+## Missing Discovery Items
+${missing.length ? missing.map((item) => `- ${item}`).join("\n") : "- None detected."}
+
+## Already Covered
+${covered.length ? covered.map((item) => `- ${item}`).join("\n") : "- No covered discovery items were detected yet."}
+
+## Recommended Note Improvements
+${recommendations.length ? recommendations.map((item) => `- ${item}`).join("\n") : "- No additional note improvements detected."}
+`;
 }
 
 function loadDocx() {
@@ -1599,6 +2596,7 @@ function applyLearningRequest(manifest, body, company) {
   const valueIntensity = ["light", "balanced", "heavy"].includes(body.valueIntensity) ? body.valueIntensity : "balanced";
   const instructions = String(body.instructions || "").trim() || defaultScInstructions();
   const demoScope = String(body.demoScope || "").trim();
+  const competition = String(body.competition || "").trim();
   const rawPreDemoNotes = String(body.preDemoNotes || "").trim();
   const preDemoNotes = inputMode === "request-only" ? "" : rawPreDemoNotes;
   const rawTopic = String(body.topic || "").trim();
@@ -1641,6 +2639,7 @@ function applyLearningRequest(manifest, body, company) {
   next.context.codexPrepAnalysis = company.codexPrepAnalysis || null;
   next.context.preDemoNotes = preDemoNotes;
   next.context.demoScope = demoScope;
+  next.context.competition = competition;
   next.context.audience = audience;
   next.context.marketSegment = marketSegment;
   next.context.targetAudience = marketSegment;
@@ -1658,6 +2657,7 @@ function applyLearningRequest(manifest, body, company) {
   next.context.demoRequest = {
     topic,
     demoScope,
+    competition,
     audience: audience.value,
     marketSegment: marketSegment.value,
     targetAudience: marketSegment.value,
@@ -1679,7 +2679,7 @@ function applyLearningRequest(manifest, body, company) {
     instructions,
     additionalDemoSources: adminSources,
     learnedAt: new Date().toISOString(),
-    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. Start with a short general or executive NetSuite overview, then order the demo from highest-value proof moments to supporting detail. Demo scope: ${demoScope || "Use the generated request and notes as scope."} ${audienceExecutionInstruction(audience, marketSegment)} ${demoStrategyInstruction(demoStrategy, industry)} ${adminSourceInstruction ? `Additional Admin logic to consider: ${adminSourceInstruction}` : ""}`
+    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. Start with a short general or executive NetSuite overview, then order the demo from highest-value proof moments to supporting detail. Demo scope: ${demoScope || "Use the generated request and notes as scope."} ${competition ? `Competition/status quo context to consider: ${competition}. ` : ""}${audienceExecutionInstruction(audience, marketSegment)} ${demoStrategyInstruction(demoStrategy, industry)} ${adminSourceInstruction ? `Additional Admin logic to consider: ${adminSourceInstruction}` : ""}`
   };
   next.context.navigationPolicy = {
     preferred: ["NetSuite global search", "NetSuite navigation bar"],
@@ -2221,6 +3221,7 @@ function prospectTone(text) {
 async function analyseCompany(companyUrl, preDemoNotes = "") {
   const url = normalizeCompanyUrl(companyUrl);
   const notes = String(preDemoNotes || "");
+  const fallbackContext = websiteContextFromContent({ url, notes, source: url ? "url-unavailable" : "notes-only" });
   const fallback = {
     companyName: url ? new URL(url).hostname.replace(/^www\./, "") : "The prospect",
     url,
@@ -2228,6 +3229,7 @@ async function analyseCompany(companyUrl, preDemoNotes = "") {
     description: "",
     likelyPriorities: inferPriorities("", notes),
     industrySignals: inferIndustrySignals("", notes),
+    websiteContext: fallbackContext,
     source: url ? "url-unavailable" : "notes-only"
   };
 
@@ -2249,6 +3251,7 @@ async function analyseCompany(companyUrl, preDemoNotes = "") {
     const description = extractMetaDescription(html);
     const text = htmlToText(html).slice(0, 12000);
     const combined = `${title}\n${description}\n${text}`;
+    const websiteContext = websiteContextFromContent({ url, title, description, text, notes, source: "company-website" });
     return {
       companyName: deriveCompanyName(title, url),
       url,
@@ -2256,6 +3259,7 @@ async function analyseCompany(companyUrl, preDemoNotes = "") {
       description,
       likelyPriorities: inferPriorities(combined, notes),
       industrySignals: inferIndustrySignals(combined, notes),
+      websiteContext,
       source: "company-website"
     };
   } catch {
@@ -2289,6 +3293,111 @@ function htmlToText(html) {
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
   ).trim();
+}
+
+function websiteContextFromContent({ url = "", title = "", description = "", text = "", notes = "", source = "unknown" } = {}) {
+  const combined = `${title}\n${description}\n${text}`.trim();
+  const summary = websiteSummaryFromContent(title, description, text, url);
+  const interestingPoints = websiteInterestingPoints(combined, url);
+  return {
+    source,
+    url,
+    title: title || "",
+    description: description || "",
+    summary,
+    interesting_points: interestingPoints,
+    evidence: websiteEvidenceSnippets(combined),
+    contradictions_or_checks: websiteContradictionsOrChecks(combined, notes),
+    scanned_at: new Date().toISOString()
+  };
+}
+
+function websiteSummaryFromContent(title = "", description = "", text = "", url = "") {
+  const cleanDescription = sentenceClean(description);
+  if (cleanDescription) return cleanDescription;
+  const titleText = sentenceClean(title);
+  const firstSentence = firstUsefulSentence(text);
+  if (titleText && firstSentence && !firstSentence.toLowerCase().includes(titleText.toLowerCase())) return `${titleText}. ${firstSentence}`;
+  return titleText || firstSentence || (url ? `Website was reachable at ${url}, but no clear summary text was detected.` : "No website was supplied.");
+}
+
+function websiteInterestingPoints(text = "", url = "") {
+  const lower = String(text || "").toLowerCase();
+  const points = [];
+  const add = (condition, point) => {
+    if (condition && !points.includes(point)) points.push(point);
+  };
+  add(/private\s+jet|private\s+aviation|jet charter/.test(lower), "Private jet charter or private aviation appears to be a visible business line.");
+  add(/cargo|freight/.test(lower), "Cargo or freight charter appears relevant, which may affect project, margin, and cost tracking examples.");
+  add(/group\s+charter|passenger|commercial\s+jet/.test(lower), "Group passenger or commercial charter language appears on the website.");
+  add(/aircraft\s+management|jet\s+management|managed\s+aircraft/.test(lower), "Aircraft management appears relevant and may need a distinct finance story from core charter brokerage.");
+  add(/global|worldwide|international|countries|offices/.test(lower), "The website suggests an international or multi-location operating model.");
+  add(/24\/7|twenty.?four|urgent|rapid|time.?critical|emergency/.test(lower), "Time-critical service delivery appears important and may shape the business-pressure story.");
+  add(/bespoke|tailored|specialist|expert/.test(lower), "The customer proposition appears service-led and bespoke, which supports a services/project profitability demo angle.");
+  add(/sports|music|entertainment|government|evacuation|humanitarian/.test(lower), "The website mentions specialized customer scenarios that could become persona or use-case examples.");
+  if (!points.length && url) points.push("Website was scanned, but only limited business signals were detected from the homepage.");
+  return points.slice(0, 8);
+}
+
+function websiteEvidenceSnippets(text = "") {
+  const sentences = String(text || "")
+    .split(/(?<=[.!?])\s+/)
+    .map(sentenceClean)
+    .filter((sentence) => sentence.length >= 45 && sentence.length <= 220);
+  const keywords = [/private/i, /cargo/i, /global|worldwide|international/i, /charter/i, /aircraft/i, /management/i, /group/i, /urgent|time/i];
+  const chosen = [];
+  for (const pattern of keywords) {
+    const hit = sentences.find((sentence) => pattern.test(sentence) && !chosen.includes(sentence));
+    if (hit) chosen.push(hit);
+    if (chosen.length >= 5) break;
+  }
+  return chosen.length ? chosen : sentences.slice(0, 3);
+}
+
+function websiteContradictionsOrChecks(websiteText = "", notes = "") {
+  const website = String(websiteText || "").toLowerCase();
+  const noteText = String(notes || "").toLowerCase();
+  const checks = [];
+  const add = (condition, text) => {
+    if (condition && !checks.includes(text)) checks.push(text);
+  };
+  const websiteLooksService = /(service|charter|aviation|private\s+jet|cargo|freight|aircraft|broker|travel)/.test(website);
+  add(
+    websiteLooksService && /(advanced inventory|warehouse|stock|manufacturing inventory|inventory management)/.test(noteText) && !/(inventory|warehouse|stock|manufactur|retail)/.test(website),
+    "Pre-demo notes mention inventory-heavy scope, but the website reads primarily like a services/charter business. Confirm whether inventory is real demo scope, phase two, or a parking-lot topic."
+  );
+  add(
+    /veluxis/.test(noteText) && !/veluxis/.test(website),
+    "Pre-demo notes mention Veluxis, but the scanned website context does not. Confirm whether Veluxis should be part of this demo story or treated as a separate operating model."
+  );
+  add(
+    /(manufacturing|factory|production line|bill of materials|work order)/.test(noteText) && !/(manufacturing|factory|production|industrial)/.test(website),
+    "Notes mention manufacturing-style language that is not obvious from the scanned website. Confirm whether this is relevant to the customer or an unrelated template/example."
+  );
+  add(
+    /(retail|ecommerce|e-commerce|storefront|pos)/.test(noteText) && !/(retail|shop|store|ecommerce|e-commerce)/.test(website),
+    "Notes mention retail/ecommerce language that is not obvious from the scanned website. Confirm whether that belongs in the demo scope."
+  );
+  add(
+    /(nonprofit|donor|fundraising|grant)/.test(noteText) && !/(nonprofit|charity|donor|fundraising|grant)/.test(website),
+    "Notes mention nonprofit/fundraising language that is not visible in the scanned website context."
+  );
+  add(
+    website && noteText && /(air charter|private jet|cargo|aircraft)/.test(website) && !/(charter|aviation|aircraft|flight|cargo|broker|jet)/.test(noteText),
+    "The website clearly suggests an aviation/charter business, but the pre-demo notes barely mention that operating model. Add discovery detail on flight/booking profitability, route, broker, supplier/operator costs, and legal entity handling."
+  );
+  return checks.slice(0, 6);
+}
+
+function sentenceClean(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim().replace(/\s+([.,;:!?])/g, "$1");
+}
+
+function firstUsefulSentence(text = "") {
+  return String(text || "")
+    .split(/(?<=[.!?])\s+/)
+    .map(sentenceClean)
+    .find((sentence) => sentence.length >= 45 && sentence.length <= 240) || "";
 }
 
 function decodeHtml(text) {
@@ -2400,22 +3509,96 @@ function setupPromptPayload(manifest, guide = "") {
     instructions: manifest.context?.demoRequest?.instructions,
     demoScope: manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope
   }, manifest.context?.company || {}, normalizeAudience(manifest.context?.audience?.value), normalizeMarketSegment(manifest.context?.targetAudience?.value || manifest.context?.marketSegment?.value));
+  const storyRunbook = markdownSection(guide, "Personalized Demo Story And Runbook") || "";
   const codexPrepSection = markdownSection(guide, "Prompt For Codex Account Setup")
     || markdownSection(guide, "NetSuite Prep Summary")
     || "";
-  const prompt = codexPrepSection
+  const prompt = storyRunbook
+    ? generateSetupPromptFromScStory(manifest, account, setupPlan, storyRunbook, codexPrepSection)
+    : codexPrepSection
     ? generateSetupPromptFromCodexGuide(manifest, account, setupPlan, codexPrepSection)
     : generateSetupPrompt(manifest, account, setupPlan);
-  const promptSource = codexPrepSection ? "codex-sc-guide-netSuite-prep-summary" : "local-setup-guardrail-fallback";
+  const promptSource = storyRunbook
+    ? "system-generated-from-sc-story-runbook"
+    : codexPrepSection
+    ? "legacy-codex-sc-guide-netSuite-prep-summary"
+    : "local-setup-guardrail-fallback";
 
   return {
     account,
     setupPlan,
     promptSource,
+    storyRunbookSource: storyRunbook ? "codex-sc-guide-personalized-story-runbook" : "",
     codexPrepSection,
     prompt,
     promptPreview: prompt.split("\n").slice(0, 18).join("\n")
   };
+}
+
+function generateSetupPromptFromScStory(manifest, account, setupPlan, storyRunbook, codexPrepSection = "") {
+  const company = manifest.context?.company || {};
+  const setupAlignmentTarget = liveDemoFunctionalityEnabled ? "story, demo scope, and dry-run route" : "story and demo scope";
+  const items = setupPlan.items?.length
+    ? setupPlan.items.map((item, index) => `${index + 1}. ${item.label} (${item.type}, ${item.risk} risk): ${item.reason}`).join("\n")
+    : "No additional local setup items were inferred. Treat the completed SC story as the source of truth and keep the account read-only unless setup is explicitly approved.";
+
+  return `You are preparing a NetSuite demo account for NetSuite Demo Helper.
+
+SOURCE OF THIS PROMPT
+- This setup prompt is generated after the Personalized Demo Story And Runbook has been completed.
+- The completed story/runbook is the source of truth for what should exist in NetSuite.
+- The NetSuite Prep Summary is supporting context only; if it conflicts with the story, follow the story and ask the SC to confirm.
+- Local app logic is included only for account safety, account identity, and confirmation guardrails.
+- If the story says the demo is read-only or only needs rehearsal checks, do not create records or configuration.
+
+CRITICAL ACCESS AND SAFETY RULES
+- Before creating or editing anything, verify that you have both front-end browser access and back-end NetSuite access for this account.
+- Front-end access means the browser is logged in and can navigate NetSuite UI pages.
+- Back-end access means you can inspect or create the required records/configuration through an appropriate NetSuite backend path, such as SuiteScript, REST, saved imports, or another approved administrative mechanism.
+- If either front-end or back-end access is missing, stop and report what access is missing.
+- Confirm the visible NetSuite account and role before doing any write action.
+- Do not create, edit, save, approve, post, delete, import, or submit anything until the user has confirmed the exact items below.
+
+TARGET NETSUITE ACCOUNT
+- Account: ${account.account}
+- Host: ${account.host}
+- Base URL: ${account.baseUrl}
+- Role: ${account.role}
+
+DEMO CONTEXT
+- Company/prospect: ${company.companyName || "The prospect"}
+- Website: ${company.url || "Not provided"}
+- Demo request: ${manifest.context?.demoRequest?.topic || "Not provided"}
+- Demo scope: ${manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || "Not specified"}
+- Audience: ${manifest.context?.audience?.label || manifest.context?.audience?.value || manifest.audience || "Not selected"}
+- Target segment: ${manifest.context?.marketSegment?.label || manifest.context?.targetAudience?.label || "Not selected"}
+- Strategy: ${manifest.context?.demoStrategy?.label || manifest.context?.demoStrategy?.id || "Not selected"}
+
+COMPLETED PERSONALIZED SC STORY AND RUNBOOK
+${storyRunbook.trim()}
+
+NETSUITE PREP SUMMARY DERIVED FROM THE STORY
+${codexPrepSection.trim() || "No separate NetSuite Prep Summary was found. Infer setup needs from the completed story/runbook, demo scope, and local safety cross-check items."}
+
+ADMIN ACCOUNT SETUP PROMPT LOGIC
+${codexAccountSetupGuidance()}
+
+LOCAL SAFETY CROSS-CHECK ITEMS
+${items}
+
+TASK
+1. Open or use the existing NetSuite browser session for the target account.
+2. Confirm the visible account, role, and logged-in state.
+3. Inspect whether the completed story/runbook can be demonstrated with the current account data and configuration.
+4. Produce a short gap list: existing, missing, risky, not required.
+5. Separate safe read-only checks from any write actions.
+6. Ask for confirmation before creating or changing anything.
+7. After confirmation, create only the explicitly approved demo data/configuration.
+8. Prefer standard NetSuite objects, standard reports, and read-only verification wherever possible.
+9. Keep setup aligned to the completed SC ${setupAlignmentTarget}.
+10. Avoid custom reports unless explicitly required by the approved setup.
+11. When finished, summarize exactly what was checked or created, where it can be found, and what story/runbook step uses it.
+`;
 }
 
 function generateSetupPromptFromCodexGuide(manifest, account, setupPlan, codexPrepSection) {
@@ -2456,6 +3639,9 @@ DEMO CONTEXT
 
 CODEX-AUTHORED NETSUITE PREP GUIDANCE
 ${codexPrepSection.trim()}
+
+ADMIN ACCOUNT SETUP PROMPT LOGIC
+${codexAccountSetupGuidance()}
 
 LOCAL SAFETY CROSS-CHECK ITEMS
 ${items}
@@ -2528,6 +3714,9 @@ DEMO CONTEXT
 - Demo input mode: ${manifest.context?.demoRequest?.inputMode || "request-and-notes"}
 - Manifest mode instruction: ${manifestDemoMode.instruction}
 - Language instruction: ${outputLanguageInstruction(outputLanguage)}
+
+ADMIN ACCOUNT SETUP PROMPT LOGIC
+${codexAccountSetupGuidance()}
 
 REQUESTED OR INFERRED SETUP ITEMS
 ${items}
@@ -2769,11 +3958,19 @@ function stripMarkdownSection(markdown, heading) {
   return [...lines.slice(0, start), ...lines.slice(end)].join("\n").trim();
 }
 
-async function codexDiscoveryFollowUpQuestions(manifest, guide, intelligence) {
+async function codexDiscoveryFollowUpQuestions(manifest, guide, intelligence, options = {}) {
   const company = manifest.context?.company || {};
   const sessionTitle = `created by demo helper - ${company.companyName || websiteNameSlug(company.url) || "customer"}`;
-  const prompt = codexDiscoveryPrompt(manifest, guide, intelligence, sessionTitle);
-  const result = await runCodexOperator({
+  const prompt = codexDiscoveryPrompt(manifest, guide, intelligence, sessionTitle, options);
+  const result = await runCachedCodexOperator({
+    cachePrefix: "discovery-follow-up-questions",
+    cacheVersion: "codex-discovery-followups-v1",
+    cacheParts: {
+      manifestContext: manifest.context || {},
+      guide: stableGuideForCodexCache(guide),
+      intelligence,
+      additionalComments: options.additionalComments || ""
+    },
     prompt,
     sessionTitle,
     fileStem: `${companyFileSlug(manifest)}-discovery-follow-up-questions`,
@@ -2798,7 +3995,16 @@ async function codexDiscoveryFollowUpQuestions(manifest, guide, intelligence) {
 async function codexPrepOperatorAnalysis(manifest, body, company) {
   const sessionTitle = `created by demo helper - ${company.companyName || websiteNameSlug(company.url) || "customer"}`;
   const prompt = codexPrepPrompt(manifest, body, company, sessionTitle);
-  const result = await runCodexOperator({
+  const result = await runCachedCodexOperator({
+    cachePrefix: "prep-analysis",
+    cacheVersion: "codex-prep-analysis-v1",
+    cacheParts: {
+      manifestContext: manifest.context || {},
+      manifestName: manifest.name || "",
+      body,
+      company,
+      adminSources: additionalDemoSources
+    },
     prompt,
     sessionTitle,
     fileStem: `${companyFileSlug(company)}-prep-analysis`,
@@ -2817,7 +4023,23 @@ async function codexPrepOperatorAnalysis(manifest, body, company) {
 async function codexScGuideOperator(manifest, body, company, localDraft) {
   const sessionTitle = `created by demo helper - ${company.companyName || websiteNameSlug(company.url) || "customer"} - SC guide`;
   const prompt = codexScGuidePrompt(manifest, body, company, localDraft, sessionTitle);
-  return runCodexOperator({
+  return runCachedCodexOperator({
+    cachePrefix: "sc-guide",
+    cacheVersion: "codex-sc-guide-v1",
+    cacheParts: {
+      manifestContext: manifest.context || {},
+      segments: manifest.segments || [],
+      body,
+      company,
+      localDraft,
+      guidance: {
+        liveDemoFunctionality: liveDemoFunctionalityEnabled,
+        scStoryRunbookGuidance: scStoryRunbookGuidance(),
+        demoAssetPromptGuidance: demoAssetPromptGuidance(),
+        codexAccountSetupGuidance: codexAccountSetupGuidance(),
+        dryRunCreationGuidance: dryRunCreationGuidance()
+      }
+    },
     prompt,
     sessionTitle,
     fileStem: `${companyFileSlug(company)}-sc-guide`,
@@ -2829,7 +4051,21 @@ async function codexScGuideRevisionOperator(manifest, currentGuide, intelligence
   const company = manifest.context?.company || {};
   const sessionTitle = `created by demo helper - ${company.companyName || websiteNameSlug(company.url) || "customer"} - ${options.label || "SC guide revision"}`;
   const prompt = codexScGuideRevisionPrompt(manifest, currentGuide, intelligence, options, sessionTitle);
-  return runCodexOperator({
+  return runCachedCodexOperator({
+    cachePrefix: "sc-guide-revision",
+    cacheVersion: "codex-sc-guide-revision-v1",
+    cacheParts: {
+      manifestContext: manifest.context || {},
+      currentGuide: stableGuideForCodexCache(currentGuide),
+      intelligence,
+      options: {
+        liveDemoFunctionality: liveDemoFunctionalityEnabled,
+        mode: options.mode || "custom",
+        label: options.label || "",
+        instruction: options.instruction || "",
+        localDraft: stableGuideForCodexCache(options.localDraft || "")
+      }
+    },
     prompt,
     sessionTitle,
     fileStem: `${companyFileSlug(manifest)}-${options.mode || "guide-revision"}`,
@@ -2860,7 +4096,7 @@ function normalizeCodexScGuide(output, localDraft, operator) {
   return `${guide}\n\n${operatorNote}\n`;
 }
 
-function codexDiscoveryPrompt(manifest, guide, intelligence, sessionTitle) {
+function codexDiscoveryPrompt(manifest, guide, intelligence, sessionTitle, options = {}) {
   const company = manifest.context?.company || {};
   const metadata = intelligence.demo_metadata || {};
   const discovery = intelligence.discovery_gap_analyzer || {};
@@ -2869,6 +4105,7 @@ function codexDiscoveryPrompt(manifest, guide, intelligence, sessionTitle) {
   const demoHeatmap = intelligence.demo_heatmap_analyzer || {};
   const source = manifest.context || {};
   const request = source.demoRequest || {};
+  const additionalComments = String(options.additionalComments || "").trim();
   return `Task title: ${sessionTitle}
 
 You are a senior NetSuite Solution Consultant and demo strategist. Your job is to review the company website context, demo request, demo scope, SC instructions, pre-demo notes, current generated SC guide, and existing intelligence signals, then create truly useful discovery follow-up questions.
@@ -2894,6 +4131,9 @@ ${request.instructions || defaultScInstructions()}
 
 Pre-demo notes:
 ${source.preDemoNotes || "No pre-demo notes were provided."}
+
+Additional SC comments for this question generation:
+${additionalComments || "No additional SC comments were provided."}
 
 Current intelligence:
 - Missing discovery items: ${(discovery.missing_discovery_items || []).join(", ") || "None detected"}
@@ -2998,6 +4238,13 @@ Rules:
 }
 
 function codexScGuidePrompt(manifest, body, company, localDraft, sessionTitle) {
+  const dryRunInstruction = liveDemoFunctionalityEnabled
+    ? `Dry-Run Creation Prompt:
+Do not output this section in the SC guide. The app generates it afterward from the completed story/runbook using the admin-owned Dry-Run Creation Prompt Logic.`
+    : `Live demo functionality is currently switched off in Admin. Do not plan for browser dry-runs, live narration, dataset analysis, or dry-run creation prompts. Focus the SC guide on prep, story, setup guidance, assets, and intelligence-ready content.`;
+  const dryRunSequenceRule = liveDemoFunctionalityEnabled
+    ? `4. Do not output a "Dry-Run Creation Prompt" section. The helper generates that afterward from the completed story/runbook and the admin dry-run logic.`
+    : `4. Do not output or reference a "Dry-Run Creation Prompt" section. Live demo functionality is disabled.`;
   return `Task title: ${sessionTitle}
 
 You are the Codex backbone for NetSuite Demo Helper. Create the SC guide content for this demo. Act like a senior NetSuite Solution Consultant with 10+ years of experience.
@@ -3015,6 +4262,19 @@ Rules:
 - Do not use the phrase "value statement" in narrator-facing text.
 - Keep the output in ${normalizeOutputLanguage(body.outputLanguage || manifest.context?.outputLanguage?.value || "en").label}.
 
+Admin-owned output section logic:
+
+Personalized Demo Story And Runbook:
+${scStoryRunbookGuidance()}
+
+Demo Asset Generation Prompt (derive only after the story/runbook is complete):
+${demoAssetPromptGuidance()}
+
+NetSuite Prep Summary (derive only after the story/runbook is complete; the app turns this into the Prompt For Codex Account Setup afterward):
+${codexAccountSetupGuidance()}
+
+${dryRunInstruction}
+
 Company context:
 ${JSON.stringify(company || {}, null, 2)}
 
@@ -3023,6 +4283,7 @@ ${JSON.stringify({
     demoRequest: body.topic || manifest.context?.demoRequest?.topic,
     inputMode: body.inputMode || manifest.context?.demoRequest?.inputMode,
     demoScope: body.demoScope || manifest.context?.demoScope,
+    competition: body.competition || manifest.context?.competition || manifest.context?.demoRequest?.competition,
     audience: body.audience || manifest.context?.audience?.value,
     marketSegment: body.marketSegment || manifest.context?.marketSegment?.value,
     demoStrategy: body.demoStrategy || manifest.context?.demoStrategy?.id,
@@ -3077,9 +4338,15 @@ The "Personalized Demo Story And Runbook" section must contain:
 - Demo prep rules
 - Closing move
 
-The "Demo Asset Generation Prompt" section must create an asset/PPT prompt aligned with the personalized SC story, bringing personas to life without becoming a detailed requirements document.
+Sequence matters:
+1. First complete the "Personalized Demo Story And Runbook" section.
+2. Then derive the "Demo Asset Generation Prompt" from that completed story/runbook.
+3. Then derive the "NetSuite Prep Summary" from that completed story/runbook.
+${dryRunSequenceRule}
 
-The "NetSuite Prep Summary" section must be Codex-account-setup ready. Include:
+The "Demo Asset Generation Prompt" section must create an asset/PPT prompt aligned with the completed personalized SC story, bringing personas to life without becoming a detailed requirements document.
+
+The "NetSuite Prep Summary" section must be derived from the completed story/runbook and Codex-account-setup ready. Include:
 - target account and role if known
 - checks the SC should perform before rehearsal
 - setup items that may need to exist
@@ -3091,6 +4358,9 @@ The "NetSuite Prep Summary" section must be Codex-account-setup ready. Include:
 function codexScGuideRevisionPrompt(manifest, currentGuide, intelligence, options, sessionTitle) {
   const company = manifest.context?.company || {};
   const localDraft = options.localDraft || currentGuide;
+  const dryRunRevisionRule = liveDemoFunctionalityEnabled
+    ? `- Do not add a "Dry-Run Creation Prompt" section. The helper generates that afterward from the completed story/runbook and admin dry-run logic.`
+    : `- Do not add or reference a "Dry-Run Creation Prompt" section. Live demo functionality is disabled, so keep the guide focused on prep, story, assets, setup guidance, and intelligence-ready content.`;
   return `Task title: ${sessionTitle}
 
 You are the Codex backbone for NetSuite Demo Helper. Revise the SC guide using the selected AI action and the current Demo Intelligence. Act like a senior NetSuite Solution Consultant with 10+ years of experience.
@@ -3156,7 +4426,9 @@ Output exactly as Markdown with these sections:
 Rules:
 - Preserve the required sections exactly.
 - Apply the selected action directly inside the SC guide where it improves the story, runbook, coaching, or prep.
+- First revise the "Personalized Demo Story And Runbook", then derive "Demo Asset Generation Prompt" and "NetSuite Prep Summary" from that revised story.
 - Keep the "NetSuite Prep Summary" Codex-account-setup ready with target account/role, rehearsal checks, possible setup items, read-only guidance, and confirmation requirements before any write action.
+${dryRunRevisionRule}
 - If the action is follow-up questions, keep them as discovery hooks and do not pretend they are proven customer facts.
 - If the action is shorten demo, compress the live flow while preserving the strongest proof moments.
 - If the action is executive demo, reduce click/detail density and increase outcome, risk, KPI, and decision language.
@@ -3287,21 +4559,63 @@ function followUpQuestionForRiskArea(area) {
   return questions[area] || `What discovery detail is missing for ${String(area || "this risk area").toLowerCase()}?`;
 }
 
-function markManifestGuideOnly(manifest) {
+function dryRunPromptHash(prompt) {
+  return createHash("sha256").update(String(prompt || "")).digest("hex").slice(0, 16);
+}
+
+function dryRunPromptInfo(manifest, guide = "") {
+  const context = guideContextFromManifest(manifest);
+  const storyRunbook = markdownSection(guide, "Personalized Demo Story And Runbook");
+  const prompt = dryRunCreationPromptText(manifest, guide, context);
+  const promptHash = dryRunPromptHash(prompt);
+  const metadata = manifest.context?.dryRunCreationPrompt || {};
+  const promptIsCurrent = Boolean(metadata.createdAt && metadata.promptHash === promptHash);
+  return {
+    prompt,
+    promptHash,
+    source: storyRunbook ? "system-generated-from-sc-story-runbook" : "local-dry-run-manifest-instruction",
+    createdAt: promptIsCurrent ? metadata.createdAt : "",
+    previousCreatedAt: metadata.createdAt || "",
+    promptIsCurrent
+  };
+}
+
+function refreshDryRunPromptMetadata(manifest, guide = "", options = {}) {
   const next = structuredClone(manifest);
+  const info = dryRunPromptInfo(next, guide);
+  const now = options.createdAt || new Date().toISOString();
   next.context = next.context || {};
-  next.context.manifestBuild = {
-    status: "guide-ready-manifest-not-built",
-    source: "sc-guide",
-    createdFromGuide: false,
-    updatedAt: new Date().toISOString(),
-    instruction: "The SC guide has been generated. Create the runnable manifest from the guide before relying on the Dry-Run tab or browser rehearsal."
+  next.context.dryRunCreationPrompt = {
+    createdAt: now,
+    updatedAt: now,
+    source: info.source,
+    promptHash: info.promptHash,
+    status: "ready",
+    instruction: "This timestamp confirms when the SC Guide tab's dry-run creation prompt was last prepared for manifest generation."
   };
   return next;
 }
 
-function applyGuideToRunnableManifest(manifest, guide) {
-  const next = structuredClone(manifest);
+function markManifestGuideOnly(manifest, guide = "") {
+  const next = guide && liveDemoFunctionalityEnabled ? refreshDryRunPromptMetadata(manifest, guide) : structuredClone(manifest);
+  next.context = next.context || {};
+  next.context.manifestBuild = {
+    status: "guide-ready-manifest-not-built",
+    source: liveDemoFunctionalityEnabled ? "dry-run-creation-prompt" : "sc-guide-only",
+    createdFromGuide: false,
+    updatedAt: new Date().toISOString(),
+    instruction: liveDemoFunctionalityEnabled
+      ? "The SC guide and dry-run creation prompt have been generated. Create the runnable manifest from that prompt before relying on the Dry-Run tab or browser rehearsal."
+      : "Live demo functionality is switched off. The SC guide and intelligence outputs are ready; no dry-run creation prompt or runnable manifest is generated."
+  };
+  return next;
+}
+
+function applyDryRunCreationPromptToRunnableManifest(manifest, guide, options = {}) {
+  const base = dryRunPromptInfo(manifest, guide).promptIsCurrent
+    ? structuredClone(manifest)
+    : refreshDryRunPromptMetadata(manifest, guide);
+  const next = structuredClone(base);
   const audience = normalizeAudience(next.context?.audience?.value || next.context?.demoRequest?.audience || next.audience);
   const marketSegment = normalizeMarketSegment(next.context?.targetAudience?.value || next.context?.marketSegment?.value || next.context?.demoRequest?.targetAudience || next.context?.demoRequest?.marketSegment);
   const demoStrategy = normalizeDemoStrategy(next.context?.demoStrategy?.id || next.context?.demoRequest?.demoStrategy || next.defaults?.demoStrategy);
@@ -3310,8 +4624,8 @@ function applyGuideToRunnableManifest(manifest, guide) {
   const manifestDemoMode = normalizeManifestDemoMode(next.context?.manifestDemoMode?.id || next.context?.demoRequest?.manifestDemoMode || next.defaults?.manifestDemoMode);
   const flowPrinciples = next.context?.demoPrep || demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry });
   const company = next.context?.company || {};
-  const runbook = markdownSection(guide, "Personalized Demo Story And Runbook") || guide;
-  next.segments = (next.segments || []).map((segment) => applyRunbookToSegment(segment, runbook));
+  const dryRunPrompt = dryRunPromptInfo(next, guide);
+  next.segments = (next.segments || []).map((segment) => applyRunbookToSegment(segment, dryRunPrompt.prompt));
   next.segments = prioritizeDemoSegments(ensureOpeningOverviewSegment(next.segments, {
     company,
     audience,
@@ -3325,12 +4639,19 @@ function applyGuideToRunnableManifest(manifest, guide) {
   next.context = next.context || {};
   next.context.manifestBuild = {
     status: "runnable-manifest-created",
-    source: "sc-guide",
+    source: "dry-run-creation-prompt",
     createdFromGuide: true,
+    createdFromDryRunPrompt: true,
+    dryRunPromptCreatedAt: next.context.dryRunCreationPrompt?.createdAt || "",
+    runSource: options.runSource || "manual",
     updatedAt: new Date().toISOString(),
-    instruction: "This manifest was refreshed from the SC guide and is ready for browser dry-run or rehearsal."
+    instruction: "This manifest was refreshed from the SC Guide tab's dry-run creation prompt and is ready for browser dry-run or rehearsal."
   };
   return next;
+}
+
+function applyGuideToRunnableManifest(manifest, guide) {
+  return applyDryRunCreationPromptToRunnableManifest(manifest, guide, { runSource: "legacy-wrapper" });
 }
 
 function applyRunbookToSegment(segment, runbook) {
@@ -3547,11 +4868,19 @@ function guideOutputsPayload(manifest, guide = "") {
   const codexAssetPrompt = markdownSection(guide, "Demo Asset Generation Prompt");
   const scRunbook = codexRunbook || scStoryRunbookText(context);
   const assetPrompt = codexAssetPrompt || demoAssetPromptText(context);
+  const dryRunPrompt = liveDemoFunctionalityEnabled ? dryRunPromptInfo(manifest, guide) : null;
   return {
+    liveDemoFunctionality: liveDemoFunctionalityEnabled,
     scRunbook,
     scRunbookSource: codexRunbook ? "codex-sc-guide-section" : "local-fallback",
     assetGenerationPrompt: assetPrompt,
     assetGenerationPromptSource: codexAssetPrompt ? "codex-sc-guide-section" : "local-fallback",
+    dryRunCreationPrompt: dryRunPrompt?.prompt || "",
+    dryRunCreationPromptSource: dryRunPrompt?.source || "live-demo-functionality-disabled",
+    dryRunCreationPromptCreatedAt: dryRunPrompt?.createdAt || "",
+    dryRunCreationPromptPreviousCreatedAt: dryRunPrompt?.previousCreatedAt || "",
+    dryRunCreationPromptIsCurrent: Boolean(dryRunPrompt?.promptIsCurrent),
+    dryRunCreationPromptHash: dryRunPrompt?.promptHash || "",
     personalizedExperienceFlow: scRunbook,
     normalDemoFlow: scRunbook,
     customizationPrompts: markdownSection(guide, "Customization Prompts For NetSuite") || setupPrompt,
@@ -3559,6 +4888,64 @@ function guideOutputsPayload(manifest, guide = "") {
       ? "codex-sc-guide-section"
       : setupPayload.promptSource
   };
+}
+
+function dryRunCreationPromptText(manifest, guide = "", context = guideContextFromManifest(manifest)) {
+  const runbook = markdownSection(guide, "Personalized Demo Story And Runbook") || context.demoRequest || "Use the current SC guide as the source story.";
+  const setupSummary = markdownSection(guide, "NetSuite Prep Summary") || markdownSection(guide, "Prompt For Codex Account Setup") || "No explicit setup summary was generated.";
+  const companyName = context.companyName || manifest.name || "the target customer";
+  const segmentTitles = (manifest.segments || []).map((segment, index) => `${index + 1}. ${segment.title || segment.id}`).slice(0, 12).join("\n");
+  return `Create the browser dry-run manifest for NetSuite Demo Helper.
+
+Source:
+- This prompt is generated after the Personalized Demo Story And Runbook has been completed.
+- Use the completed story/runbook as the source of truth for browser navigation, narration, proof moments, and verification.
+- The setup summary is supporting context only and should not override the story without SC confirmation.
+
+Purpose:
+- Convert the SC guide into a repeatable browser dry-run click-through.
+- The output should be a runnable manifest, not a new SC guide.
+- Use the dry-run for rehearsal, buffering, and live-demo preparation.
+
+Customer and scope:
+- Customer: ${companyName}
+- Audience: ${context.audience.label}
+- Target segment: ${context.marketSegment.label}
+- Demo strategy: ${context.demoStrategy.label}
+- Industry: ${context.industry.label}
+- Demo scope: ${context.demoScope || "Use only the scope in the SC guide and pre-demo notes."}
+- Manifest mode: ${context.manifestDemoMode.label}
+- Language: ${context.outputLanguage.label}
+
+Navigation rules:
+- Prefer the NetSuite navigation bar and global search for moving between areas.
+- Prefer standard NetSuite reports, dashboards, centers, lists, and pages.
+- Avoid custom reports unless the SC guide explicitly says they are required.
+- Keep paths short and natural; remove wandering clicks and low-value transitions.
+- Do not create or edit records during the dry-run unless an approved setup prompt has already prepared the account.
+
+Admin dry-run guidance:
+${dryRunCreationGuidance()}
+
+Manifest requirements:
+- Start with a general or executive NetSuite overview when the guide supports it.
+- Order steps from highest business proof to lowest supporting detail.
+- Include segment title, objective, narration, value moment, and expected verification text.
+- Add safe waits and verification checks after navigation.
+- Include export, drilldown, filter, or report interaction steps only when they support the SC story.
+- Keep narration aligned to the selected voice and language, but do not prefix business statements with the word "value".
+- Mark any uncertain selectors or pages as rehearsal risks for the SC to validate.
+
+SC guide source:
+${runbook}
+
+Setup awareness:
+${setupSummary}
+
+Existing manifest segments to preserve or improve:
+${segmentTitles || "No existing segment titles detected. Build from the SC guide."}
+
+Return only the updated dry-run manifest JSON that the helper can save and run.`;
 }
 
 function guideContextFromManifest(manifest) {
@@ -3883,21 +5270,138 @@ function describeNavigationAction(action) {
 async function demoIntelligencePayloadWithCodex(manifest, scGuide = "") {
   const localIntelligence = demoIntelligencePayload(manifest, scGuide);
   const codex = await codexIntelligenceOperatorAnalysis(manifest, scGuide, localIntelligence);
-  return normalizeCodexIntelligencePayload(codex.structured, localIntelligence, codex);
+  const intelligence = normalizeCodexIntelligencePayload(codex.structured, localIntelligence, codex);
+  await saveLatestJson(latestIntelligencePath, intelligence);
+  await saveLatestJson(latestPreDemoIntelligencePath, preDemoIntelligenceFromDemoIntelligencePayload(intelligence));
+  return intelligence;
+}
+
+async function readLatestIntelligence(manifest, scGuide = "") {
+  const saved = await readLatestJson(latestIntelligencePath);
+  if (saved && typeof saved === "object") {
+    return {
+      ...saved,
+      restored_from_local_state: true,
+      restore_source: "artifacts/runtime/latest-intelligence.json"
+    };
+  }
+  return {
+    ...demoIntelligencePayload(manifest, scGuide),
+    restored_from_local_state: false,
+    restore_source: "local-fallback-no-codex"
+  };
+}
+
+async function readLatestPreDemoIntelligence(manifest, intelligence) {
+  const saved = await readLatestJson(latestPreDemoIntelligencePath);
+  if (saved && typeof saved === "object") {
+    return {
+      ...saved,
+      restored_from_local_state: true,
+      restore_source: "artifacts/runtime/latest-pre-demo-intelligence.json"
+    };
+  }
+  if (intelligence) return preDemoIntelligenceFromDemoIntelligencePayload(intelligence);
+  return {
+    ...preDemoIntelligencePayload(manifest),
+    restored_from_local_state: false,
+    restore_source: "local-fallback-no-codex"
+  };
+}
+
+async function readLatestJson(filePath) {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function saveLatestJson(filePath, payload) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
+function codexCacheKey(parts = {}, version = "v1") {
+  return createHash("sha256")
+    .update(JSON.stringify(stableCodexInput({ ...parts, version })))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+function stableCodexInput(value) {
+  if (Array.isArray(value)) return value.map(stableCodexInput);
+  if (value && typeof value === "object") {
+    const volatileKeys = new Set([
+      "generated_at",
+      "generatedAt",
+      "cachedAt",
+      "scanned_at",
+      "scannedAt",
+      "draftPrepScoredAt",
+      "websiteContextScannedAt",
+      "learnedAt",
+      "createdAt",
+      "updatedAt",
+      "restored_from_local_state",
+      "restore_source",
+      "promptFile",
+      "outputFile",
+      "codexLog",
+      "codexError",
+      "codex_task",
+      "sessionTitle"
+    ]);
+    return Object.fromEntries(
+      Object.keys(value)
+        .filter((key) => !volatileKeys.has(key))
+        .sort()
+        .map((key) => [key, stableCodexInput(value[key])])
+    );
+  }
+  return value;
+}
+
+function stableGuideForCodexCache(guide = "") {
+  return String(guide || "")
+    .replace(/\n## Codex Backbone[\s\S]*$/m, "")
+    .replace(/Prompt file:\s+.+/gi, "")
+    .replace(/Output file:\s+.+/gi, "")
+    .trim();
+}
+
+async function runCachedCodexOperator({ cachePrefix, cacheParts, cacheVersion, prompt, sessionTitle, fileStem, timeoutMs = 240000 }) {
+  const cacheKey = codexCacheKey(cacheParts, cacheVersion);
+  const cacheDir = path.join(projectRoot, "artifacts/codex-operators/cache");
+  const cacheFile = path.join(cacheDir, `${cachePrefix}-${cacheKey}.json`);
+  try {
+    return {
+      ...(JSON.parse(await readFile(cacheFile, "utf8"))),
+      fromCache: true
+    };
+  } catch {}
+
+  const result = await runCodexOperator({ prompt, sessionTitle, fileStem, timeoutMs });
+  if (result.ok) {
+    await mkdir(cacheDir, { recursive: true });
+    await writeFile(cacheFile, `${JSON.stringify({
+      ...result,
+      cacheKey,
+      cachedAt: new Date().toISOString()
+    }, null, 2)}\n`, "utf8");
+  }
+  return result;
 }
 
 async function codexIntelligenceOperatorAnalysis(manifest, scGuide, localIntelligence) {
   const company = manifest.context?.company || {};
   const sessionTitle = `created by demo helper - ${company.companyName || websiteNameSlug(company.url) || "customer"} - intelligence`;
-  const cacheKey = createHash("sha256")
-    .update(JSON.stringify({
-      manifestContext: manifest.context || {},
-      segments: manifest.segments || [],
-      guide: scGuide,
-      version: "codex-intelligence-structured-v2"
-    }))
-    .digest("hex")
-    .slice(0, 16);
+  const cacheKey = codexCacheKey({
+    manifestContext: manifest.context || {},
+    segments: manifest.segments || [],
+    guide: stableGuideForCodexCache(scGuide),
+    localIntelligence
+  }, "codex-intelligence-structured-v4");
   const cacheDir = path.join(projectRoot, "artifacts/codex-operators/cache");
   const cacheFile = path.join(cacheDir, `intelligence-${cacheKey}.json`);
   try {
@@ -4009,7 +5513,9 @@ function normalizeCodexIntelligencePayload(structured, local, codex) {
   const coach = normalizeCodexCoach(structured.ai_rehearsal_coach, local.ai_rehearsal_coach);
   const heatmap = normalizeCodexHeatmap(structured.demo_heatmap_analyzer, local.demo_heatmap_analyzer);
   const notes = normalizeCodexNotes(structured.pre_demo_notes_analyzer, local.pre_demo_notes_analyzer);
+  const winStrategy = normalizeCodexWinStrategy(structured.win_strategy_analyzer, local.win_strategy_analyzer);
   const competitive = normalizeCodexCompetitive(structured.competitive_positioning_mode, local.competitive_positioning_mode);
+  const websiteContext = normalizedWebsiteContext(structured.website_context || local.website_context);
 
   return {
     ...local,
@@ -4022,9 +5528,13 @@ function normalizeCodexIntelligencePayload(structured, local, codex) {
       ...(local.demo_metadata || {}),
       ...(objectOrEmpty(structured.demo_metadata)),
       intelligence_source: "codex-structured-json",
+      website_summary: websiteContext.summary,
+      website_interesting_points: websiteContext.interesting_points,
+      website_contradictions_or_checks: websiteContext.contradictions_or_checks,
       codex_task: codex.sessionTitle || "",
       source_explanation: "The visible Intelligence dashboard is rendered from structured JSON generated by Codex. Local scoring is only supplied to Codex as a pre-scan and schema guardrail."
     },
+    website_context: websiteContext,
     demo_strategy: objectWithFallback(structured.demo_strategy, local.demo_strategy),
     industry_playbook: objectWithFallback(structured.industry_playbook, local.industry_playbook),
     demo_risk_analyzer: risk,
@@ -4036,6 +5546,7 @@ function normalizeCodexIntelligencePayload(structured, local, codex) {
     ai_rehearsal_coach: coach,
     demo_heatmap_analyzer: heatmap,
     pre_demo_notes_analyzer: notes,
+    win_strategy_analyzer: winStrategy,
     competitive_positioning_mode: competitive,
     internal_best_practices_library: objectWithFallback(structured.internal_best_practices_library, local.internal_best_practices_library),
     codex_intelligence_operator: {
@@ -4063,6 +5574,21 @@ function stringArray(value) {
   if (Array.isArray(value)) return uniqueItems(value.map((item) => String(item || "").trim()).filter(Boolean));
   if (typeof value === "string" && value.trim()) return [value.trim()];
   return [];
+}
+
+function normalizedWebsiteContext(value = {}) {
+  const source = objectOrEmpty(value);
+  return {
+    source: String(source.source || ""),
+    url: String(source.url || ""),
+    title: String(source.title || ""),
+    description: String(source.description || ""),
+    summary: String(source.summary || source.description || source.title || ""),
+    interesting_points: stringArray(source.interesting_points || source.interestingPoints),
+    evidence: stringArray(source.evidence || source.evidence_snippets || source.evidenceSnippets),
+    contradictions_or_checks: stringArray(source.contradictions_or_checks || source.contradictions || source.alignment_checks),
+    scanned_at: String(source.scanned_at || source.scannedAt || "")
+  };
 }
 
 function normalizeCodexBriefing(value) {
@@ -4248,6 +5774,114 @@ function normalizeCodexCompetitive(value, fallback = {}) {
   };
 }
 
+function normalizeCodexWinStrategy(value, fallback = {}) {
+  const source = objectOrEmpty(value);
+  const strategies = Array.isArray(source.strategies) && source.strategies.length ? source.strategies : fallback.strategies || [];
+  return {
+    ...fallback,
+    ...source,
+    summary: String(source.summary || fallback.summary || ""),
+    competition_context: String(source.competition_context || fallback.competition_context || ""),
+    guidance_only: true,
+    strategies: strategies.map((item) => ({
+      title: String(item.title || ""),
+      why_we_can_win: String(item.why_we_can_win || item.why || ""),
+      competitor_likely_move: String(item.competitor_likely_move || item.competitor_move || ""),
+      demo_move: String(item.demo_move || item.recommended_demo_move || "")
+    })).filter((item) => item.title)
+  };
+}
+
+function codexPreDemoIntelligencePrompt(manifest, localPreDemo, sessionTitle) {
+  const company = manifest.context?.company || {};
+  const request = manifest.context?.demoRequest || {};
+  return `Task title: ${sessionTitle}
+
+You are the Codex backbone for the NetSuite Demo Helper Pre-Demo Intelligence page.
+
+Your job is to score only the current pre-demo information and discovery quality before a full SC guide is generated. Do not score the generated demo flow, browser dry-run, manifest pacing, or rehearsal quality. Focus on whether the SC has enough customer/deal context to create a strong demo.
+
+Use the supplied website_context as the website scan result. Do not re-scan or research the website when website_context already contains a summary, evidence, or interesting points. Only use web/search if website_context is unavailable or explicitly says a Pre-demo scan is still required. Do not invent facts. If website context is unavailable, state that in the evidence and rely on the supplied notes.
+
+Admin-owned scoring guidance:
+${preDemoIntelligenceGuidance()}
+
+Company and prep context:
+${JSON.stringify({
+    company,
+    audience: manifest.context?.audience,
+    targetAudience: manifest.context?.targetAudience || manifest.context?.marketSegment,
+    demoStrategy: manifest.context?.demoStrategy,
+    industry: manifest.context?.industry,
+    demoScope: manifest.context?.demoScope,
+    competition: manifest.context?.competition || request.competition,
+    demoRequest: request,
+    preDemoNotes: manifest.context?.preDemoNotes,
+    additionalDemoSources: manifest.context?.additionalDemoSources || []
+  }, null, 2)}
+
+Local pre-scan signals:
+${JSON.stringify(localPreDemo, null, 2).slice(0, 12000)}
+
+Return VALID JSON ONLY. Do not wrap it in Markdown. Do not include comments. Use this exact top-level shape:
+
+{
+  "metadata": {
+    "customer_name": "",
+    "customer_url": "",
+    "audience_type": "",
+    "target_segment": "",
+    "industry": "",
+    "demo_strategy": "",
+    "demo_scope": "",
+    "input_mode": ""
+  },
+  "website_context": {
+    "source": "",
+    "url": "",
+    "title": "",
+    "description": "",
+    "summary": "",
+    "interesting_points": [],
+    "evidence": [],
+    "contradictions_or_checks": [],
+    "scanned_at": ""
+  },
+  "overall_score": 0,
+  "discovery_coverage_score": 0,
+  "readiness_label": "",
+  "summary": "",
+  "coverage_summary": "",
+  "strongest_area": "",
+  "biggest_risk": "",
+  "next_best_question": "",
+  "strong_areas": [],
+  "risk_areas": [],
+  "recommendations": [],
+  "heatmap": [
+    {
+      "label": "",
+      "score": 0,
+      "status": "strong",
+      "status_label": "",
+      "evidence": "",
+      "recommendation": ""
+    }
+  ],
+  "found_discovery_items": [],
+  "missing_discovery_items": [],
+  "recommended_follow_up_questions": []
+}
+
+Rules:
+- Scores must be specific to the notes, website context, audience, target segment, strategy, industry, and scope.
+- "status" in heatmap must be one of: strong, healthy, watch, risk.
+- recommended_follow_up_questions should be questions that would materially change the demo story, setup, stakeholder emphasis, risk, or proof moments.
+- Do not ask questions that are already answered in the notes.
+- website_context must summarize what was found from the website and flag contradictions or alignment checks between website context and pre-demo notes.
+- Make clear in evidence when something is inferred from the website or selected options rather than stated in discovery notes.`;
+}
+
 function codexIntelligencePrompt(manifest, scGuide, localIntelligence, sessionTitle) {
   const company = manifest.context?.company || {};
   return `Task title: ${sessionTitle}
@@ -4255,6 +5889,8 @@ function codexIntelligencePrompt(manifest, scGuide, localIntelligence, sessionTi
 You are the Codex backbone for the NetSuite Demo Helper Intelligence dashboard. Review all available prep inputs, the company/website context, pre-demo notes, demo scope, audience, target segment, strategy, generated SC guide, manifest, and local structured pre-scan signals.
 
 Your job is to produce the structured JSON that the Intelligence dashboard renders directly. The local JSON signals are only a pre-scan and schema guardrail. Challenge them whenever the guide, notes, or customer context suggests something more specific. Do not copy generic local summaries if they are not specific enough.
+
+Important website rule: do not browse, search, or re-scan the customer website during Demo Intelligence. The website should be scanned once by Pre-Demo Intelligence or Learn/Create Demo, then passed into this task as company.websiteContext/localIntelligence.website_context. Use that supplied context and compare it against the notes. If the supplied context says a Pre-demo scan is still required, flag that as an action instead of researching the website again.
 
 Company:
 ${JSON.stringify(company, null, 2)}
@@ -4266,6 +5902,7 @@ ${JSON.stringify({
     demoStrategy: manifest.context?.demoStrategy,
     industry: manifest.context?.industry,
     demoScope: manifest.context?.demoScope,
+    competition: manifest.context?.competition || manifest.context?.demoRequest?.competition,
     demoRequest: manifest.context?.demoRequest,
     codexPrepAnalysis: manifest.context?.codexPrepAnalysis
   }, null, 2)}
@@ -4309,6 +5946,7 @@ Return VALID JSON ONLY. Do not wrap it in Markdown. Do not include comments. Use
     "demo_name": "",
     "demo_goal": "",
     "demo_scope": "",
+    "competition_context": "",
     "customer_description": "",
     "likely_priorities": [],
     "audience_type": "",
@@ -4318,6 +5956,17 @@ Return VALID JSON ONLY. Do not wrap it in Markdown. Do not include comments. Use
     "language": "",
     "narration_voice": "",
     "manifest_ready": false
+  },
+  "website_context": {
+    "source": "",
+    "url": "",
+    "title": "",
+    "description": "",
+    "summary": "",
+    "interesting_points": [],
+    "evidence": [],
+    "contradictions_or_checks": [],
+    "scanned_at": ""
   },
   "demo_strategy": {
     "id": "",
@@ -4425,6 +6074,14 @@ Return VALID JSON ONLY. Do not wrap it in Markdown. Do not include comments. Use
       { "label": "", "score": 0, "status": "healthy", "status_label": "", "evidence": "", "recommendation": "" }
     ]
   },
+  "win_strategy_analyzer": {
+    "summary": "",
+    "competition_context": "",
+    "guidance_only": true,
+    "strategies": [
+      { "title": "", "why_we_can_win": "", "competitor_likely_move": "", "demo_move": "" }
+    ]
+  },
   "competitive_positioning_mode": {
     "summary": "",
     "warning": "Competitive insights are advisory only and may be incomplete or outdated. Validate important claims before customer use.",
@@ -4449,6 +6106,8 @@ Rules:
 - Keep this SC-practical and blunt enough to be useful.
 - Do not invent customer facts or unsupported NetSuite/competitor claims.
 - Make clear when something is inferred.
+- Use website_context to show the customer/business signals that should shape the demo. Flag contradictions or alignment checks between the website and notes instead of silently ignoring them.
+- win_strategy_analyzer must provide exactly 3 practical win strategy points. Use the supplied competition/status quo context and notes. Frame competitor_likely_move as a likely sales or demo tactic, not as a factual claim about a named competitor unless the notes explicitly support it.
 - Prioritize what changes the demo story, scope, setup, proof moments, or stakeholder alignment.
 - Avoid generic labels like "business impact language is light" unless you explain exactly where and why for this demo.`;
 }
@@ -4463,8 +6122,23 @@ function demoIntelligencePayload(manifest, scGuide = "") {
   const risk = demoRiskAnalysis(context, discovery, stakeholderCoverage, timing, winning);
   const rehearsalCoach = rehearsalCoachAnalysis(context, risk, timing, stakeholderCoverage);
   const competitive = competitivePositioningGuidance(context);
+  const winStrategy = winStrategyAnalysis(context);
   const preDemoNotes = preDemoNotesAnalysis(context, discovery);
   const demoHeatmap = demoHeatmapAnalysis(context, risk, discovery, stakeholderCoverage, timing, winning, rehearsalCoach);
+  const websiteContext = normalizedWebsiteContext(context.company?.websiteContext || websiteContextFromContent({
+    url: context.company?.url || "",
+    title: context.company?.title || "",
+    description: context.company?.description || "",
+    notes: context.notes || "",
+    source: context.company?.source || "saved-company-context"
+  }));
+  if (websiteContext.contradictions_or_checks.length) {
+    preDemoNotes.risk_areas = uniqueItems([...(websiteContext.contradictions_or_checks || []), ...(preDemoNotes.risk_areas || [])]);
+    preDemoNotes.recommendations = uniqueItems([
+      "Resolve website-versus-notes alignment checks before relying on the demo story.",
+      ...(preDemoNotes.recommendations || [])
+    ]);
+  }
   risk.score_details = demoScoreDetails(risk, demoHeatmap, timing, discovery, preDemoNotes);
 
   return {
@@ -4476,6 +6150,7 @@ function demoIntelligencePayload(manifest, scGuide = "") {
       demo_name: manifest.name || "NetSuite demo",
       demo_goal: context.topic || manifest.context?.demoRequest?.topic || "",
       demo_scope: context.demoScope || "",
+      competition_context: context.competition || "",
       customer_description: context.company.description || context.company.title || "",
       likely_priorities: context.company.likelyPriorities || [],
       audience_type: context.audience.label,
@@ -4484,8 +6159,12 @@ function demoIntelligencePayload(manifest, scGuide = "") {
       strategy: context.strategy.label,
       language: normalizeOutputLanguage(manifest.context?.outputLanguage?.value || manifest.context?.demoRequest?.outputLanguage || manifest.defaults?.outputLanguage).label,
       narration_voice: manifest.defaults?.audio?.voice || "Moira",
+      website_summary: websiteContext.summary,
+      website_interesting_points: websiteContext.interesting_points,
+      website_contradictions_or_checks: websiteContext.contradictions_or_checks,
       manifest_ready: context.manifestFlowReady
     },
+    website_context: websiteContext,
     demo_strategy: {
       id: context.strategy.id,
       label: context.strategy.label,
@@ -4514,9 +6193,241 @@ function demoIntelligencePayload(manifest, scGuide = "") {
     ai_rehearsal_coach: rehearsalCoach,
     demo_heatmap_analyzer: demoHeatmap,
     pre_demo_notes_analyzer: preDemoNotes,
+    win_strategy_analyzer: winStrategy,
     competitive_positioning_mode: competitive,
     internal_best_practices_library: bestPracticeRecommendations(context, winning)
   };
+}
+
+function preDemoIntelligencePayload(manifest) {
+  const context = demoIntelligenceContext(manifest, "");
+  const discovery = discoveryGapAnalysis(context);
+  const notes = preDemoNotesAnalysis(context, discovery);
+  const websiteContext = normalizedWebsiteContext(context.company?.websiteContext || websiteContextFromContent({
+    url: context.company?.url || "",
+    title: context.company?.title || "",
+    description: context.company?.description || "",
+    notes: context.notes || "",
+    source: context.company?.source || "saved-company-context"
+  }));
+  if (websiteContext.contradictions_or_checks.length) {
+    notes.risk_areas = uniqueItems([...(websiteContext.contradictions_or_checks || []), ...(notes.risk_areas || [])]);
+    notes.recommendations = uniqueItems([
+      "Resolve website-versus-notes alignment checks before generating or rehearsing the demo.",
+      ...(notes.recommendations || [])
+    ]);
+  }
+  const strongest = notes.strong_areas || [];
+  const risks = notes.risk_areas || [];
+  const missing = discovery.missing_discovery_items || [];
+  return {
+    generated_at: new Date().toISOString(),
+    source: "lightweight-pre-demo-scorer",
+    purpose: "Scores only the pre-demo input quality before full demo generation.",
+    admin_guidance: preDemoIntelligenceGuidance(),
+    metadata: {
+      customer_name: context.company.companyName || context.company.title || manifest.name || "Current demo",
+      customer_url: context.company.url || "",
+      audience_type: context.audience.label,
+      target_segment: context.marketSegment.label,
+      industry: context.industry.label,
+      demo_strategy: context.strategy.label,
+      demo_scope: context.demoScope || "",
+      input_mode: manifest.context?.demoRequest?.inputMode || "request-and-notes"
+    },
+    website_context: websiteContext,
+    overall_score: notes.overall_score,
+    discovery_coverage_score: notes.discovery_coverage_score,
+    word_count: notes.word_count,
+    readiness_label: preDemoReadinessLabel(notes.overall_score),
+    summary: notes.summary,
+    coverage_summary: notes.coverage_summary,
+    strongest_area: strongest[0] || "No dominant strength detected yet",
+    biggest_risk: risks[0] || missing[0] || "No major pre-demo risk detected",
+    next_best_question: discovery.recommended_follow_up_questions?.[0] || "Confirm the main business outcome the demo must prove.",
+    strong_areas: strongest,
+    risk_areas: risks,
+    recommendations: notes.recommendations || [],
+    heatmap: notes.heatmap || [],
+    found_discovery_items: discovery.found_discovery_items || [],
+    missing_discovery_items: missing,
+    recommended_follow_up_questions: discovery.recommended_follow_up_questions || []
+  };
+}
+
+async function preDemoIntelligencePayloadWithCodex(manifest) {
+  const localPreDemo = preDemoIntelligencePayload(manifest);
+  const codex = await codexPreDemoIntelligenceOperatorAnalysis(manifest, localPreDemo);
+  const preDemoIntelligence = normalizeCodexPreDemoIntelligencePayload(codex.structured, localPreDemo, codex);
+  await saveLatestJson(latestPreDemoIntelligencePath, preDemoIntelligence);
+  return preDemoIntelligence;
+}
+
+async function codexPreDemoIntelligenceOperatorAnalysis(manifest, localPreDemo) {
+  const company = manifest.context?.company || {};
+  const sessionTitle = `created by demo helper - ${company.companyName || websiteNameSlug(company.url) || "customer"} - pre-demo intelligence`;
+  const cacheKey = codexCacheKey({
+    manifestContext: manifest.context || {},
+    localPreDemo,
+    adminGuidance: preDemoIntelligenceGuidance()
+  }, "codex-pre-demo-intelligence-v2");
+  const cacheDir = path.join(projectRoot, "artifacts/codex-operators/cache");
+  const cacheFile = path.join(cacheDir, `pre-demo-intelligence-${cacheKey}.json`);
+  try {
+    return JSON.parse(await readFile(cacheFile, "utf8"));
+  } catch {}
+
+  const prompt = codexPreDemoIntelligencePrompt(manifest, localPreDemo, sessionTitle);
+  const result = await runCodexOperator({
+    prompt,
+    sessionTitle,
+    fileStem: `${companyFileSlug(manifest)}-pre-demo-intelligence`,
+    timeoutMs: 240000
+  });
+  if (!result.ok) {
+    throw new Error(`Codex pre-demo intelligence operator failed: ${result.error || "No output returned"}`);
+  }
+  if (!result.output?.trim()) {
+    throw new Error("Codex pre-demo intelligence operator did not return analysis.");
+  }
+  const structured = parseCodexStructuredJson(result.output);
+  const payload = {
+    ok: true,
+    structured,
+    rawOutput: result.output.trim(),
+    promptFile: result.promptFile,
+    outputFile: result.outputFile,
+    sessionTitle,
+    error: "",
+    cachedAt: new Date().toISOString()
+  };
+  await mkdir(cacheDir, { recursive: true });
+  await writeFile(cacheFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return payload;
+}
+
+function normalizeCodexPreDemoIntelligencePayload(structured, local, codex) {
+  const source = objectOrEmpty(structured);
+  const notesSource = objectOrEmpty(source.pre_demo_notes_analyzer || source.notes_analyzer || source);
+  const discoverySource = objectOrEmpty(source.discovery_gap_analyzer || source.discovery || source);
+  const metadataSource = objectOrEmpty(source.metadata || source.demo_metadata);
+  const websiteContext = normalizedWebsiteContext(source.website_context || local.website_context);
+  const fallbackNotes = {
+    overall_score: local.overall_score,
+    discovery_coverage_score: local.discovery_coverage_score,
+    word_count: local.word_count,
+    summary: local.summary,
+    coverage_summary: local.coverage_summary,
+    strong_areas: local.strong_areas,
+    risk_areas: local.risk_areas,
+    recommendations: local.recommendations,
+    heatmap: local.heatmap
+  };
+  const fallbackDiscovery = {
+    summary: local.coverage_summary,
+    missing_discovery_items: local.missing_discovery_items,
+    found_discovery_items: local.found_discovery_items,
+    recommended_follow_up_questions: local.recommended_follow_up_questions
+  };
+  const notes = normalizeCodexNotes(notesSource, fallbackNotes);
+  const discovery = normalizeCodexDiscovery(discoverySource, fallbackDiscovery);
+  const strongest = notes.strong_areas || [];
+  const risks = notes.risk_areas || [];
+  const missing = discovery.missing_discovery_items || [];
+  const questions = discovery.recommended_follow_up_questions || [];
+  return {
+    ...local,
+    generated_at: new Date().toISOString(),
+    source: "codex-pre-demo-structured-json",
+    purpose: "Codex-backed scoring of only the pre-demo inputs before full demo generation.",
+    admin_guidance: preDemoIntelligenceGuidance(),
+    metadata: {
+      ...(local.metadata || {}),
+      ...metadataSource
+    },
+    website_context: websiteContext,
+    overall_score: notes.overall_score,
+    discovery_coverage_score: notes.discovery_coverage_score,
+    word_count: notes.word_count,
+    readiness_label: String(source.readiness_label || preDemoReadinessLabel(notes.overall_score)),
+    summary: notes.summary,
+    coverage_summary: notes.coverage_summary,
+    strongest_area: String(source.strongest_area || strongest[0] || local.strongest_area || "No dominant strength detected yet"),
+    biggest_risk: String(source.biggest_risk || risks[0] || missing[0] || local.biggest_risk || "No major pre-demo risk detected"),
+    next_best_question: String(source.next_best_question || questions[0] || local.next_best_question || "Confirm the main business outcome the demo must prove."),
+    strong_areas: strongest,
+    risk_areas: risks,
+    recommendations: notes.recommendations || [],
+    heatmap: notes.heatmap || [],
+    found_discovery_items: discovery.found_discovery_items || [],
+    missing_discovery_items: missing,
+    recommended_follow_up_questions: questions,
+    codex_pre_demo_operator: {
+      ok: true,
+      promptFile: codex.promptFile,
+      outputFile: codex.outputFile,
+      sessionTitle: codex.sessionTitle,
+      cachedAt: codex.cachedAt,
+      error: ""
+    }
+  };
+}
+
+function preDemoIntelligenceFromDemoIntelligencePayload(intelligence) {
+  if (!intelligence) return null;
+  const notes = intelligence.pre_demo_notes_analyzer || {};
+  const discovery = intelligence.discovery_gap_analyzer || {};
+  const metadata = intelligence.demo_metadata || {};
+  const strongest = notes.strong_areas || [];
+  const risks = notes.risk_areas || [];
+  const missing = discovery.missing_discovery_items || [];
+  return {
+    generated_at: intelligence.generated_at || new Date().toISOString(),
+    source: metadata.intelligence_source || intelligence.intelligence_generated_by || "demo-intelligence",
+    purpose: "Derived from the full Demo Intelligence result without running Codex again.",
+    admin_guidance: preDemoIntelligenceGuidance(),
+    metadata: {
+      customer_name: metadata.customer_name || "Current demo",
+      customer_url: metadata.customer_url || "",
+      audience_type: metadata.audience_type || "",
+      target_segment: metadata.target_segment || "",
+      industry: metadata.industry || "",
+      demo_strategy: metadata.strategy || "",
+      demo_scope: metadata.demo_scope || "",
+      input_mode: metadata.input_mode || ""
+    },
+    website_context: normalizedWebsiteContext(intelligence.website_context || {
+      url: metadata.customer_url,
+      summary: metadata.website_summary || metadata.customer_description,
+      interesting_points: metadata.website_interesting_points,
+      contradictions_or_checks: metadata.website_contradictions_or_checks
+    }),
+    overall_score: notes.overall_score,
+    discovery_coverage_score: notes.discovery_coverage_score,
+    word_count: notes.word_count,
+    readiness_label: preDemoReadinessLabel(notes.overall_score),
+    summary: notes.summary,
+    coverage_summary: notes.coverage_summary,
+    strongest_area: strongest[0] || "No dominant strength detected yet",
+    biggest_risk: risks[0] || missing[0] || "No major pre-demo risk detected",
+    next_best_question: discovery.recommended_follow_up_questions?.[0] || "Confirm the main business outcome the demo must prove.",
+    strong_areas: strongest,
+    risk_areas: risks,
+    recommendations: notes.recommendations || [],
+    heatmap: notes.heatmap || [],
+    found_discovery_items: discovery.found_discovery_items || [],
+    missing_discovery_items: missing,
+    recommended_follow_up_questions: discovery.recommended_follow_up_questions || []
+  };
+}
+
+function preDemoReadinessLabel(score) {
+  const value = Number(score);
+  if (!Number.isFinite(value)) return "Needs notes";
+  if (value >= 80) return "Ready for demo generation";
+  if (value >= 65) return "Usable with follow-up";
+  if (value >= 45) return "Needs discovery detail";
+  return "High discovery risk";
 }
 
 function demoIntelligenceContext(manifest, scGuide = "") {
@@ -4552,6 +6463,8 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     manifest.context?.demoRequest?.topic,
     manifest.context?.demoScope,
     manifest.context?.demoRequest?.demoScope,
+    manifest.context?.competition,
+    manifest.context?.demoRequest?.competition,
     manifest.context?.demoRequest?.instructions,
     manifest.context?.demoPrep?.opening,
     manifest.context?.demoPrep?.ordering,
@@ -4591,6 +6504,7 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     assetPrompt,
     setupPrompt,
     demoScope: String(manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || ""),
+    competition: String(manifest.context?.competition || manifest.context?.demoRequest?.competition || ""),
     notes: String(manifest.context?.preDemoNotes || ""),
     topic: String(manifest.context?.demoRequest?.topic || ""),
     playbook: audiencePlaybookFor(manifest, audience, marketSegment),
@@ -5151,10 +7065,11 @@ function rehearsalCoachAnalysis(context, risk, timing, stakeholderCoverage) {
 }
 
 function competitivePositioningGuidance(context) {
+  const competition = context.competition || "the current process, incumbent systems, or another ERP option";
   const guidance = [
     {
       topic: "Unified Suite",
-      why_it_matters: "Use only if the customer is struggling with disconnected systems or manual handoffs.",
+      why_it_matters: `Use only if the customer is struggling with disconnected systems or manual handoffs. Known competition/status quo context: ${competition}.`,
       recommended_demo_moment: "Move from standard reporting into the next in-scope proof point to show connected finance visibility."
     },
     {
@@ -5174,6 +7089,67 @@ function competitivePositioningGuidance(context) {
     warning: "Competitive insights are advisory only and may not always reflect current competitor capabilities. Validate important claims before customer use.",
     guidance_only: true,
     competitive_focus: guidance
+  };
+}
+
+function winStrategyAnalysis(context) {
+  const competition = context.competition || "Status quo or shortlist not confirmed";
+  const source = `${context.text || ""}\n${competition}`.toLowerCase();
+  const strategies = [];
+  const add = (title, whyWeCanWin, competitorLikelyMove, demoMove) => {
+    strategies.push({ title, why_we_can_win: whyWeCanWin, competitor_likely_move: competitorLikelyMove, demo_move: demoMove });
+  };
+
+  if (/consolidat|oneworld|multi-country|multi country|local gaap|tax|e-invoic|jedox|entity|legal/.test(source)) {
+    add(
+      "Lead with consolidation confidence",
+      "The notes show multi-country reporting, local GAAP, tax, e-invoicing, and Jedox dependency as central pain. Win by proving group visibility without losing local-entity detail.",
+      "A competitor or incumbent process may position external consolidation or point reporting as good enough, especially if Jedox already works for part of the process.",
+      "Start with executive/group visibility, then drill into entity, book, period, and transaction support so the audience sees both board-level control and finance-detail trust."
+    );
+  }
+
+  if (/flight|charter|broker|route|aircraft|suiteprojects|project profitability|booking|veluxis/.test(source)) {
+    add(
+      "Turn flight complexity into a finance story",
+      "Each flight behaves like a project with revenue, cost, route, aircraft, broker, customer, and transaction context. Win by making the operational model understandable inside finance.",
+      "A competitor may keep this as a custom project layer, spreadsheet model, or operational-system discussion rather than connecting it cleanly to financial proof.",
+      "Use a flight or booking profitability story after the executive overview, positioning SuiteProjects as the controlled proof point rather than a deep implementation workshop."
+    );
+  }
+
+  if (/approval|ap|ar|dunning|invoice|document|email|manual|payment|template/.test(source)) {
+    add(
+      "Show context-aware finance work",
+      "The notes point to manual AP, unclear approvals, dunning/documentation gaps, and customer-facing template needs. Win by showing finance users acting with context, not just processing transactions.",
+      "A competitor may focus on isolated P2P or expense workflow automation, or the customer may assume the current email-heavy process can be patched.",
+      "Show approval context, supporting documentation, standard reporting, and customer-facing output flexibility without over-demoing setup."
+    );
+  }
+
+  if (/integration|odbc|crm|ibos|architecture|data flow|it director|it operations/.test(source)) {
+    add(
+      "Keep integration strategic, not technical-first",
+      "IT cares about architecture, ODBC/reporting, CRM or booking references, and production stability. Win by showing the business process first, then explaining where governed integration fits.",
+      "A competitor may try to pull the conversation into technical architecture or claim flexibility before the business case is anchored.",
+      "Use standard reporting and source drilldown first, then discuss IBOS/booking references, ODBC, and integration as validation topics for IT."
+    );
+  }
+
+  if (!strategies.length) {
+    add(
+      "Anchor on the most expensive business risk",
+      "The notes do not yet show a single dominant competitor theme, so win by tying the demo to the biggest confirmed operational or finance risk.",
+      "A competitor may run a broader feature tour if the customer has not forced a clear decision criterion.",
+      "Open with the executive problem, prove the strongest standard workflow, and use follow-up questions to clarify the buying criteria."
+    );
+  }
+
+  return {
+    summary: `Win strategy is based on the pre-demo notes, scope, selected audience, and competition/status quo context: ${competition}.`,
+    competition_context: competition,
+    guidance_only: true,
+    strategies: strategies.slice(0, 3)
   };
 }
 
@@ -5671,18 +7647,15 @@ async function runCommand(body) {
     };
   }
   if (mode === "dry-run-prep") {
-    const manifest = await readManifest();
-    const guide = await readOrGenerateScGuide(manifest);
-    const nextManifest = applyGuideToRunnableManifest(manifest, guide);
-    await writeFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`, "utf8");
-    const namedManifestPath = await writeNamedManifestCopy(nextManifest);
+    const { namedManifestPath, promptCreatedAt } = await refreshRunnableManifestForRun("dry-run-prep");
     const prep = await prepareAccountBuffer();
     const open = await runProcess("node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--open-browser"]);
     return {
       ok: open.ok,
       log: [
         "Dry-run prep complete.",
-        `Dry-run manifest created from SC guide: ${namedManifestPath}`,
+        `Dry-run manifest created from the Dry-run creation prompt: ${namedManifestPath}`,
+        promptCreatedAt ? `Dry-run creation prompt timestamp: ${promptCreatedAt}` : "",
         "",
         prep.log,
         "",
@@ -5692,11 +7665,20 @@ async function runCommand(body) {
     };
   }
   if (mode === "buffer-dry-run") {
+    const { namedManifestPath, promptCreatedAt } = await refreshRunnableManifestForRun("buffer-dry-run");
     const prep = await prepareAccountBuffer();
     const run = await runProcess("node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--rehearse", "--audio=none", `--value-intensity=${valueIntensity}`]);
     return {
       ...run,
-      log: `${prep.log}\n\nBuffer dry-run:\n${run.log || ""}`
+      log: [
+        `Dry-run manifest refreshed from the Dry-run creation prompt: ${namedManifestPath}`,
+        promptCreatedAt ? `Dry-run creation prompt timestamp: ${promptCreatedAt}` : "",
+        "",
+        prep.log,
+        "",
+        "Buffer dry-run:",
+        run.log || ""
+      ].filter(Boolean).join("\n")
     };
   }
 
@@ -5707,7 +7689,349 @@ async function runCommand(body) {
   };
   const command = commands[mode];
   if (!command) throw new Error(`Unknown run mode: ${mode}`);
+  if (mode === "live") {
+    const { namedManifestPath, promptCreatedAt } = await refreshRunnableManifestForRun("live-demo");
+    const run = await runProcess(command[0], command[1], { env: voiceEnv });
+    return {
+      ...run,
+      log: [
+        `Dry-run manifest refreshed from the Dry-run creation prompt before live demo: ${namedManifestPath}`,
+        promptCreatedAt ? `Dry-run creation prompt timestamp: ${promptCreatedAt}` : "",
+        "",
+        run.log || ""
+      ].filter(Boolean).join("\n")
+    };
+  }
   return runProcess(command[0], command[1], { env: voiceEnv });
+}
+
+async function runDatasetAnalysis(body = {}) {
+  const valueIntensity = body.valueIntensity || "balanced";
+  const { namedManifestPath, promptCreatedAt } = await refreshRunnableManifestForRun("dataset-analysis");
+  const prep = await prepareAccountBuffer();
+  const run = await runProcess("node", ["src/demo-runner.mjs", "--manifest", "manifests/finance-pl-cash360.demo.json", "--rehearse", "--audio=none", `--value-intensity=${valueIntensity}`]);
+  const manifest = await readManifest();
+  const guide = await readOrGenerateScGuide(manifest);
+  const setupPayload = setupPromptPayload(manifest, guide);
+  const cache = await readRunCache(manifest).catch(() => null);
+  const analysis = buildDatasetAnalysisPayload({
+    manifest,
+    guide,
+    setupPayload,
+    prep,
+    run,
+    cache,
+    namedManifestPath,
+    promptCreatedAt
+  });
+  await saveDatasetAnalysis(analysis);
+  return analysis;
+}
+
+async function executeDatasetSetupPrompt(body = {}) {
+  if (!body.confirmed) throw new Error("Confirm the NetSuite account and dataset/customization items before executing.");
+  const latest = await readLatestDatasetAnalysis();
+  const account = latest.account || {};
+  if (body.account && account.account && body.account !== account.account) {
+    throw new Error(`Account mismatch. Expected ${account.account}, got ${body.account}.`);
+  }
+  const promptDir = path.join(projectRoot, "artifacts/codex-prompts");
+  await mkdir(promptDir, { recursive: true });
+  const promptFile = path.join(promptDir, `${latest.companySlug || "netsuite-demo"}-dataset-setup-prompt.md`);
+  await writeFile(promptFile, latest.codexPrompt || "", "utf8");
+  await copyToClipboard(latest.codexPrompt || "").catch(() => {});
+  const browserOpened = await openNetSuiteBrowserDetached().catch((error) => ({ ok: false, error: error.message }));
+  const codexOpened = await openCodexWorkspace().catch((error) => ({ ok: false, error: error.message }));
+  return {
+    ok: true,
+    promptFile,
+    account,
+    items: latest.actionItems || [],
+    browserOpened,
+    codexOpened,
+    message: "Dataset setup prompt created and copied to clipboard. NetSuite and Codex were opened where possible; paste the prompt into a new Codex session before executing."
+  };
+}
+
+function buildDatasetAnalysisPayload({ manifest, guide, setupPayload, prep, run, cache, namedManifestPath, promptCreatedAt }) {
+  const setupItems = setupPayload.setupPlan.items || [];
+  const failedActions = datasetRunActions(cache, "failed");
+  const skippedActions = datasetRunActions(cache, "skipped");
+  const passedActions = datasetRunActions(cache, "ok");
+  const missingData = datasetMissingDataItems(setupItems, failedActions);
+  const missingCustomizations = datasetCustomizationItems(setupItems, failedActions, skippedActions);
+  const score = Math.max(0, Math.min(100, 100 - (missingData.length * 9) - (missingCustomizations.length * 11) - (failedActions.length * 12) - (skippedActions.length * 4)));
+  const actionItems = uniqueDatasetItems([...missingData, ...missingCustomizations]);
+  const status = score >= 80 && run.ok ? "dataset-ready" : score >= 60 ? "needs-light-prep" : "prep-required";
+  const summary = run.ok
+    ? "The dry-run completed, so this score focuses on setup items, optional skips, and remaining data/customization gaps."
+    : "The dry-run did not fully complete, so failed navigation or missing UI evidence is treated as dataset-prep risk.";
+  const prompt = datasetSetupCodexPrompt({
+    manifest,
+    guide,
+    setupPayload,
+    score,
+    status,
+    summary,
+    actionItems,
+    missingData,
+    missingCustomizations,
+    failedActions,
+    skippedActions,
+    runLog: run.log || ""
+  });
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    source: "browser-dry-run-dataset-analysis",
+    companySlug: companyFileSlug(manifest),
+    manifest: {
+      name: manifest.name,
+      id: manifest.id,
+      company: manifest.context?.company?.companyName || manifest.name || "Current demo",
+      demoScope: manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || "",
+      dryRunManifestPath: namedManifestPath,
+      dryRunPromptCreatedAt: promptCreatedAt
+    },
+    account: setupPayload.account,
+    score,
+    status,
+    readinessLabel: datasetReadinessLabel(score, run.ok),
+    summary,
+    runCompleted: Boolean(run.ok && cache?.status === "completed"),
+    runStatus: cache?.status || (run.ok ? "completed" : "failed-or-not-cached"),
+    cachePath: runCachePathForManifest(manifest),
+    prepBufferFile: prep.file,
+    setupPromptSource: setupPayload.promptSource,
+    missingData,
+    missingCustomizations,
+    passedEvidence: passedActions.slice(0, 12),
+    failedActions,
+    skippedActions,
+    actionItems,
+    recommendations: datasetRecommendations(score, run.ok, actionItems, failedActions, skippedActions),
+    codexPrompt: prompt,
+    runLog: [prep.log, "", "Dataset dry-run:", run.log || ""].join("\n"),
+    promptFile: path.join(projectRoot, "artifacts/codex-prompts", `${companyFileSlug(manifest)}-dataset-setup-prompt.md`)
+  };
+}
+
+function datasetRunActions(cache, status) {
+  const segments = Array.isArray(cache?.segments) ? cache.segments : [];
+  return segments.flatMap((segment) => (segment.actions || [])
+    .filter((action) => status === "ok" ? !["failed", "skipped"].includes(action.status) : action.status === status)
+    .map((action) => ({
+      segment: segment.title || segment.id,
+      type: action.type,
+      target: action.target || "",
+      url: action.url || "",
+      error: action.error || "",
+      elapsedMs: action.elapsedMs || 0
+    })));
+}
+
+function datasetMissingDataItems(setupItems, failedActions) {
+  const setupData = (setupItems || [])
+    .filter((item) => ["entity", "item", "transaction"].includes(item.type))
+    .map((item) => ({
+      type: "data",
+      label: item.label,
+      reason: item.reason,
+      source: "SC guide setup inference",
+      risk: item.risk || "medium"
+    }));
+  const runData = failedActions
+    .filter((action) => /(waitForText|waitForAnyText|highlightText|clickText|globalSearchOpen)/i.test(action.type))
+    .map((action) => ({
+      type: "data",
+      label: action.target ? `Missing or unreachable evidence: ${action.target}` : `Failed dry-run step: ${action.segment}`,
+      reason: action.error || "The dry-run could not find expected page evidence.",
+      source: action.segment,
+      risk: "high"
+    }));
+  return uniqueDatasetItems([...setupData, ...runData]);
+}
+
+function datasetCustomizationItems(setupItems, failedActions, skippedActions) {
+  const configItems = (setupItems || [])
+    .filter((item) => item.type === "configuration" || /(approval|role|permission|dashboard|search|report|fixed asset|planning|cash 360|subsidiary|entity)/i.test(item.label))
+    .map((item) => ({
+      type: "customization",
+      label: item.label,
+      reason: item.reason,
+      source: "SC guide setup inference",
+      risk: item.risk || "medium"
+    }));
+  const runItems = [...failedActions, ...skippedActions]
+    .filter((action) => /(role|permission|approval|dashboard|report|accounting book|subsidiary|cash|fixed asset|planning|export|view detail)/i.test(`${action.segment} ${action.target} ${action.error}`))
+    .map((action) => ({
+      type: "customization",
+      label: action.target ? `Check configuration for: ${action.target}` : `Check configuration for ${action.segment}`,
+      reason: action.error || "The dry-run skipped or failed an expected proof point.",
+      source: action.segment,
+      risk: action.error ? "high" : "medium"
+    }));
+  return uniqueDatasetItems([...configItems, ...runItems]);
+}
+
+function uniqueDatasetItems(items) {
+  const seen = new Set();
+  return (items || []).filter((item) => {
+    const key = `${item.type}:${item.label}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function datasetRecommendations(score, runOk, actionItems, failedActions, skippedActions) {
+  const recommendations = [];
+  if (!runOk) recommendations.push("Fix the failed dry-run route first; dataset scoring is less reliable until the browser path completes.");
+  if (actionItems.length) recommendations.push("Use the Codex setup prompt to inspect the NetSuite account and prepare only the missing data or configuration that supports the SC story.");
+  if (failedActions.length) recommendations.push("Review failed segments and add stable report data, permissions, or standard-page access before rehearsal.");
+  if (skippedActions.length) recommendations.push("Decide whether skipped optional proof points should be prepared or removed from the dry-run.");
+  if (score >= 80 && !actionItems.length) recommendations.push("Dataset looks ready for rehearsal; keep the account read-only unless the SC adds new scope.");
+  return recommendations;
+}
+
+function datasetReadinessLabel(score, runOk) {
+  if (!runOk) return "Dry-run needs attention";
+  if (score >= 85) return "Dataset ready";
+  if (score >= 70) return "Light prep recommended";
+  if (score >= 50) return "Prep required";
+  return "High dataset risk";
+}
+
+function datasetSetupCodexPrompt({ manifest, guide, setupPayload, score, status, summary, actionItems, missingData, missingCustomizations, failedActions, skippedActions, runLog }) {
+  const account = setupPayload.account || {};
+  return `You are helping prepare a NetSuite account for a NetSuite Demo Helper dry-run.
+
+CRITICAL ACCESS AND SAFETY RULES
+- You must have both front-end browser access and back-end NetSuite access before executing changes.
+- Front-end access means the browser is logged into the target NetSuite account and role and can navigate the UI.
+- Back-end access means you can inspect or create required records/configuration through an approved NetSuite backend path such as SuiteScript, REST, saved imports, or another administrative mechanism.
+- First confirm the visible account, role, and environment. Stop if the account does not match the target below.
+- Do not create, edit, save, approve, post, import, delete, or submit anything until the user confirms the exact items to prepare.
+- Prefer read-only inspection first. Produce a gap list before doing writes.
+
+TARGET NETSUITE ACCOUNT
+- Account: ${account.account || "unknown"}
+- Host: ${account.host || "unknown"}
+- Base URL: ${account.baseUrl || "unknown"}
+- Role: ${account.role || "unknown"}
+
+DEMO CONTEXT
+- Demo: ${manifest.name || "NetSuite demo"}
+- Company: ${manifest.context?.company?.companyName || "the prospect"}
+- Demo scope: ${manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || "Not specified"}
+- Audience: ${manifest.context?.audience?.label || manifest.audience || "Not selected"}
+- Target segment: ${manifest.context?.marketSegment?.label || manifest.context?.targetAudience?.label || "Not selected"}
+- Demo strategy: ${manifest.context?.demoStrategy?.label || "Not selected"}
+
+DATASET ANALYSIS RESULT
+- Score: ${score}/100
+- Status: ${status}
+- Summary: ${summary}
+
+MISSING DATA ITEMS
+${datasetPromptList(missingData)}
+
+MISSING CUSTOMIZATIONS OR CONFIGURATION
+${datasetPromptList(missingCustomizations)}
+
+FAILED OR RISKY DRY-RUN EVIDENCE
+${datasetPromptList(failedActions.map((action) => ({
+    label: `${action.segment}: ${action.type} ${action.target}`.trim(),
+    reason: action.error || "Failed during dry-run",
+    risk: "high"
+  })))}
+
+OPTIONAL SKIPS TO REVIEW
+${datasetPromptList(skippedActions.map((action) => ({
+    label: `${action.segment}: ${action.type} ${action.target}`.trim(),
+    reason: action.error || "Optional step skipped during dry-run",
+    risk: "medium"
+  })))}
+
+CURRENT NETSUITE PREP SUMMARY FROM THE SC GUIDE
+${markdownSection(guide, "NetSuite Prep Summary") || "No NetSuite Prep Summary section found."}
+
+TASK
+1. Open or use the existing NetSuite browser session for the target account.
+2. Confirm front-end and back-end NetSuite access.
+3. Inspect whether the missing data and customizations already exist.
+4. Produce a gap list: existing, missing, risky, not required.
+5. Ask the user to confirm exactly what should be created or changed.
+6. After confirmation, create only the approved items.
+7. Keep everything aligned to the dry-run story and demo scope.
+8. Prefer standard NetSuite objects, standard reports, standard dashboards, and minimal demo data.
+9. Avoid custom reports or custom configuration unless the dataset analysis clearly requires it.
+10. Summarize what was checked or created and which dry-run segment it supports.
+
+DRY-RUN LOG EXCERPT
+${String(runLog || "").slice(0, 7000)}
+`;
+}
+
+function datasetPromptList(items) {
+  const list = (items || []).filter(Boolean);
+  if (!list.length) return "- None detected.";
+  return list.map((item, index) => `${index + 1}. ${item.label || item.target || "Dataset item"}${item.risk ? ` (${item.risk} risk)` : ""}
+   - Reason: ${item.reason || item.error || "Needs inspection."}
+   - Source: ${item.source || item.segment || "dataset analysis"}`).join("\n");
+}
+
+function runCachePathForManifest(manifest) {
+  return path.resolve(projectRoot, manifest.defaults?.cache?.file || "artifacts/cache/demo-cache.json");
+}
+
+async function readRunCache(manifest) {
+  return JSON.parse(await readFile(runCachePathForManifest(manifest), "utf8"));
+}
+
+async function saveDatasetAnalysis(analysis) {
+  const dir = path.join(projectRoot, "artifacts/dataset-analysis");
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, `${analysis.companySlug || "netsuite-demo"}-latest.json`);
+  await writeFile(file, `${JSON.stringify({ ...analysis, latestFile: file }, null, 2)}\n`, "utf8");
+  await mkdir(path.dirname(analysis.promptFile), { recursive: true });
+  await writeFile(analysis.promptFile, analysis.codexPrompt, "utf8");
+}
+
+async function readLatestDatasetAnalysis() {
+  const manifest = await readManifest();
+  const file = path.join(projectRoot, "artifacts/dataset-analysis", `${companyFileSlug(manifest)}-latest.json`);
+  try {
+    return JSON.parse(await readFile(file, "utf8"));
+  } catch {
+    const guide = await readOrGenerateScGuide(manifest);
+    const setupPayload = setupPromptPayload(manifest, guide);
+    const analysis = buildDatasetAnalysisPayload({
+      manifest,
+      guide,
+      setupPayload,
+      prep: { file: "" },
+      run: { ok: false, log: "Dataset analysis has not been run yet." },
+      cache: null,
+      namedManifestPath: "",
+      promptCreatedAt: ""
+    });
+    await saveDatasetAnalysis(analysis);
+    return analysis;
+  }
+}
+
+async function refreshRunnableManifestForRun(runSource) {
+  const manifest = await readManifest();
+  const guide = await readOrGenerateScGuide(manifest);
+  const nextManifest = applyDryRunCreationPromptToRunnableManifest(manifest, guide, { runSource });
+  await writeFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`, "utf8");
+  const namedManifestPath = await writeNamedManifestCopy(nextManifest);
+  return {
+    manifest: nextManifest,
+    namedManifestPath,
+    promptCreatedAt: nextManifest.context?.dryRunCreationPrompt?.createdAt || ""
+  };
 }
 
 async function prepareAccountBuffer() {
@@ -5860,6 +8184,7 @@ function escapeHtml(text) {
 }
 
 function html(response) {
+  const defaultPrepData = defaultTestPrepData();
   response.writeHead(200, { "content-type": "text/html" });
   response.end(`<!doctype html>
 <html lang="en">
@@ -6097,6 +8422,20 @@ function html(response) {
     button.secondary {
       background: white;
       color: var(--accent-dark);
+    }
+    a.button-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 8px 10px;
+      text-decoration: none;
+      font-weight: 750;
+      font-size: 12px;
+      background: white;
+      color: var(--accent-dark);
+      white-space: nowrap;
     }
     button.ai-action-active,
     button.secondary.ai-action-active {
@@ -6751,6 +9090,44 @@ function html(response) {
       font-size: 13px;
       line-height: 1.4;
     }
+    .website-context-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+      padding: 12px;
+    }
+    body.night .website-context-card { background: #0b1218; }
+    .website-context-card h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: var(--accent-dark);
+    }
+    .website-context-card p {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .website-context-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .website-context-list {
+      margin: 6px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .website-context-alert {
+      border-color: #f2c36b;
+      background: #fff8e8;
+    }
+    body.night .website-context-alert {
+      background: #241b0b;
+    }
     .intelligence-card-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
@@ -7034,6 +9411,32 @@ function html(response) {
       line-height: 1.35;
     }
     .cms-history-item:last-child { border-bottom: 0; }
+    .api-instruction-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      max-height: 360px;
+      overflow: auto;
+    }
+    .api-instruction-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfcfd;
+    }
+    body.night .api-instruction-item { background: #0b1218; }
+    .api-instruction-item strong {
+      display: block;
+      font-size: 13px;
+    }
+    .api-instruction-item span {
+      color: var(--muted);
+      font-size: 12px;
+    }
     .tabs {
       display: flex;
       gap: 8px;
@@ -7063,10 +9466,12 @@ function html(response) {
     .prep-grid {
       grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr);
       grid-template-areas:
-        "instructions scope"
-        "audience voice"
-        "audience narrator"
-        "audience actions"
+        "scope scope"
+        "audience audience"
+        "actions actions"
+        "instructions instructions"
+        "voice voice"
+        "narrator narrator"
         "how how";
       align-items: start;
     }
@@ -7081,6 +9486,12 @@ function html(response) {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0 16px;
+    }
+    .scope-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(190px, .48fr);
+      gap: 12px;
+      align-items: start;
     }
     .field-full { grid-column: 1 / -1; }
     .panel {
@@ -7116,6 +9527,92 @@ function html(response) {
       font-size: 12px;
       line-height: 1.35;
     }
+    .persona-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .persona-preview-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+      padding: 12px;
+      min-height: 210px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    body.night .persona-preview-card { background: #0b1218; }
+    .persona-preview-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--accent);
+      opacity: .8;
+    }
+    .persona-preview-card h3 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+      padding-left: 2px;
+    }
+    .persona-role {
+      margin: -4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .persona-preview-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.42;
+    }
+    .persona-preview-card strong {
+      color: var(--ink);
+    }
+    .persona-preview-card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .persona-preview-card li + li { margin-top: 4px; }
+    .win-strategy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .win-strategy-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+      padding: 13px;
+      display: grid;
+      gap: 9px;
+      min-height: 210px;
+    }
+    body.night .win-strategy-card { background: #0b1218; }
+    .win-strategy-card h3 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.28;
+    }
+    .win-strategy-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.42;
+    }
+    .win-strategy-card strong { color: var(--ink); }
     .full { grid-column: 1 / -1; }
     .narrator-card {
       display: grid;
@@ -7389,20 +9886,269 @@ function html(response) {
       min-height: 280px;
       font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
+    #dryRunCreationPrompt {
+      min-height: 300px;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .guide-prompt-details {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfd;
+    }
+    body.night .guide-prompt-details { background: #0b1218; }
+    .guide-prompt-details summary {
+      cursor: pointer;
+      font-weight: 850;
+      color: var(--accent-dark);
+    }
+    .pre-demo-dashboard {
+      display: grid;
+      gap: 18px;
+    }
+    .pre-demo-intel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+      gap: 12px;
+    }
+    .pre-demo-score-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px;
+      background: #fbfcfd;
+    }
+    body.night .pre-demo-score-card { background: #0b1218; }
+    .pre-demo-score-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .follow-up-toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .follow-up-comments {
+      display: grid;
+      gap: 8px;
+      margin: 8px 0 14px;
+    }
+    .follow-up-comments textarea {
+      min-height: 88px;
+      resize: vertical;
+    }
+    .follow-up-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .follow-up-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px;
+      background: #fbfcfd;
+      min-height: 150px;
+      display: grid;
+      gap: 8px;
+    }
+    body.night .follow-up-card { background: #0b1218; }
+    .follow-up-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+    .follow-up-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #e9f7f4;
+      color: var(--accent-dark);
+      font-weight: 850;
+      font-size: 12px;
+    }
+    body.night .follow-up-number { background: #12322f; }
+    .follow-up-question {
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.35;
+    }
+    .follow-up-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      margin: 0;
+    }
+    .follow-up-support-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .follow-up-markdown {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #f7fafb;
+    }
+    body.night .follow-up-markdown { background: #091017; }
+    .follow-up-markdown pre {
+      margin: 8px 0 0;
+      white-space: pre-wrap;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--muted);
+      max-height: 320px;
+      overflow: auto;
+    }
+    .dataset-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 160px;
+      gap: 18px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 18px;
+      background: linear-gradient(135deg, #f8fcfb 0%, #eef7f4 100%);
+    }
+    body.night .dataset-hero { background: linear-gradient(135deg, #0b1218 0%, #10222a 100%); }
+    .dataset-score {
+      text-align: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      background: rgba(255,255,255,.76);
+    }
+    body.night .dataset-score { background: rgba(8, 14, 20, .68); }
+    .dataset-score strong {
+      display: block;
+      font-size: 36px;
+      line-height: 1;
+      color: var(--accent-dark);
+    }
+    .dataset-score span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    .dataset-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+      gap: 12px;
+    }
+    .dataset-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfd;
+      min-height: 132px;
+    }
+    body.night .dataset-card { background: #0b1218; }
+    .dataset-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .dataset-card ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    #datasetPrompt {
+      min-height: 320px;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .page-load-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin: -4px 0 14px;
+      min-height: 26px;
+    }
+    .page-load-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: #fbfcfd;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+    body.night .page-load-info { background: #0b1218; }
+    .page-load-info.stale {
+      border-color: #f2a7a7;
+      background: #fff5f5;
+      color: #b42318;
+    }
+    body.night .page-load-info.stale {
+      border-color: #6f1d1d;
+      background: #2a1010;
+      color: #ffb4a8;
+    }
+    .page-load-info::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: .75;
+    }
+    .page-load-info.stale::before {
+      background: #d92d20;
+      opacity: 1;
+    }
+    .live-demo-disabled [data-live-demo-only] {
+      display: none !important;
+    }
+    .feature-toggle-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fbfcfd;
+      margin-top: 12px;
+    }
+    body.night .feature-toggle-card { background: #0b1218; }
+    .feature-toggle-card label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      font-weight: 850;
+      color: var(--text);
+    }
+    .feature-toggle-card input {
+      width: auto;
+      transform: scale(1.12);
+    }
     @media (max-width: 880px) {
       .grid { grid-template-columns: 1fr; }
       .prep-grid {
         grid-template-columns: 1fr;
         grid-template-areas:
-          "instructions"
           "scope"
           "audience"
+          "actions"
+          "instructions"
           "voice"
           "narrator"
-          "actions"
           "how";
       }
       .field-grid { grid-template-columns: 1fr; }
+      .scope-grid { grid-template-columns: 1fr; }
       .intelligence-overview-grid,
       .intel-summary,
       .priority-intelligence-grid,
@@ -7414,7 +10160,7 @@ function html(response) {
     }
   </style>
 </head>
-  <body>
+  <body class="${liveDemoFunctionalityEnabled ? "" : "live-demo-disabled"}">
     <header>
       <h1>NetSuite Demo Helper</h1>
       <div class="header-actions">
@@ -7430,26 +10176,30 @@ function html(response) {
       </div>
     </header>
   <nav class="tabs" aria-label="Workspace screens">
-    <button class="tab active" data-tab="prep" data-help="Set up the audience, company context, demo input, notes, voice, and demo value emphasis.">Prep</button>
-    <button class="tab" data-tab="guide" data-help="Review the personalized SC demo story, setup prompt, and export it to Word.">SC Guide</button>
-    <button class="tab" data-tab="intelligence" data-help="Review demo quality, risks, discovery gaps, stakeholder coverage, winning moments, and coaching recommendations.">Intelligence</button>
-    <button class="tab" data-tab="manifest" data-help="Review or edit the dry-run manifest that drives the browser rehearsal.">Dry-Run</button>
-    <button class="tab" data-tab="run" data-help="Open NetSuite, dry run, rehearse, run the live demo, or stop an active run.">Run</button>
-    <button class="tab" data-tab="admin" data-help="Protected admin area for editing shared helper text, demo logic, sources, and playbooks with version history.">Admin</button>
-  </nav>
+    <button class="tab active" data-tab="prep" data-help="Enter the customer website, audience, scope, demo request, pre-demo notes, narration voice, and generator instructions before creating anything.">Prep</button>
+    <button class="tab" data-tab="guide" data-help="Review the Codex-created SC story, setup prompt, asset prompt, and Dry-run creation prompt. Export the SC guide to Word from here.">SC Guide</button>
+    <button class="tab" data-tab="pre-demo-intelligence" data-help="Check whether the pre-demo notes are strong enough. This page scores discovery quality, shows missing context, generates follow-up questions, and exports them to Word.">Pre-Demo Intelligence</button>
+    <button class="tab" data-tab="intelligence" data-help="Review the generated demo and SC guide for risks, pacing, stakeholder coverage, winning moments, and suggested improvements.">Demo Intelligence</button>
+    <button class="tab" data-tab="manifest" data-live-demo-only data-help="Review or edit the runnable dry-run manifest created from the SC Guide tab's Dry-run creation prompt.">Dry-Run</button>
+    <button class="tab" data-tab="dataset" data-live-demo-only data-help="Run the dry-run through the browser and score whether the NetSuite dataset, permissions, and demo setup are ready.">Dataset Analysis</button>
+    <button class="tab" data-tab="run" data-live-demo-only data-help="Prepare NetSuite, buffer the dry-run, run the narrated live demo, or stop an active browser automation.">Run</button>
+    <button class="tab" data-tab="admin" data-help="Edit shared helper guidance, demo logic sources, labels, playbooks, and versioned CMS content.">Admin</button>
+    </nav>
   <main>
     <section class="screen active" id="screen-prep">
       <div class="grid prep-grid">
-        <div class="panel prep-instructions">
-          <h2>SC Demo Instructions</h2>
-          <label for="instructions">What the demo generator should always do and avoid</label>
-          <textarea id="instructions" style="min-height:95px">${escapeHtml(defaultScInstructions())}</textarea>
-        </div>
-
         <div class="panel prep-scope">
           <h2>Demo Scope</h2>
-          <label for="demoScope">What should this demo cover?</label>
-          <textarea id="demoScope" style="min-height:95px" placeholder="Example: financials first services SKU, P2P phase 2, fixed assets, FP&A, advanced inventory."></textarea>
+          <div class="scope-grid">
+            <div>
+              <label for="demoScope">What should this demo cover?</label>
+              <textarea id="demoScope" style="min-height:95px" placeholder="Example: financials first services SKU, P2P phase 2, fixed assets, FP&A, advanced inventory.">${escapeHtml(defaultPrepData.demoScope)}</textarea>
+            </div>
+            <div>
+              <label for="competition">Competition</label>
+              <textarea id="competition" style="min-height:95px" placeholder="Example: SAP, Microsoft Dynamics, Sage, current ERP, spreadsheet/status quo.">${escapeHtml(defaultPrepData.competition)}</textarea>
+            </div>
+          </div>
           <p class="hint">This is treated as a planning rule even when the notes do not mention it.</p>
         </div>
 
@@ -7490,7 +10240,7 @@ function html(response) {
 
             <div class="field">
               <label for="companyUrl">Company website</label>
-              <input id="companyUrl" placeholder="https://www.example.com">
+              <input id="companyUrl" value="${escapeHtml(defaultPrepData.companyUrl)}" placeholder="https://www.example.com">
             </div>
 
             <div class="field">
@@ -7519,17 +10269,24 @@ function html(response) {
 
             <div class="field field-full">
               <label for="topic">Demo request</label>
-              <textarea id="topic" style="min-height:135px">Finance demo for a prospect: standard income statement, filters, drilldown, export, and the next in-scope finance proof point.</textarea>
+              <textarea id="topic" style="min-height:135px">${escapeHtml(defaultPrepData.topic)}</textarea>
             </div>
 
             <div class="field field-full">
               <label for="preDemoNotes">Pre-demo notes</label>
-              <textarea id="preDemoNotes" style="min-height:170px" placeholder="Paste discovery notes, pain points, role notes, current systems, concerns, and success criteria."></textarea>
+              <textarea id="preDemoNotes" style="min-height:170px" placeholder="Paste discovery notes, pain points, role notes, current systems, concerns, and success criteria.">${escapeHtml(defaultPrepData.preDemoNotes)}</textarea>
             </div>
           </div>
         </div>
 
-        <div class="panel prep-voice">
+        <div class="panel prep-instructions">
+          <h2>SC Demo Instructions</h2>
+          <label for="instructions">What the demo generator should always do and avoid</label>
+          <textarea id="instructions" style="min-height:86px" readonly>${escapeHtml(defaultScInstructions())}</textarea>
+          <p class="hint">Shared generation guidance is managed in Admin and sent into Codex when the demo is created.</p>
+        </div>
+
+        <div class="panel prep-voice" data-live-demo-only>
           <h2>Narrator Voice</h2>
           <label for="voiceProvider">Narration engine</label>
           <select id="voiceProvider">
@@ -7547,7 +10304,7 @@ function html(response) {
             <label for="voiceSelect">Voice</label>
           <select id="voiceSelect"></select>
           <div class="row" style="margin-top:10px">
-            <button class="secondary" id="sampleVoice" data-help="Plays a short sample line using the selected local narrator voice.">Play Sample</button>
+            <button class="secondary" id="sampleVoice" data-help="Plays a short sample line with the selected narration engine and voice.">Play Sample</button>
           </div>
 
           <label for="intensity">Demo value emphasis</label>
@@ -7559,7 +10316,7 @@ function html(response) {
           <p class="hint">Controls how often the generated demo connects what is shown to business value for the audience.</p>
         </div>
 
-        <div class="panel narrator-card prep-narrator">
+        <div class="panel narrator-card prep-narrator" data-live-demo-only>
           ${presenterAvatarHtml("avatar")}
           <div>
             <h2 id="narratorName">Narrator</h2>
@@ -7571,11 +10328,12 @@ function html(response) {
 
         <div class="panel prep-actions">
           <div class="row">
-            <button id="learn" data-help="Checks the company website, applies your instructions and notes, then creates a fresh manifest and SC guide.">Learn / Create Demo</button>
-            <button id="learnDryRun" data-help="Creates the SC guide, creates the runnable browser manifest, and then performs a browser dry-run. This takes longer because it validates the click-through path.">Learn / Create Demo & Dry-Run</button>
-            <button class="secondary" id="reload" data-help="Reloads the latest saved manifest and guide without changing anything.">Reload</button>
+            <button class="secondary" id="preDemoScoring" data-help="Scores only the current pre-demo inputs so the SC can see discovery gaps before creating the SC guide or demo.">Pre-demo scoring</button>
+            <button id="learn" data-help="Uses Codex to analyze the Prep inputs, create the SC guide, and populate both intelligence pages. It does not start a browser dry-run.">Learn / Create Demo</button>
+            <button id="learnDryRun" data-live-demo-only data-help="Uses Codex to create the SC guide, creates the Dry-run creation prompt, builds the runnable dry-run manifest from that prompt, and starts the browser dry-run.">Learn / Create Demo & Dry-Run</button>
+            <button class="secondary" id="reload" data-help="Reloads the latest saved manifest, SC guide, setup prompt, and intelligence outputs without generating anything new.">Reload</button>
           </div>
-          <p class="hint">Learn / Create Demo uses Codex to create the SC guide and Intelligence view. Learn / Create Demo & Dry-Run also creates the runnable manifest and opens the browser dry-run, so it is more time consuming.</p>
+          <p class="hint">Pre-demo scoring checks the notes first. Learn / Create Demo uses Codex to create the SC guide and both intelligence views. <span data-live-demo-only>Learn / Create Demo & Dry-Run also builds the runnable manifest from the Dry-run creation prompt and opens the browser dry-run, so it is more time consuming.</span></p>
         </div>
 
         <div class="panel full prep-how">
@@ -7590,10 +10348,11 @@ function html(response) {
     </section>
 
     <section class="screen" id="screen-manifest">
+      <div class="page-load-bar"><span class="page-load-info" data-page-loaded="manifest">Last loaded: not yet</span></div>
       <div class="row">
-        <button id="save" data-help="Saves the JSON currently shown in the manifest editor.">Save Manifest</button>
-        <button class="secondary" id="createManifestFromGuide" data-help="Refreshes the runnable manifest from the current SC guide and marks it ready for browser dry-run.">Create Manifest From SC Guide</button>
-        <button class="secondary" id="reloadManifest" data-help="Reloads the saved manifest from disk and discards unsaved editor changes.">Reload Manifest</button>
+        <button id="save" data-help="Saves the JSON currently shown in the dry-run manifest editor.">Save Manifest</button>
+        <button class="secondary" id="createManifestFromGuide" data-help="Creates or refreshes the runnable dry-run manifest from the Dry-run creation prompt on the SC Guide page.">Create Dry-Run From Prompt</button>
+        <button class="secondary" id="reloadManifest" data-help="Reloads the saved dry-run manifest from disk and discards unsaved editor changes.">Reload Manifest</button>
       </div>
       <label for="manifestEditor">Editable manifest</label>
       <textarea id="manifestEditor" spellcheck="false"></textarea>
@@ -7607,6 +10366,7 @@ function html(response) {
     </section>
 
     <section class="screen" id="screen-guide">
+      <div class="page-load-bar"><span class="page-load-info" data-page-loaded="guide">Last loaded: not yet</span></div>
       <div class="row">
         <button id="exportGuide" data-help="Creates a Word document version of the SC guide and downloads it.">Export To Word</button>
       </div>
@@ -7625,6 +10385,7 @@ function html(response) {
       <textarea id="scGuide" spellcheck="false" readonly hidden></textarea>
       <div class="band">
         <h2>NetSuite Customization / Setup Prompt</h2>
+        <p class="hint">Generated after the Personalized SC story and runbook is available, so account setup follows the finished demo story instead of driving it.</p>
         <p class="hint" id="setupAccountSummary">Target account will appear after a demo is generated.</p>
         <p class="hint" id="setupItemSummary">Setup items will appear here when the helper detects data or configuration that may need to be created.</p>
         <p class="hint" id="setupPromptSource">Source will appear after the setup prompt loads.</p>
@@ -7634,9 +10395,17 @@ function html(response) {
           <button id="executeSetupPrompt" data-help="After confirmation, opens the NetSuite browser, copies the setup prompt, and opens Codex for the account setup handoff.">Execute Now</button>
         </div>
       </div>
+      <details class="guide-prompt-details" data-live-demo-only>
+        <summary>Dry-run creation prompt</summary>
+        <p class="hint">Generated after the Personalized SC story and runbook is available. The helper uses it to create the browser dry-run manifest, and Run page actions confirm its timestamp before using it.</p>
+        <p class="hint" id="dryRunCreationPromptSource">Source will appear after the guide loads.</p>
+        <label for="dryRunCreationPrompt">Prompt for creating the dry-run</label>
+        <textarea id="dryRunCreationPrompt" spellcheck="false" readonly></textarea>
+      </details>
     </section>
 
     <section class="screen" id="screen-intelligence">
+      <div class="page-load-bar"><span class="page-load-info" data-page-loaded="intelligence">Last loaded: not yet</span></div>
       <div class="intelligence-dashboard">
         <section class="readiness-hero" id="readinessHero">
           <div>
@@ -7675,6 +10444,7 @@ function html(response) {
             </div>
           </div>
           <div class="briefing-grid" id="scBriefing"></div>
+          <div id="demoWebsiteContext" style="margin-top:12px"></div>
         </section>
 
         <section class="dashboard-section">
@@ -7683,7 +10453,7 @@ function html(response) {
               <h2>Intelligence Areas</h2>
               <p>Click a card to shrink the grid and focus on the detailed coaching panel below.</p>
             </div>
-            <button class="secondary" id="toggleIntelligenceCards" data-help="Switches the Intelligence Areas between full cards and a compact selector view.">Compact Cards</button>
+            <button class="secondary" id="toggleIntelligenceCards" data-help="Collapses or expands the Intelligence Areas cards so the detail panel is easier to read.">Compact Cards</button>
           </div>
           <div class="intelligence-card-grid" id="intelligenceCardGrid"></div>
         </section>
@@ -7692,19 +10462,19 @@ function html(response) {
           <p class="hint">Choose an intelligence card to see the detailed analysis.</p>
         </section>
 
-        <section class="dashboard-section">
+        <section class="dashboard-section" id="demoIntelligenceAiActions" data-live-demo-only>
           <div class="ai-actions-bar">
             <div>
               <h2 style="margin:0">AI Actions</h2>
               <p class="hint">Use these after reviewing the Intelligence Areas. Guide actions can be edited before they are applied.</p>
             </div>
             <div class="ai-actions-buttons">
-              <button class="secondary" id="createFollowUps" data-ai-action-button data-help="Runs a background Codex discovery operator across the company website context, prep notes, demo request, scope, SC guide, and Intelligence to find what is truly missing before demo prep.">Generate Discovery Follow-Up Questions</button>
-              <button class="secondary" id="compressDemo" data-ai-action-button data-help="Creates an editable shorter demo flow based on timing, risks, and strongest proof moments.">Shorten Demo</button>
-              <button class="secondary" id="generateExecutiveVersion" data-ai-action-button data-help="Creates an editable executive-facing demo flow with fewer clicks and stronger business outcomes.">Generate Executive Demo</button>
-              <button class="secondary" id="rebuildTechnicalAudience" data-ai-action-button data-help="Creates an editable technical-audience demo flow with security, integration, data, and admin validation points.">Generate Tech-Audience Demo</button>
-              <button class="secondary" id="improveGuideFromIntel" data-ai-action-button data-help="Immediately applies all visible Intelligence recommendations, risks, guardrails, and improvement ideas to the SC guide in one step.">Apply All Recommendations To SC Guide</button>
-              <button class="secondary" id="refreshIntelligence" data-ai-action-button data-help="Re-analyzes the current saved SC guide and manifest after you apply a shortened, executive, or technical demo version.">Re-analyze Updated Guide</button>
+              <button class="secondary" id="createFollowUps" data-ai-action-button data-help="Uses Codex to create discovery follow-up questions from the website context, Prep notes, scope, SC guide, and current Intelligence. The questions also appear on Pre-Demo Intelligence.">Generate Discovery Follow-Up Questions</button>
+              <button class="secondary" id="compressDemo" data-ai-action-button data-help="Creates an editable shorter version of the demo based on timing risk, weak sections, and the strongest proof moments.">Shorten Demo</button>
+              <button class="secondary" id="generateExecutiveVersion" data-ai-action-button data-help="Creates an editable executive-facing demo version with fewer clicks, clearer business outcomes, and stronger leadership framing.">Generate Executive Demo</button>
+              <button class="secondary" id="rebuildTechnicalAudience" data-ai-action-button data-help="Creates an editable technical-audience demo version focused on security, integrations, permissions, data flow, and admin validation points.">Generate Tech-Audience Demo</button>
+              <button class="secondary" id="improveGuideFromIntel" data-ai-action-button data-help="Uses Codex to apply all visible Intelligence recommendations to the SC guide in one pass.">Apply All Recommendations To SC Guide</button>
+              <button class="secondary" id="refreshIntelligence" data-ai-action-button data-help="Re-runs Demo Intelligence against the latest saved SC guide and dry-run manifest after you apply edits.">Re-analyze Updated Guide</button>
             </div>
           </div>
           <p class="ai-action-explainer">Follow-up questions run a Codex background operator and are for discovery only. Shorten, executive, technical, and custom actions create editable text below; the SC guide changes only when you apply that edited output. Re-analyze Updated Guide refreshes the insights after the guide has changed.</p>
@@ -7721,8 +10491,29 @@ function html(response) {
           </div>
           <textarea id="intelligenceActionOutput" spellcheck="false" placeholder="AI output will appear here. Guide-action previews can be edited before applying them." style="min-height:120px;margin-top:12px"></textarea>
           <div class="row" style="margin-top:10px">
-            <button class="secondary" id="applyAiActionToGuide" disabled data-help="Applies the text currently shown in this box to the SC guide and refreshes Intelligence.">Apply Edited Output To SC Guide</button>
+            <button class="secondary" id="applyAiActionToGuide" disabled data-help="Applies the editable output above to the SC guide, then refreshes Demo Intelligence and Pre-Demo Intelligence.">Apply Edited Output To SC Guide</button>
           </div>
+        </section>
+
+        <section class="dashboard-section" id="demoIntelligencePersonas">
+          <div class="section-head">
+            <div>
+              <h2>Stakeholder Personas</h2>
+              <p>Who the demo needs to land with, why their day-to-day improves, and what NetSuite proof point should stand out for each person.</p>
+            </div>
+          </div>
+          <div class="persona-preview-grid" id="intelligencePersonaCards"></div>
+        </section>
+
+        <section class="dashboard-section" id="winStrategySection">
+          <div class="section-head">
+            <div>
+              <h2>Win Strategy</h2>
+              <p>Three practical positioning angles based on the notes, scope, website context, and competition or status quo.</p>
+            </div>
+          </div>
+          <div id="winStrategySummary" class="hint"></div>
+          <div class="win-strategy-grid" id="winStrategyCards"></div>
         </section>
 
         <details class="dashboard-section" id="competitiveAdvisory">
@@ -7733,17 +10524,124 @@ function html(response) {
       </div>
     </section>
 
+    <section class="screen" id="screen-pre-demo-intelligence">
+      <div class="page-load-bar"><span class="page-load-info" data-page-loaded="pre-demo-intelligence">Last loaded: not yet</span></div>
+      <div class="pre-demo-dashboard">
+        <section class="readiness-hero">
+          <div>
+            <p class="hero-eyebrow">Pre-Demo Intelligence</p>
+            <h2 id="preDemoReadinessTitle">Pre-demo notes readiness</h2>
+            <p class="hero-subline" id="preDemoReadinessSubtitle">Use Codex to score the current pre-demo notes before generating a full SC guide.</p>
+            <div class="insight-badges" id="preDemoReadinessBadges"></div>
+          </div>
+          <div class="readiness-score">
+            <div class="score-number" id="preDemoReadinessScore">-</div>
+            <div class="score-caption">Notes score</div>
+          </div>
+        </section>
+
+        <section class="dashboard-section">
+          <div class="section-head">
+            <div>
+              <h2>Website Summary</h2>
+              <p>Signals scanned from the company website and any alignment checks against the pre-demo notes.</p>
+            </div>
+          </div>
+          <div id="preDemoWebsiteContext"></div>
+        </section>
+
+        <section class="dashboard-section">
+          <div class="section-head">
+            <div>
+              <h2>Pre-Demo Scoring</h2>
+              <p>This Codex-backed view ignores the generated demo and focuses only on discovery quality, gaps, and readiness.</p>
+            </div>
+            <button class="secondary" id="refreshPreDemoScoring" data-help="Uses Codex to re-score the current Prep inputs only, without regenerating the SC guide or full Demo Intelligence.">Refresh Pre-Demo Scoring</button>
+          </div>
+          <div class="pre-demo-intel-grid" id="preDemoIntelGrid"></div>
+        </section>
+
+        <section class="dashboard-section">
+          <div class="section-head">
+            <div>
+              <h2>Discovery Quality</h2>
+              <p id="preDemoHeatmapRecommendation">Review the weakest note areas before creating the demo.</p>
+            </div>
+          </div>
+          <div id="preDemoHeatmap" class="simple-heatmap-grid"></div>
+        </section>
+
+        <section class="dashboard-section">
+          <div class="section-head">
+            <div>
+              <h2>Recommended Follow-Up Questions</h2>
+              <p>Use these to strengthen discovery before asking Codex to create the SC guide. Add SC context when you want Codex to tailor the question set more tightly.</p>
+            </div>
+            <div class="follow-up-toolbar">
+              <button class="secondary" id="generatePreDemoFollowUps" data-help="Uses Codex to turn the current Prep inputs and additional comments into targeted discovery follow-up questions.">Generate With Codex</button>
+              <button class="secondary" id="exportPreDemoFollowUps" data-help="Exports the visible follow-up questions, missing discovery items, covered topics, and additional comments to a Word document.">Export To Word</button>
+            </div>
+          </div>
+          <div class="follow-up-comments">
+            <label for="followUpQuestionComments">Additional comments for follow-up questions</label>
+            <textarea id="followUpQuestionComments" placeholder="Add anything Codex should consider when shaping discovery questions, such as open deal risks, known stakeholder concerns, competitor context, or topics you do not want to ask again."></textarea>
+          </div>
+          <div id="preDemoFollowUps"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-dataset">
+      <div class="page-load-bar"><span class="page-load-info" data-page-loaded="dataset">Last loaded: not yet</span></div>
+      <div class="grid">
+        <div class="panel full">
+          <section class="dataset-hero">
+            <div>
+              <p class="hero-eyebrow">Dataset Analysis</p>
+              <h2 id="datasetTitle">Dataset readiness has not been checked yet</h2>
+              <p class="hero-subline" id="datasetSummary">Run this after the SC guide and dry-run prompt exist. The helper opens NetSuite, waits for login if needed, runs the dry-run path, then scores missing data, permissions, and customization needs.</p>
+              <div class="row" style="margin-top:12px">
+                <button id="runDatasetAnalysis" data-help="Opens or reuses the NetSuite browser, lets the SC login if needed, runs the dry-run path without narration, and scores dataset preparation.">Run Dataset Analysis</button>
+                <button class="secondary" id="executeDatasetPrompt" disabled data-help="Copies the dataset setup prompt, opens NetSuite and Codex, and prepares a Codex handoff for approved account setup work.">Execute Dataset Prompt In Codex</button>
+                <button class="danger" id="stopDatasetRun" data-help="Stops the currently running browser dry-run used by Dataset Analysis.">Stop Browser Run</button>
+              </div>
+            </div>
+            <div class="dataset-score">
+              <strong id="datasetScore">-</strong>
+              <span id="datasetReadinessLabel">Not checked</span>
+            </div>
+          </section>
+        </div>
+
+        <div class="panel full">
+          <h2>Readiness Findings</h2>
+          <div class="dataset-card-grid" id="datasetFindings"></div>
+        </div>
+
+        <div class="panel full">
+          <h2>Codex Setup Prompt</h2>
+          <p class="hint">Use this only after the SC confirms the target NetSuite account and the exact data/customizations to prepare. The prompt explicitly tells Codex it must verify front-end and back-end NetSuite access before doing write actions.</p>
+          <textarea id="datasetPrompt" readonly spellcheck="false" placeholder="Run Dataset Analysis to generate the Codex setup prompt."></textarea>
+        </div>
+
+        <div class="panel full">
+          <h2>Dry-Run Evidence</h2>
+          <div id="datasetEvidence" class="status">No dataset run has been captured yet.</div>
+        </div>
+      </div>
+    </section>
+
     <section class="screen" id="screen-run">
       <div class="grid">
         <div class="panel">
           <h2>Run Controls</h2>
           <div class="row">
-            <button class="secondary" id="openBrowser" data-help="Refreshes the dry-run manifest from the SC guide, prepares the buffer, and opens NetSuite so the user can log in.">Dry-Run Prep</button>
-            <button class="secondary" data-run="buffer-dry-run" data-help="Opens or reuses the NetSuite browser and clicks through the saved dry-run manifest without narration.">Buffer Dry-Run</button>
-            <button data-run="live" data-help="Runs the full NetSuite automation with narrator audio using the selected voice.">Live Demo</button>
+            <button class="secondary" id="openBrowser" data-help="Confirms the Dry-run creation prompt timestamp, rebuilds the manifest from that prompt, prepares the buffer, and opens NetSuite so the SC can log in.">Dry-Run Prep</button>
+            <button class="secondary" data-run="buffer-dry-run" data-help="Confirms the Dry-run creation prompt timestamp, refreshes the prompt-built manifest, and clicks through it without narration.">Buffer Dry-Run</button>
+            <button data-run="live" data-help="Confirms the Dry-run creation prompt timestamp, refreshes the prompt-built manifest, and runs the full browser automation with narrator audio.">Live Demo</button>
             <button class="danger" id="stopRun" disabled data-help="Stops the currently running demo automation.">Stop</button>
           </div>
-          <p class="hint">Use Dry-Run Prep first to create the dry-run manifest and open NetSuite for login. Buffer Dry-Run clicks through the manifest without narration. Live Demo uses the same manifest with narration.</p>
+          <p class="hint">Use Dry-Run Prep first to create the dry-run manifest from the Dry-run creation prompt and open NetSuite for login. Buffer Dry-Run clicks through the prompt-built manifest without narration. Live Demo uses the same prompt-built manifest with narration.</p>
         </div>
 
         <div class="panel narrator-card">
@@ -7767,7 +10665,7 @@ function html(response) {
       <div class="grid">
         <div class="panel full">
           <h2>Admin</h2>
-          <p class="hint">Protected local admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, and additional demo logic sources. Active sources are matched to the demo context and included when the helper creates the manifest and SC guide. Passwords are stored as salted scrypt hashes and every CMS save creates a rollback version.</p>
+          <p class="hint">Protected local admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, additional demo logic sources, and the Codex rules behind the SC story, asset prompt, account setup prompt, and dry-run creation prompt. Active sources are matched to the demo context and included when the helper creates the manifest and SC guide. Passwords are stored as salted scrypt hashes and every CMS save creates a rollback version.</p>
           <div class="cms-auth-grid" id="cmsAuthArea">
             <div class="analysis-item" id="cmsSetupPanel" hidden>
               <strong>Create Admin Login</strong>
@@ -7795,6 +10693,13 @@ function html(response) {
               <div class="row" style="margin-top:10px">
                 <button class="secondary" id="cmsReloadButton">Reload CMS</button>
                 <button class="secondary" id="cmsLogoutButton">Logout</button>
+              </div>
+              <div class="feature-toggle-card">
+                <label for="liveDemoFunctionalityToggle">
+                  <input id="liveDemoFunctionalityToggle" type="checkbox">
+                  Live demo functionality
+                </label>
+                <p class="hint">Switch this off to hide narration, dry-run, dataset analysis, and Run controls. The helper will focus on Prep, SC Guide, and Intelligence only.</p>
               </div>
             </div>
           </div>
@@ -7831,6 +10736,17 @@ function html(response) {
               <p class="hint" id="cmsEditorHint">Text blocks save as plain text. Playbook blocks save as JSON and are validated before they become active.</p>
             </div>
           </div>
+        </div>
+
+        <div class="panel full">
+          <h2>Button/API JSON Instructions</h2>
+          <p class="hint">Generate downloadable JSON files that show which API endpoint each button calls and what example JSON body is sent. Runtime values still come from the current fields in the app.</p>
+          <div class="row">
+            <button class="secondary" id="generateButtonInstructionFiles" data-help="Creates one JSON file per API-driving button plus an index file, so you can download and inspect them.">Generate Button/API JSON Files</button>
+            <button class="secondary" id="reloadButtonInstructionFiles" data-help="Reloads the generated JSON instruction file list without changing app content.">Reload Instruction List</button>
+          </div>
+          <p class="hint" id="buttonInstructionStatus">Generate the files to see download links.</p>
+          <div class="api-instruction-list" id="buttonInstructionFiles"></div>
         </div>
       </div>
     </section>
@@ -7886,10 +10802,28 @@ function html(response) {
     const setupAccountSummary = document.getElementById("setupAccountSummary");
     const setupItemSummary = document.getElementById("setupItemSummary");
     const setupPromptSource = document.getElementById("setupPromptSource");
+    const dryRunCreationPrompt = document.getElementById("dryRunCreationPrompt");
+    const dryRunCreationPromptSource = document.getElementById("dryRunCreationPromptSource");
+    const preDemoIntelGrid = document.getElementById("preDemoIntelGrid");
+    const preDemoHeatmap = document.getElementById("preDemoHeatmap");
+    const preDemoFollowUps = document.getElementById("preDemoFollowUps");
+    const preDemoWebsiteContext = document.getElementById("preDemoWebsiteContext");
+    const demoWebsiteContext = document.getElementById("demoWebsiteContext");
+    const followUpQuestionComments = document.getElementById("followUpQuestionComments");
+    const datasetTitle = document.getElementById("datasetTitle");
+    const datasetSummary = document.getElementById("datasetSummary");
+    const datasetScore = document.getElementById("datasetScore");
+    const datasetReadinessLabel = document.getElementById("datasetReadinessLabel");
+    const datasetFindings = document.getElementById("datasetFindings");
+    const datasetPrompt = document.getElementById("datasetPrompt");
+    const datasetEvidence = document.getElementById("datasetEvidence");
+    const executeDatasetPromptButton = document.getElementById("executeDatasetPrompt");
     const intelligenceActionOutput = document.getElementById("intelligenceActionOutput");
     const customAiInstruction = document.getElementById("customAiInstruction");
     const applyAiActionToGuideButton = document.getElementById("applyAiActionToGuide");
     const intelligenceCardGrid = document.getElementById("intelligenceCardGrid");
+    const winStrategySummary = document.getElementById("winStrategySummary");
+    const winStrategyCards = document.getElementById("winStrategyCards");
     const toggleIntelligenceCardsButton = document.getElementById("toggleIntelligenceCards");
     const voiceSelect = document.getElementById("voiceSelect");
     const voiceProviderSelect = document.getElementById("voiceProvider");
@@ -7911,8 +10845,10 @@ function html(response) {
     const outputLanguageSelect = document.getElementById("outputLanguage");
     const nightModeToggle = document.getElementById("nightMode");
     const demoScopeField = document.getElementById("demoScope");
+    const competitionField = document.getElementById("competition");
     const topicField = document.getElementById("topic");
     const preDemoNotesField = document.getElementById("preDemoNotes");
+    const intelligencePersonaCards = document.getElementById("intelligencePersonaCards");
     const buttonHelpTooltip = document.getElementById("buttonHelpTooltip");
     const cmsSetupPanel = document.getElementById("cmsSetupPanel");
     const cmsLoginPanel = document.getElementById("cmsLoginPanel");
@@ -7927,12 +10863,16 @@ function html(response) {
     const cmsVersionSelect = document.getElementById("cmsVersionSelect");
     const cmsHistory = document.getElementById("cmsHistory");
     const cmsSecuritySummary = document.getElementById("cmsSecuritySummary");
+    const liveDemoFunctionalityToggle = document.getElementById("liveDemoFunctionalityToggle");
+    const buttonInstructionStatus = document.getElementById("buttonInstructionStatus");
+    const buttonInstructionFiles = document.getElementById("buttonInstructionFiles");
     const audienceTypeConfig = ${JSON.stringify(demoAudienceConfiguration.audienceTypes)};
     const targetAudienceConfig = ${JSON.stringify(demoAudienceConfiguration.targetAudiences)};
     const demoStrategyConfig = ${JSON.stringify(demoStrategies)};
     const industryConfig = ${JSON.stringify(industryPlaybooks)};
     const manifestDemoModeConfig = ${JSON.stringify(manifestDemoModes)};
     const outputLanguageConfig = ${JSON.stringify(Object.values(outputLanguages))};
+    const defaultPrepData = ${JSON.stringify(defaultPrepData)};
     const defaultAudienceType = ${JSON.stringify(defaultAudienceType)};
     const defaultTargetAudience = ${JSON.stringify(defaultTargetAudience)};
     const defaultOutputLanguage = ${JSON.stringify(defaultOutputLanguage)};
@@ -7941,6 +10881,7 @@ function html(response) {
     let runInProgress = false;
     let latestSetupPrompt = null;
     let latestIntelligence = null;
+    let latestPreDemoIntelligence = null;
     let pendingAiAction = null;
     let selectedIntelligenceCard = "risks";
     let intelligenceCardsCompact = false;
@@ -7953,7 +10894,15 @@ function html(response) {
     let latestCodexStatus = null;
     let latestCodexOperator = null;
     let latestIntelligenceSource = "";
+    let latestDryRunPromptCreatedAt = "";
+    let latestDryRunPromptPreviousCreatedAt = "";
+    let latestDryRunPromptIsCurrent = false;
+    let latestFollowUpQuestionsMarkdown = "";
+    let latestFollowUpQuestionCards = [];
+    let latestDatasetAnalysis = null;
     let prepDirtyForIntelligence = false;
+    let prepDirtyForPreDemoIntelligence = false;
+    let liveDemoFunctionalityEnabled = ${JSON.stringify(liveDemoFunctionalityEnabled)};
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -7980,12 +10929,15 @@ function html(response) {
         const payload = await api("/api/cms/status");
         renderCmsAuth(payload);
         if (payload.authenticated) await loadCmsContent();
+        else await loadButtonInstructionCatalog();
+        markPageLoaded("admin", payload.authenticated ? "Admin CMS loaded" : "Admin status");
       } catch (error) {
         cmsStatus.textContent = error.message;
       }
     }
 
     function renderCmsAuth(payload) {
+      applyFeatureFlags(payload.featureFlags);
       cmsSetupPanel.hidden = !payload.setupRequired;
       cmsLoginPanel.hidden = payload.setupRequired || payload.authenticated;
       cmsSessionPanel.hidden = !payload.authenticated;
@@ -8002,9 +10954,11 @@ function html(response) {
     async function loadCmsContent() {
       const payload = await api("/api/cms");
       renderCms(payload);
+      await loadButtonInstructionCatalog();
     }
 
     function renderCms(payload) {
+      applyFeatureFlags(payload.featureFlags);
       cmsBlocks = payload.blocks || [];
       const previous = cmsBlockSelect.value;
       cmsBlockSelect.innerHTML = cmsBlocks.map((block) => "<option value='" + escapeClientHtml(block.id) + "'>" + escapeClientHtml(block.label) + "</option>").join("");
@@ -8017,6 +10971,48 @@ function html(response) {
         "<div class='cms-history-item'><strong>" + escapeClientHtml(item.label || item.blockId) + "</strong><br>" +
         escapeClientHtml(item.note || "Updated") + "<br><span>" + escapeClientHtml(item.changedAt || "") + "</span></div>"
       ).join("") || "<p class='hint'>No CMS changes yet.</p>";
+    }
+
+    function applyFeatureFlags(flags = {}) {
+      if (flags && Object.prototype.hasOwnProperty.call(flags, "liveDemoFunctionality")) {
+        liveDemoFunctionalityEnabled = flags.liveDemoFunctionality !== false;
+      }
+      document.body.classList.toggle("live-demo-disabled", !liveDemoFunctionalityEnabled);
+      if (liveDemoFunctionalityToggle) liveDemoFunctionalityToggle.checked = liveDemoFunctionalityEnabled;
+      const activeLiveOnlyTab = document.querySelector(".tab.active[data-live-demo-only]");
+      if (!liveDemoFunctionalityEnabled && activeLiveOnlyTab) {
+        activateTab("prep", { skipAutoLoad: true });
+      }
+      if (!liveDemoFunctionalityEnabled && document.activeElement?.matches?.("[data-live-demo-only], [data-live-demo-only] *")) {
+        document.activeElement.blur();
+      }
+    }
+
+    async function loadButtonInstructionCatalog() {
+      const payload = await api("/api/button-instructions");
+      const files = (payload.files || []).length
+        ? payload.files
+        : (payload.buttons || []).map((button) => ({
+            id: button.id,
+            label: button.label,
+            file: button.id + ".json",
+            downloadUrl: ""
+          }));
+      renderButtonInstructionFiles(files, (payload.files || []).length
+        ? "Generated JSON files are ready to download."
+        : "Catalogue loaded. Generate files to create download links.");
+    }
+
+    function renderButtonInstructionFiles(files = [], message = "") {
+      buttonInstructionStatus.textContent = message || (files.length ? files.length + " instruction files are ready." : "No instruction files generated yet.");
+      buttonInstructionFiles.innerHTML = files.length
+        ? files.map((file) => {
+            const download = file.downloadUrl
+              ? "<a class='secondary button-link' href='" + escapeClientHtml(file.downloadUrl) + "' download>Download JSON</a>"
+              : "<span>No file yet</span>";
+            return "<div class='api-instruction-item'><div><strong>" + escapeClientHtml(file.label || file.id) + "</strong><span>" + escapeClientHtml(file.file || "") + "</span></div>" + download + "</div>";
+          }).join("")
+        : "<p class='hint'>Generate the files to see download links.</p>";
     }
 
     function renderSelectedCmsBlock() {
@@ -8101,6 +11097,64 @@ function html(response) {
 
     function setStatus(text) {
       statusBox.textContent = text;
+    }
+
+    function pageLoadActionLabel(source = "") {
+      const labels = {
+        "Workspace load": "App load / Reload",
+        "App load": "App load",
+        "Reload": "Reload",
+        "Reload Manifest": "Reload Manifest",
+        "SC Guide refresh": "SC Guide refresh",
+        "Demo Intelligence refresh": "Demo Intelligence refresh",
+        "Re-analyze Updated Guide": "Re-analyze Updated Guide",
+        "Pre-demo scoring": "Pre-demo scoring",
+        "Refresh Pre-Demo Scoring": "Refresh Pre-Demo Scoring",
+        "Generate With Codex": "Generate With Codex",
+        "Generate Discovery Follow-Up Questions": "Generate Discovery Follow-Up Questions",
+        "Apply All Recommendations To SC Guide": "Apply All Recommendations To SC Guide",
+        "Apply Edited Output To SC Guide": "Apply Edited Output To SC Guide",
+        "Save Manifest": "Save Manifest",
+        "Create Dry-Run From Prompt": "Create Dry-Run From Prompt",
+        "Restore Selected": "Restore Selected",
+        "Learn / Create Demo": "Learn / Create Demo",
+        "Learn / Create Demo & Dry-Run": "Learn / Create Demo & Dry-Run",
+        "Recreate Dry-Run Creation Prompt": "Recreate Dry-Run Creation Prompt",
+        "Dataset Analysis": "Dataset Analysis"
+      };
+      return labels[source] || source || "Unknown action";
+    }
+
+    function markPageLoaded(page, source = "") {
+      const target = document.querySelector("[data-page-loaded='" + page + "']");
+      if (!target) return;
+      const now = new Date();
+      const action = pageLoadActionLabel(source);
+      const time = now.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+      target.dataset.loadedAt = now.toISOString();
+      target.dataset.loadedAction = action;
+      target.textContent = "Last loaded: " + time + " | Action: " + action;
+      target.title = "This page was last populated from app data at " + now.toLocaleString() + ". Action: " + action + ".";
+      updatePageLoadedAges();
+    }
+
+    function markPagesLoaded(pages, source = "") {
+      for (const page of pages) markPageLoaded(page, source);
+    }
+
+    function updatePageLoadedAges() {
+      const staleAfterMs = 30 * 60 * 1000;
+      const now = Date.now();
+      document.querySelectorAll("[data-page-loaded]").forEach((target) => {
+        const loadedAt = Date.parse(target.dataset.loadedAt || "");
+        target.classList.toggle("stale", Boolean(loadedAt && now - loadedAt > staleAfterMs));
+      });
     }
 
     async function refreshCodexStatus() {
@@ -8209,7 +11263,7 @@ function html(response) {
 
       function setBusy(isBusy) {
         document.querySelectorAll("button").forEach((button) => {
-          if (button.id === "codexInfoButton" || button.id === "codexInfoClose" || button.id === "stopCodexAction") {
+          if (button.id === "codexInfoButton" || button.id === "codexInfoClose" || button.id === "stopCodexAction" || button.id === "stopDatasetRun") {
             button.disabled = false;
           } else if (button.id === "stopRun") {
             button.disabled = !runInProgress;
@@ -8298,7 +11352,8 @@ function html(response) {
       if (event.key === "Escape" && !codexInfoModal.hidden) closeCodexInfo();
     });
 
-    function render(payload) {
+    function render(payload, source = "Workspace data", options = {}) {
+      applyFeatureFlags(payload.featureFlags);
       editor.value = JSON.stringify(payload.manifest, null, 2);
       scGuide.value = payload.guide || "";
       renderGuideOutputs(payload.guide || "", payload.guideOutputs);
@@ -8325,17 +11380,13 @@ function html(response) {
         if (payload.manifest.context?.demoRequest?.instructions) {
           document.getElementById("instructions").value = payload.manifest.context.demoRequest.instructions;
         }
-        demoScopeField.value = payload.manifest.context?.demoScope || payload.manifest.context?.demoRequest?.demoScope || "";
-        if (payload.manifest.context?.demoRequest?.topic) {
-          topicField.value = inputModeSelect.value === "notes-only" ? "" : payload.manifest.context.demoRequest.topic;
-        }
-        if (payload.manifest.context?.company?.url) {
-          document.getElementById("companyUrl").value = payload.manifest.context.company.url;
-        }
-        if (payload.manifest.context?.preDemoNotes) {
-          preDemoNotesField.value = payload.manifest.context.preDemoNotes;
-        }
+        demoScopeField.value = payload.manifest.context?.demoScope || payload.manifest.context?.demoRequest?.demoScope || defaultPrepData.demoScope;
+        competitionField.value = payload.manifest.context?.competition || payload.manifest.context?.demoRequest?.competition || defaultPrepData.competition;
+        topicField.value = inputModeSelect.value === "notes-only" ? "" : (payload.manifest.context?.demoRequest?.topic || defaultPrepData.topic);
+        document.getElementById("companyUrl").value = payload.manifest.context?.company?.url || defaultPrepData.companyUrl;
+        preDemoNotesField.value = payload.manifest.context?.preDemoNotes || defaultPrepData.preDemoNotes;
         syncInputMode();
+        renderStakeholderPersonas();
       }
       versions.innerHTML = "";
       for (const file of payload.versions || []) {
@@ -8344,23 +11395,117 @@ function html(response) {
         option.textContent = file;
         versions.appendChild(option);
       }
+      latestFollowUpQuestionsMarkdown = "";
+      latestFollowUpQuestionCards = [];
       renderIntelligence(payload.intelligence);
+      if (!payload.intelligence) {
+        renderStakeholderPersonas();
+        renderWinStrategy(winStrategyFromCurrentInputs());
+      }
+      renderPreDemoIntelligence(payload.preDemoIntelligence || preDemoIntelligenceFromDemoIntelligence(payload.intelligence));
       prepDirtyForIntelligence = false;
+      prepDirtyForPreDemoIntelligence = false;
+      markPagesLoaded(["prep"], source);
+      if (options.markManifest !== false) markPageLoaded("manifest", source);
+      if (payload.guide || payload.guideOutputs || payload.setupPrompt) markPageLoaded("guide", source);
+      if (payload.intelligence) markPageLoaded("intelligence", source);
+      if (payload.preDemoIntelligence || payload.intelligence) {
+        markPageLoaded("pre-demo-intelligence", source);
+      }
     }
 
     function renderGuideOutputs(guide, outputs = {}) {
+      if (Object.prototype.hasOwnProperty.call(outputs, "liveDemoFunctionality")) {
+        applyFeatureFlags({ liveDemoFunctionality: outputs.liveDemoFunctionality });
+      }
       scRunbook.value = outputs.scRunbook || sectionFromGuide(guide, "Personalized Demo Story And Runbook") || outputs.personalizedExperienceFlow || "";
       assetGenerationPrompt.value = outputs.assetGenerationPrompt || sectionFromGuide(guide, "Demo Asset Generation Prompt") || "";
+      dryRunCreationPrompt.value = liveDemoFunctionalityEnabled ? (outputs.dryRunCreationPrompt || sectionFromGuide(guide, "Dry-Run Creation Prompt") || "") : "";
+      latestDryRunPromptCreatedAt = outputs.dryRunCreationPromptCreatedAt || "";
+      latestDryRunPromptPreviousCreatedAt = outputs.dryRunCreationPromptPreviousCreatedAt || "";
+      latestDryRunPromptIsCurrent = Boolean(outputs.dryRunCreationPromptIsCurrent && latestDryRunPromptCreatedAt);
       scRunbookSource.textContent = sourceLabel(outputs.scRunbookSource || (sectionFromGuide(guide, "Personalized Demo Story And Runbook") ? "codex-sc-guide-section" : "local-fallback"));
       assetGenerationPromptSource.textContent = sourceLabel(outputs.assetGenerationPromptSource || (sectionFromGuide(guide, "Demo Asset Generation Prompt") ? "codex-sc-guide-section" : "local-fallback"));
+      dryRunCreationPromptSource.textContent = liveDemoFunctionalityEnabled
+        ? dryRunPromptSourceLabel(outputs.dryRunCreationPromptSource || (sectionFromGuide(guide, "Dry-Run Creation Prompt") ? "codex-sc-guide-section" : "local-dry-run-manifest-instruction"), outputs)
+        : sourceLabel("live-demo-functionality-disabled");
+    }
+
+    function dryRunPromptSourceLabel(source, outputs = {}) {
+      const label = sourceLabel(source);
+      if (outputs.dryRunCreationPromptIsCurrent && outputs.dryRunCreationPromptCreatedAt) {
+        return label + " Created: " + formatDisplayDateTime(outputs.dryRunCreationPromptCreatedAt) + ".";
+      }
+      if (outputs.dryRunCreationPromptPreviousCreatedAt) {
+        return label + " The prompt has changed since it was last created at " + formatDisplayDateTime(outputs.dryRunCreationPromptPreviousCreatedAt) + ". Recreate it before using Run page actions.";
+      }
+      return label + " Not created yet. Recreate it before using Run page actions.";
+    }
+
+    function formatDisplayDateTime(value) {
+      if (!value) return "not recorded";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
     }
 
     function sourceLabel(source) {
       if (source === "codex-sc-guide-section") return "Source: Codex-authored SC guide section.";
+      if (source === "system-generated-from-sc-story-runbook") return "Source: generated after the Personalized SC story and runbook, with system guardrails.";
+      if (source === "codex-sc-guide-personalized-story-runbook") return "Source: completed Personalized SC story and runbook.";
+      if (source === "legacy-codex-sc-guide-netSuite-prep-summary") return "Source: legacy Codex-authored NetSuite Prep Summary, wrapped with account safety rules.";
       if (source === "codex-sc-guide-netSuite-prep-summary") return "Source: Codex-authored NetSuite Prep Summary, wrapped with account safety rules.";
       if (source === "local-setup-guardrail-fallback") return "Source: local setup safety fallback because no Codex prep section was found.";
+      if (source === "local-dry-run-manifest-instruction") return "Source: local dry-run instruction built from the current SC guide and manifest.";
+      if (source === "live-demo-functionality-disabled") return "Source: live demo functionality is disabled in Admin.";
       if (source === "local-fallback") return "Source: local fallback because the Codex guide section was missing.";
       return source ? "Source: " + source : "Source unavailable.";
+    }
+
+    function refreshVersionOptions(files = []) {
+      versions.innerHTML = "";
+      for (const file of files) {
+        const option = document.createElement("option");
+        option.value = file;
+        option.textContent = file;
+        versions.appendChild(option);
+      }
+    }
+
+    async function recreateDryRunCreationPrompt() {
+      const payload = await api("/api/dry-run-prompt/refresh", { method: "POST", body: "{}" });
+      if (payload.manifest) editor.value = JSON.stringify(payload.manifest, null, 2);
+      if (payload.guide) scGuide.value = payload.guide || "";
+      renderGuideOutputs(payload.guide || scGuide.value || "", payload.guideOutputs || {});
+      renderSetupPrompt(payload.setupPrompt);
+      refreshVersionOptions(payload.versions || []);
+      markPagesLoaded(["guide", "manifest"], "Recreate Dry-Run Creation Prompt");
+      return payload;
+    }
+
+    async function confirmDryRunPromptForRun(actionLabel) {
+      const currentText = latestDryRunPromptCreatedAt
+        ? "The Dry-run creation prompt was created at " + formatDisplayDateTime(latestDryRunPromptCreatedAt) + "."
+        : latestDryRunPromptPreviousCreatedAt
+          ? "The Dry-run creation prompt has changed since it was last created at " + formatDisplayDateTime(latestDryRunPromptPreviousCreatedAt) + "."
+          : "The Dry-run creation prompt does not have a recorded creation time yet.";
+      const continueMessage = [
+        currentText,
+        "",
+        "Do you want to continue with " + actionLabel + " using this dry-run creation prompt?"
+      ].join("\\n");
+      if (latestDryRunPromptIsCurrent && window.confirm(continueMessage)) return true;
+      if (!latestDryRunPromptIsCurrent) {
+        const refreshMessage = currentText + "\\n\\nRecreate the Dry-run creation prompt now before running?";
+        if (!window.confirm(refreshMessage)) return false;
+      } else if (!window.confirm("Recreate the Dry-run creation prompt now instead?")) {
+        return false;
+      }
+      setStatus("Recreating the Dry-run creation prompt...");
+      const payload = await recreateDryRunCreationPrompt();
+      const createdAt = payload.guideOutputs?.dryRunCreationPromptCreatedAt || latestDryRunPromptCreatedAt;
+      setStatus("Dry-run creation prompt recreated at " + formatDisplayDateTime(createdAt) + ".");
+      return window.confirm("The Dry-run creation prompt was recreated at " + formatDisplayDateTime(createdAt) + ". Continue with " + actionLabel + "?");
     }
 
     function sectionFromGuide(guide, heading) {
@@ -8488,6 +11633,120 @@ function html(response) {
       industryHint.textContent = industry.description + " KPIs: " + industry.kpis.slice(0, 4).join(", ") + ".";
     }
 
+    function prepPersonasFromCurrentInputs() {
+      const source = [
+        topicField.value,
+        preDemoNotesField.value,
+        demoScopeField.value,
+        document.getElementById("companyUrl").value,
+        selectedConfig(audienceTypeConfig, audienceSelect.value, defaultAudienceType).label,
+        selectedConfig(targetAudienceConfig, targetAudienceSelect.value, defaultTargetAudience).label,
+        selectedConfig(demoStrategyConfig, demoStrategySelect.value, defaultDemoStrategy).label
+      ].join("\\n").toLowerCase();
+      const candidates = [
+        {
+          key: "group-cfo",
+          name: /\\bcary\\b/.test(source) ? "Cary" : "Group CFO",
+          role: "Executive sponsor",
+          terms: ["cfo", "executive", "group", "consolidation", "consolidated", "roi", "success metric", "jedox"],
+          whyNetSuiteHelps: "Moves the day from waiting on consolidated packs to seeing group performance, exceptions, and the path back to detail in one finance system.",
+          valuePoints: ["Faster confidence in consolidated reporting", "Cleaner board-level story across countries and entities", "Less dependency on spreadsheet stitching"],
+          standsOut: "NetSuite combines entity, department, office, book, and transaction context so the CFO story starts broad and can still be defended."
+        },
+        {
+          key: "financial-controller",
+          name: /\\bjonathan\\b/.test(source) ? "Jonathan" : "Financial Controller",
+          role: "Financial controller",
+          terms: ["controller", "close", "local gaap", "tax", "e-invoicing", "e invoicing", "chart of accounts", "drilldown", "fixed asset"],
+          whyNetSuiteHelps: "Improves the daily close rhythm by making local views, tax context, source transactions, and audit-friendly drilldown easier to access.",
+          valuePoints: ["Trust numbers before exporting them", "Explain variances without chasing people", "Keep statutory and management views closer together"],
+          standsOut: "Standard reporting and drilldown let the controller prove the number first, then go deeper only when the audience asks."
+        },
+        {
+          key: "finance-transformation",
+          name: /\\btom\\b/.test(source) ? "Tom" : "Finance Transformation Lead",
+          role: "Finance transformation manager",
+          terms: ["transformation", "erp project", "expansion", "scale", "scalable", "uk focused", "new database", "phase 2", "financials first"],
+          whyNetSuiteHelps: "Turns a fragmented finance landscape into a phased operating model that can start with the highest-value finance proof points and grow from there.",
+          valuePoints: ["Clearer phase-one scope", "Reusable process model for new entities", "Better bridge from finance pain to platform roadmap"],
+          standsOut: "The suite story lets transformation leaders show progress without over-promising deep implementation detail in the first demo."
+        },
+        {
+          key: "it-leadership",
+          name: /\\brob\\b|\\bjo\\b/.test(source) ? "Rob and Jo" : "IT leadership",
+          role: "IT director and IT operations",
+          terms: ["it director", "it operations", "integration", "architecture", "odbc", "crm", "ibos", "api", "production", "data flow"],
+          whyNetSuiteHelps: "Gives IT a controlled way to discuss integration and reporting architecture while keeping the first demo business-facing.",
+          valuePoints: ["Reduced data movement risk", "Clearer CRM or booking-reference handoff", "More maintainable reporting architecture"],
+          standsOut: "NetSuite can show standard reporting first, then explain integration options from a governed platform instead of making integration the whole demo."
+        },
+        {
+          key: "project-team",
+          name: /\\bpaul\\b|\\bhenry\\b/.test(source) ? "Paul and Henry" : "Project team",
+          role: "Project manager and business analyst",
+          terms: ["project manager", "business analyst", "requirements", "scope", "stakeholder", "delivery", "workshop", "demo timebox"],
+          whyNetSuiteHelps: "Helps them turn rough discovery into an ordered demo path, clear follow-up questions, and a runbook the SC can actually execute.",
+          valuePoints: ["Less ambiguity in demo scope", "Clearer mapping from pain to proof", "Better notes for next discovery"],
+          standsOut: "The helper links audience, scope, notes, guide, and intelligence so project stakeholders can see what is ready and what still needs validation."
+        },
+        {
+          key: "finance-ops",
+          name: "Budget holders and AP/AR teams",
+          role: "Operational finance users",
+          terms: ["approval", "approvals", "threshold", "ap", "ar", "invoice", "dunning", "payhawk", "expense", "payment", "paperwork", "credit note"],
+          whyNetSuiteHelps: "Improves daily work by putting approval context, invoice detail, customer payment status, and exception handling closer to the transaction.",
+          valuePoints: ["Approvers understand what they approve", "Fewer email-heavy payment follow-ups", "Better context for collections and credit control"],
+          standsOut: "Role-based workflows can show the same process through finance control and user productivity lenses without turning into admin setup."
+        },
+        {
+          key: "broker-operations",
+          name: "Broker and operations teams",
+          role: "Flight and booking operations",
+          terms: ["flight", "charter", "broker", "route", "aircraft", "booking", "suiteprojects", "project profitability", "veluxis", "private jet"],
+          whyNetSuiteHelps: "Connects the commercial flight story to finance by making route, aircraft, broker, customer, vendor cost, revenue, and margin easier to explain.",
+          valuePoints: ["Better flight or booking profitability story", "Cleaner link between operations and finance", "More useful project-style reporting"],
+          standsOut: "SuiteProjects and dimensions can support the services-style proof point while keeping the first demo focused on financial outcomes."
+        }
+      ];
+      const ranked = candidates
+        .map((persona, index) => ({
+          ...persona,
+          index,
+          score: persona.terms.reduce((score, term) => score + (source.includes(term) ? 1 : 0), 0)
+        }))
+        .filter((persona) => persona.score > 0)
+        .sort((a, b) => b.score - a.score || a.index - b.index);
+      const selected = [];
+      for (const persona of ranked) {
+        if (!selected.some((item) => item.key === persona.key)) selected.push(persona);
+      }
+      for (const fallback of candidates.slice(0, 5)) {
+        if (selected.length >= 5) break;
+        if (!selected.some((item) => item.key === fallback.key)) selected.push({ ...fallback, score: 0 });
+      }
+      return selected.slice(0, 5);
+    }
+
+    function renderStakeholderPersonas() {
+      const personas = prepPersonasFromCurrentInputs();
+      const personaCardsHtml = personas.map((persona) => {
+        const points = (persona.valuePoints || [])
+          .slice(0, 3)
+          .map((point) => "<li>" + escapeClientHtml(point) + "</li>")
+          .join("");
+        return [
+          '<article class="persona-preview-card">',
+          "<h3>" + escapeClientHtml(persona.name) + "</h3>",
+          '<p class="persona-role">' + escapeClientHtml(persona.role) + "</p>",
+          "<p><strong>Day-to-day lift:</strong> " + escapeClientHtml(persona.whyNetSuiteHelps) + "</p>",
+          "<div><p><strong>Value points:</strong></p><ul>" + points + "</ul></div>",
+          "<p><strong>How NetSuite stands out:</strong> " + escapeClientHtml(persona.standsOut) + "</p>",
+          "</article>"
+        ].join("");
+      }).join("");
+      if (intelligencePersonaCards) intelligencePersonaCards.innerHTML = personaCardsHtml;
+    }
+
     function renderIntelligence(intelligence) {
       if (!intelligence) return;
       latestIntelligence = intelligence;
@@ -8500,6 +11759,7 @@ function html(response) {
       const coach = intelligence.ai_rehearsal_coach || {};
       const demoHeatmap = intelligence.demo_heatmap_analyzer || {};
       const notes = intelligence.pre_demo_notes_analyzer || {};
+      const winStrategy = intelligence.win_strategy_analyzer || winStrategyFromCurrentInputs();
       const competitive = intelligence.competitive_positioning_mode || {};
       const strategy = intelligence.demo_strategy || {};
       const industry = intelligence.industry_playbook || {};
@@ -8535,6 +11795,12 @@ function html(response) {
         insightBadge("Missing Discovery", missing)
       ].join("");
       document.getElementById("scBriefing").innerHTML = scBriefingHtml(metadata, strategy, industry, winning, risk, discovery, intelligence.sc_briefing);
+      demoWebsiteContext.innerHTML = websiteContextHtml(intelligence.website_context || {
+        url: metadata.customer_url,
+        summary: metadata.website_summary || metadata.customer_description,
+        interesting_points: metadata.website_interesting_points,
+        contradictions_or_checks: metadata.website_contradictions_or_checks
+      }, { compact: true });
 
       const cards = intelligenceCards({ risk, discovery, stakeholder, winning, avoid, timing, coach, competitive, notes });
       if (!cards.some((card) => card.id === selectedIntelligenceCard)) selectedIntelligenceCard = cards[0]?.id || "risks";
@@ -8542,7 +11808,253 @@ function html(response) {
       syncIntelligenceCardDensity();
       renderIntelligenceDetail(cards);
       renderIntelligenceHeatmap(intelligence);
+      renderStakeholderPersonas();
+      renderWinStrategy(winStrategy);
       renderCompetitiveAdvisory(competitive);
+    }
+
+    function preDemoIntelligenceFromDemoIntelligence(intelligence) {
+      if (!intelligence) return null;
+      const notes = intelligence.pre_demo_notes_analyzer || {};
+      const discovery = intelligence.discovery_gap_analyzer || {};
+      const metadata = intelligence.demo_metadata || {};
+      const strongest = notes.strong_areas || [];
+      const risks = notes.risk_areas || [];
+      const missing = discovery.missing_discovery_items || [];
+      return {
+        source: metadata.intelligence_source || "demo-intelligence",
+        metadata: {
+          customer_name: metadata.customer_name,
+          customer_url: metadata.customer_url,
+          audience_type: metadata.audience_type,
+          target_segment: metadata.target_segment,
+          industry: metadata.industry,
+          demo_strategy: metadata.strategy,
+          demo_scope: metadata.demo_scope
+        },
+        website_context: intelligence.website_context || {
+          url: metadata.customer_url,
+          summary: metadata.website_summary || metadata.customer_description,
+          interesting_points: metadata.website_interesting_points,
+          contradictions_or_checks: metadata.website_contradictions_or_checks
+        },
+        overall_score: notes.overall_score,
+        discovery_coverage_score: notes.discovery_coverage_score,
+        word_count: notes.word_count,
+        readiness_label: preDemoReadinessLabelClient(notes.overall_score),
+        summary: notes.summary,
+        coverage_summary: notes.coverage_summary,
+        strongest_area: strongest[0] || "No dominant strength detected yet",
+        biggest_risk: risks[0] || missing[0] || "No major pre-demo risk detected",
+        next_best_question: discovery.recommended_follow_up_questions?.[0] || "Confirm the main business outcome the demo must prove.",
+        strong_areas: strongest,
+        risk_areas: risks,
+        recommendations: notes.recommendations || [],
+        heatmap: notes.heatmap || [],
+        found_discovery_items: discovery.found_discovery_items || [],
+        missing_discovery_items: missing,
+        recommended_follow_up_questions: discovery.recommended_follow_up_questions || []
+      };
+    }
+
+    function renderPreDemoIntelligence(preDemo) {
+      if (!preDemo) {
+        latestFollowUpQuestionsMarkdown = "";
+        latestFollowUpQuestionCards = [];
+        preDemoIntelGrid.innerHTML = "<p class='hint'>Run Pre-demo scoring from the Prep page to review note quality.</p>";
+        preDemoHeatmap.innerHTML = "";
+        preDemoFollowUps.innerHTML = "";
+        preDemoWebsiteContext.innerHTML = "<p class='hint'>Run Pre-demo scoring to scan the website and compare it with the notes.</p>";
+        return;
+      }
+      latestPreDemoIntelligence = preDemo;
+      const metadata = preDemo.metadata || {};
+      const score = Math.max(0, Math.min(100, Number(preDemo.overall_score) || 0));
+      const customerName = metadata.customer_name || "Current prospect";
+      document.getElementById("preDemoReadinessTitle").textContent = customerName + " pre-demo readiness";
+      document.getElementById("preDemoReadinessSubtitle").textContent = [
+        metadata.audience_type,
+        metadata.target_segment,
+        metadata.industry,
+        metadata.demo_strategy
+      ].filter(Boolean).join(" | ") || "Use this page before generating the full demo.";
+      document.getElementById("preDemoReadinessScore").textContent = score || "-";
+      document.getElementById("preDemoReadinessBadges").innerHTML = [
+        insightBadge("Status", preDemo.readiness_label || preDemoReadinessLabelClient(score)),
+        insightBadge("Strongest Area", preDemo.strongest_area),
+        insightBadge("Biggest Risk", preDemo.biggest_risk),
+        insightBadge("Next Question", preDemo.next_best_question)
+      ].join("");
+      preDemoWebsiteContext.innerHTML = websiteContextHtml(preDemo.website_context, { compact: false });
+
+      preDemoIntelGrid.innerHTML = [
+        preDemoScoreCardHtml("Notes quality", score + "/100", preDemo.summary, statusForScore(score)),
+        preDemoScoreCardHtml("Discovery coverage", (preDemo.discovery_coverage_score || 0) + "/100", preDemo.coverage_summary, statusForScore(preDemo.discovery_coverage_score)),
+        preDemoScoreCardHtml("Notes volume", (preDemo.word_count || 0) + " words", notesVolumeSummary(preDemo.word_count), statusForWordCount(preDemo.word_count)),
+        preDemoScoreCardHtml("Missing items", (preDemo.missing_discovery_items || []).length + " gaps", firstClean(preDemo.missing_discovery_items) || "No major missing item detected.", (preDemo.missing_discovery_items || []).length > 5 ? "critical" : (preDemo.missing_discovery_items || []).length ? "warning" : "strong")
+      ].join("");
+
+      const heatmapItems = (preDemo.heatmap || []).slice().sort((left, right) => Number(left.score || 0) - Number(right.score || 0));
+      preDemoHeatmap.innerHTML = heatmapItems.length
+        ? heatmapItems.slice(0, 8).map(heatmapCardHtml).join("")
+        : "<p class='hint'>No pre-demo heatmap items available yet.</p>";
+      document.getElementById("preDemoHeatmapRecommendation").textContent =
+        firstClean(preDemo.recommendations || []) || "Add discovery detail in the weakest areas before creating the demo.";
+      preDemoFollowUps.innerHTML =
+        preDemoFollowUpHtml(preDemo);
+    }
+
+    function renderDatasetAnalysis(payload) {
+      latestDatasetAnalysis = payload;
+      if (!payload) {
+        datasetTitle.textContent = "Dataset readiness has not been checked yet";
+        datasetSummary.textContent = "Run Dataset Analysis after the SC guide and dry-run prompt exist.";
+        datasetScore.textContent = "-";
+        datasetReadinessLabel.textContent = "Not checked";
+        datasetFindings.innerHTML = "";
+        datasetPrompt.value = "";
+        datasetEvidence.textContent = "No dataset run has been captured yet.";
+        executeDatasetPromptButton.disabled = true;
+        return;
+      }
+      const score = Number(payload.score || 0);
+      datasetTitle.textContent = (payload.manifest?.company || "Current demo") + " dataset readiness";
+      datasetSummary.textContent = payload.summary || "Dataset analysis completed.";
+      datasetScore.textContent = Number.isFinite(score) ? String(score) : "-";
+      datasetReadinessLabel.textContent = payload.readinessLabel || payload.status || "Checked";
+      datasetPrompt.value = payload.codexPrompt || "";
+      executeDatasetPromptButton.disabled = !datasetPrompt.value.trim();
+      datasetFindings.innerHTML = [
+        datasetCardHtml("Missing data", payload.missingData, "Records or transactions the dry-run may need."),
+        datasetCardHtml("Missing customizations", payload.missingCustomizations, "Configuration, permissions, views, reports, or setup to inspect."),
+        datasetCardHtml("Recommended actions", payload.recommendations, "What the SC should do next."),
+        datasetCardHtml("Successful evidence", (payload.passedEvidence || []).slice(0, 6).map(datasetActionLabel), "Dry-run steps that found expected evidence.")
+      ].join("");
+      datasetEvidence.textContent = [
+        "Run status: " + (payload.runStatus || "unknown"),
+        "Run completed: " + (payload.runCompleted ? "yes" : "no"),
+        payload.cachePath ? "Cache: " + payload.cachePath : "",
+        payload.prepBufferFile ? "Prep buffer: " + payload.prepBufferFile : "",
+        payload.promptFile ? "Prompt file: " + payload.promptFile : "",
+        "",
+        "Failed actions:",
+        ...((payload.failedActions || []).slice(0, 8).map(datasetActionLabel)),
+        "",
+        "Skipped optional actions:",
+        ...((payload.skippedActions || []).slice(0, 8).map(datasetActionLabel))
+      ].filter((line) => line !== null && line !== undefined).join("\\n");
+    }
+
+    function datasetCardHtml(title, items = [], emptyText = "") {
+      const clean = (items || []).filter(Boolean);
+      const lines = clean.map((item) => typeof item === "string" ? item : item.label || item.reason || datasetActionLabel(item)).filter(Boolean);
+      return "<div class='dataset-card'><strong>" + escapeClientHtml(title) + "</strong>" +
+        (emptyText ? "<p class='hint'>" + escapeClientHtml(emptyText) + "</p>" : "") +
+        (lines.length ? "<ul>" + lines.slice(0, 7).map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("") + "</ul>" : "<p class='hint'>None detected.</p>") +
+        "</div>";
+    }
+
+    function datasetActionLabel(action = {}) {
+      return [action.segment, action.type, action.target].filter(Boolean).join(" - ") || action.label || "Dry-run evidence";
+    }
+
+    function preDemoFollowUpHtml(preDemo) {
+      const codexCards = latestFollowUpQuestionCards || [];
+      const localCards = questionCardsFromList(preDemo.recommended_follow_up_questions || []);
+      const cards = codexCards.length ? codexCards : localCards;
+      const sourceLabel = codexCards.length ? "Codex-generated discovery questions" : "Recommended questions from pre-demo scoring";
+      const questionCards = cards.length
+        ? "<div class='follow-up-card-grid'>" + cards.map(followUpQuestionCardHtml).join("") + "</div>"
+        : "<p class='hint'>No recommended follow-up questions detected yet. Run Pre-demo scoring or Generate With Codex.</p>";
+      const markdownPanel = latestFollowUpQuestionsMarkdown
+        ? "<details class='follow-up-markdown'><summary>View full Codex output</summary><pre>" + escapeClientHtml(latestFollowUpQuestionsMarkdown) + "</pre></details>"
+        : "";
+      return "<div class='card-title-row' style='margin-bottom:10px'><strong>" + escapeClientHtml(sourceLabel) + "</strong><span class='status-badge advisory'>" + escapeClientHtml(String(cards.length || 0) + " questions") + "</span></div>" +
+        questionCards +
+        markdownPanel +
+        "<div class='follow-up-support-grid'>" +
+          "<div>" + listBlock("Missing discovery items", preDemo.missing_discovery_items) + "</div>" +
+          "<div>" + listBlock("What is already covered", preDemo.found_discovery_items) + "</div>" +
+          "<div>" + listBlock("Recommended note improvements", preDemo.recommendations) + "</div>" +
+        "</div>";
+    }
+
+    function questionCardsFromList(questions = []) {
+      return (questions || []).map((question, index) => ({
+        number: index + 1,
+        priority: index < 3 ? "High" : "Medium",
+        question: String(question || "").trim(),
+        why: "",
+        impact: ""
+      })).filter((item) => item.question);
+    }
+
+    function questionCardsFromMarkdown(markdown) {
+      const cards = [];
+      let current = null;
+      for (const rawLine of String(markdown || "").split(/\\r?\\n/)) {
+        const line = rawLine.trim();
+        const questionMatch = line.match(/^(\\d+)\\.\\s*(?:\\[Priority:\\s*([^\\]]+)\\]\\s*)?(.+)/i);
+        if (questionMatch) {
+          current = {
+            number: Number(questionMatch[1]),
+            priority: questionMatch[2] || (cards.length < 3 ? "High" : "Medium"),
+            question: questionMatch[3].trim(),
+            why: "",
+            impact: ""
+          };
+          cards.push(current);
+          continue;
+        }
+        if (!current) continue;
+        const whyMatch = line.match(/^-\\s*Why it matters:\\s*(.*)$/i);
+        if (whyMatch) current.why = whyMatch[1].trim();
+        const impactMatch = line.match(/^-\\s*Demo impact:\\s*(.*)$/i);
+        if (impactMatch) current.impact = impactMatch[1].trim();
+      }
+      return cards.filter((item) => item.question).slice(0, 16);
+    }
+
+    function followUpQuestionCardHtml(card) {
+      return "<article class='follow-up-card'>" +
+        "<div class='follow-up-card-head'><span class='follow-up-number'>" + escapeClientHtml(String(card.number || "")) + "</span><span class='status-badge " + (String(card.priority || "").toLowerCase().includes("high") ? "critical" : "warning") + "'>" + escapeClientHtml(card.priority || "Medium") + "</span></div>" +
+        "<div class='follow-up-question'>" + escapeClientHtml(card.question || "") + "</div>" +
+        (card.why ? "<p class='follow-up-note'><strong>Why it matters:</strong> " + escapeClientHtml(card.why) + "</p>" : "") +
+        (card.impact ? "<p class='follow-up-note'><strong>Demo impact:</strong> " + escapeClientHtml(card.impact) + "</p>" : "") +
+      "</article>";
+    }
+
+    function preDemoScoreCardHtml(title, metric, summary, status) {
+      return "<div class='pre-demo-score-card'>" +
+        "<div class='card-title-row'><strong>" + escapeClientHtml(title) + "</strong><span class='status-badge " + escapeClientHtml(status || "advisory") + "'>" + escapeClientHtml(statusDisplayLabel(status || "advisory")) + "</span></div>" +
+        "<div class='card-metric'>" + escapeClientHtml(metric || "-") + "</div>" +
+        "<p class='card-summary'>" + escapeClientHtml(summary || "") + "</p>" +
+      "</div>";
+    }
+
+    function preDemoReadinessLabelClient(score) {
+      const value = Number(score);
+      if (!Number.isFinite(value)) return "Needs notes";
+      if (value >= 80) return "Ready for demo generation";
+      if (value >= 65) return "Usable with follow-up";
+      if (value >= 45) return "Needs discovery detail";
+      return "High discovery risk";
+    }
+
+    function notesVolumeSummary(wordCount) {
+      const words = Number(wordCount) || 0;
+      if (words > 900) return "Enough raw material for a highly tailored story.";
+      if (words > 350) return "Useful discovery depth is present, but confirm the highest-risk gaps.";
+      if (words > 120) return "Usable starter notes; add stakeholder and success criteria detail.";
+      if (words > 0) return "Very light notes. Personalization will be limited.";
+      return "No pre-demo notes detected.";
+    }
+
+    function statusForWordCount(wordCount) {
+      const words = Number(wordCount) || 0;
+      if (words > 350) return "strong";
+      if (words > 120) return "warning";
+      return "critical";
     }
 
     function firstClean(items = []) {
@@ -8604,6 +12116,52 @@ function html(response) {
 
     function briefingItem(title, body) {
       return "<div class='briefing-item'><strong>" + escapeClientHtml(title) + "</strong><p>" + escapeClientHtml(body || "-") + "</p></div>";
+    }
+
+    function websiteContextHtml(context = {}, options = {}) {
+      const source = context || {};
+      const points = arrayFromClient(source.interesting_points || source.interestingPoints);
+      const checks = arrayFromClient(source.contradictions_or_checks || source.contradictions || source.alignment_checks);
+      const evidence = arrayFromClient(source.evidence || source.evidence_snippets || source.evidenceSnippets);
+      const summary = source.summary || source.description || source.title || "";
+      const url = source.url || "";
+      const sourceLabelText = source.source ? "Source: " + source.source : "Source: website scan";
+      if (!summary && !points.length && !checks.length && !url) {
+        return "<p class='hint'>No website context has been captured yet. Run Pre-demo scoring or Learn / Create Demo with a company website.</p>";
+      }
+      return "<div class='" + (checks.length ? "website-context-card website-context-alert" : "website-context-card") + "'>" +
+        "<h3>" + escapeClientHtml(url ? "Website context: " + stripUrlForDisplay(url) : "Website context") + "</h3>" +
+        "<p>" + escapeClientHtml(summary || "Website was scanned, but no clear summary was extracted.") + "</p>" +
+        "<div class='website-context-grid'>" +
+          websiteListBlock("Interesting points", points, "No specific website signals detected yet.") +
+          websiteListBlock("Alignment checks", checks, "No contradictions or alignment checks detected.") +
+          (options.compact ? "" : websiteListBlock("Evidence picked up", evidence, "No evidence snippets captured.")) +
+        "</div>" +
+        "<p class='hint' style='margin-top:8px'>" + escapeClientHtml(sourceLabelText + (source.scanned_at ? " | Scanned: " + formatDisplayDateTime(source.scanned_at) : "")) + "</p>" +
+      "</div>";
+    }
+
+    function websiteListBlock(title, items, emptyText) {
+      const clean = arrayFromClient(items).slice(0, 6);
+      return "<div><strong>" + escapeClientHtml(title) + "</strong>" +
+        (clean.length
+          ? "<ul class='website-context-list'>" + clean.map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("") + "</ul>"
+          : "<p class='hint'>" + escapeClientHtml(emptyText) + "</p>") +
+        "</div>";
+    }
+
+    function arrayFromClient(value) {
+      if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+      if (typeof value === "string" && value.trim()) return [value.trim()];
+      return [];
+    }
+
+    function stripUrlForDisplay(value) {
+      try {
+        return new URL(value).hostname.replace(/^www\\./, "");
+      } catch {
+        return String(value || "").replace(/^https?:\\/\\//, "").replace(/^www\\./, "").replace(/\\/$/, "");
+      }
     }
 
     function intelligenceCards(data) {
@@ -8917,6 +12475,61 @@ function html(response) {
       document.getElementById("competitiveAnalyzer").innerHTML =
         (competitive.warning ? "<p class='hint'>" + escapeClientHtml(competitive.warning) + "</p>" : "") +
         focus.map((item) => analysisItem(item.topic, item.why_it_matters, item.recommended_demo_moment)).join("");
+    }
+
+    function renderWinStrategy(winStrategy = {}) {
+      const strategies = Array.isArray(winStrategy.strategies) ? winStrategy.strategies.slice(0, 3) : [];
+      if (winStrategySummary) {
+        winStrategySummary.textContent = winStrategy.summary || "Win strategy appears after Demo Intelligence is generated from the current prep inputs.";
+      }
+      if (!winStrategyCards) return;
+      if (!strategies.length) {
+        winStrategyCards.innerHTML = "<p class='hint'>No win strategy generated yet. Re-run Demo Intelligence after adding competition/status quo context.</p>";
+        return;
+      }
+      winStrategyCards.innerHTML = strategies.map((strategy) => [
+        '<article class="win-strategy-card">',
+        "<h3>" + escapeClientHtml(strategy.title || "Win strategy") + "</h3>",
+        "<p><strong>Why we can win:</strong> " + escapeClientHtml(strategy.why_we_can_win || "") + "</p>",
+        "<p><strong>Potential competitor move:</strong> " + escapeClientHtml(strategy.competitor_likely_move || "") + "</p>",
+        "<p><strong>Demo move:</strong> " + escapeClientHtml(strategy.demo_move || "") + "</p>",
+        "</article>"
+      ].join("")).join("");
+    }
+
+    function winStrategyFromCurrentInputs() {
+      const competition = (competitionField?.value || "").trim() || "Status quo or external shortlist not confirmed";
+      const source = [
+        topicField.value,
+        demoScopeField.value,
+        competition,
+        preDemoNotesField.value
+      ].join("\\n").toLowerCase();
+      const strategies = [];
+      const add = (title, why_we_can_win, competitor_likely_move, demo_move) => {
+        strategies.push({ title, why_we_can_win, competitor_likely_move, demo_move });
+      };
+      if (/consolidat|oneworld|multi-country|multi country|local gaap|tax|e-invoic|jedox|entity/.test(source)) {
+        add("Lead with consolidation confidence", "The notes point to group reporting, local requirements, and external consolidation as buying pressure.", "The status quo or another vendor may position external consolidation/reporting as sufficient.", "Show executive/group visibility first, then drill into local entity and transaction support.");
+      }
+      if (/flight|charter|broker|route|aircraft|suiteprojects|project profitability|booking|veluxis/.test(source)) {
+        add("Turn flight complexity into a finance story", "The flight/project model is distinctive and can make the demo feel tailored without heavy customization.", "A competitor may keep this as a separate project or operational-system discussion.", "Use a flight or booking profitability proof point after the executive overview.");
+      }
+      if (/approval|ap|ar|dunning|invoice|document|email|manual|payment|template/.test(source)) {
+        add("Show context-aware finance work", "Manual AP, approval context, and customer documentation gaps create day-to-day friction for finance teams.", "A competitor may focus on isolated workflow automation or point-solution speed.", "Show approval context, supporting documents, standard reports, and customer-facing outputs without going deep into setup.");
+      }
+      if (/integration|odbc|crm|ibos|architecture|data flow|it director|it operations/.test(source) && strategies.length < 3) {
+        add("Keep integration strategic", "IT needs architecture confidence, but the business case should stay anchored in finance outcomes.", "A competitor may pull the meeting into technical flexibility before business proof is established.", "Show standard reporting and drilldown first, then frame CRM/booking references and ODBC as validation topics.");
+      }
+      while (strategies.length < 3) {
+        add("Anchor on the confirmed business risk", "The win depends on making the most expensive current-state risk visible early.", "A competitor may run a broader feature tour if buying criteria are unclear.", "Open with the executive problem, prove the strongest standard workflow, then ask the next discovery question.");
+      }
+      return {
+        summary: "Generated from current prep inputs. Re-run Demo Intelligence for Codex-authored win strategy.",
+        competition_context: competition,
+        guidance_only: true,
+        strategies: strategies.slice(0, 3)
+      };
     }
 
     function actionTextFor(mode) {
@@ -9312,13 +12925,19 @@ function html(response) {
         preDemoNotesField.placeholder = "Paste discovery notes, pain points, role notes, current systems, concerns, and success criteria.";
         if (!preDemoNotesField.value.trim() && preDemoNotesField.dataset.previousNotes) preDemoNotesField.value = preDemoNotesField.dataset.previousNotes;
       }
+      renderStakeholderPersonas();
     }
 
-      const markPrepDirtyForIntelligence = () => { prepDirtyForIntelligence = true; };
+      const markPrepDirtyForIntelligence = () => {
+        prepDirtyForIntelligence = true;
+        prepDirtyForPreDemoIntelligence = true;
+        renderStakeholderPersonas();
+      };
       document.getElementById("instructions").addEventListener("input", markPrepDirtyForIntelligence);
       document.getElementById("companyUrl").addEventListener("input", markPrepDirtyForIntelligence);
       document.getElementById("intensity").addEventListener("change", markPrepDirtyForIntelligence);
       demoScopeField.addEventListener("input", markPrepDirtyForIntelligence);
+      competitionField.addEventListener("input", markPrepDirtyForIntelligence);
       topicField.addEventListener("input", markPrepDirtyForIntelligence);
       preDemoNotesField.addEventListener("input", markPrepDirtyForIntelligence);
       outputLanguageSelect.addEventListener("change", markPrepDirtyForIntelligence);
@@ -9340,17 +12959,17 @@ function html(response) {
       };
       voiceApiKeyField.onchange = () => loadVoices(voiceSelect.value);
 
-    async function load() {
-      startCodexProgress("Loading NetSuite Demo Helper", "Detecting Codex and loading the current guide and Intelligence.", [
+    async function load(action = "Reload") {
+      startCodexProgress("Loading NetSuite Demo Helper", "Loading the last saved workspace from this machine.", [
         "Detect Codex on this machine",
         "Read the saved SC guide and manifest",
-        "Refresh Codex-backed Intelligence"
+        "Restore last generated Intelligence"
       ]);
       try {
         await refreshCodexStatus();
-        updateCodexProgress("Loading the current manifest, SC guide, and Intelligence.", 1);
-        render(await api("/api/manifest"));
-        finishCodexProgress("Workspace loaded. Codex-backed content is ready.");
+        updateCodexProgress("Reading the last saved manifest, SC guide, and Intelligence from this machine.", 1);
+        render(await api("/api/manifest"), action);
+        finishCodexProgress("Workspace loaded from the last saved local state.");
       } catch (error) {
         setStatus(error.message);
         failCodexProgress(error.message);
@@ -9358,6 +12977,11 @@ function html(response) {
     }
 
       async function loadVoices(preferredVoice = "") {
+        if (!liveDemoFunctionalityEnabled) {
+          voiceSelect.innerHTML = "<option value='Moira'>Narration disabled</option>";
+          voiceProviderHint.textContent = "Live demo functionality is disabled in Admin, so narrator voice selection is hidden.";
+          return;
+        }
         const provider = voiceProviderSelect.value || "say";
         syncVoiceProviderSettings();
         const payload = await api("/api/voices", {
@@ -9391,7 +13015,7 @@ function html(response) {
         updateAvatarPersona(preferredVoice);
       }
 
-    async function loadGuide() {
+    async function loadGuide(action = "SC Guide refresh") {
       startCodexProgress("Refreshing SC Guide", "Codex is checking whether the guide needs to be generated or refreshed.", [
         "Read current guide",
         "Ask Codex if generation is needed",
@@ -9403,6 +13027,7 @@ function html(response) {
         renderGuideOutputs(payload.guide || "", payload.guideOutputs);
         const setupPayload = await api("/api/setup-prompt");
         renderSetupPrompt(setupPayload.setupPrompt);
+        markPageLoaded("guide", action);
         finishCodexProgress("SC guide refreshed.");
       } catch (error) {
         failCodexProgress(error.message);
@@ -9410,8 +13035,8 @@ function html(response) {
       }
     }
 
-    async function loadIntelligence() {
-      startCodexProgress("Refreshing Intelligence", "Codex is reviewing the current Prep fields, SC guide, dry-run manifest, and local signals.", [
+    async function loadIntelligence(action = "Demo Intelligence refresh") {
+      startCodexProgress("Refreshing Intelligence", "Codex is reviewing the current Prep fields, SC guide, dry-run manifest, and saved Pre-Demo website context.", [
         "Send current Prep fields to Codex",
         "Review risk, gaps, pacing, and stakeholders",
         "Update the dashboard"
@@ -9422,8 +13047,40 @@ function html(response) {
           body: JSON.stringify(currentPrepPayload())
         });
         renderIntelligence(payload.intelligence);
+        latestFollowUpQuestionsMarkdown = "";
+        latestFollowUpQuestionCards = [];
+        renderPreDemoIntelligence(payload.preDemoIntelligence || preDemoIntelligenceFromDemoIntelligence(payload.intelligence));
         prepDirtyForIntelligence = false;
+        prepDirtyForPreDemoIntelligence = false;
+        markPageLoaded("intelligence", action);
+        markPageLoaded("pre-demo-intelligence", action);
         finishCodexProgress("Intelligence refreshed from current Prep inputs.");
+        return payload;
+      } catch (error) {
+        failCodexProgress(error.message);
+        throw error;
+      }
+    }
+
+    async function loadPreDemoIntelligence(action = "Pre-demo scoring") {
+      setStatus("Running Codex pre-demo scoring against the current notes and discovery context...");
+      startCodexProgress("Scoring Pre-Demo Notes", "Codex is reviewing the company context, Prep inputs, notes, and Admin scoring guidance. The website scan is reused when the URL already matches.", [
+        "Package pre-demo context and website signal",
+        "Run Codex pre-demo scorer",
+        "Update Pre-Demo Intelligence"
+      ]);
+      try {
+        const payload = await api("/api/pre-demo-intelligence", {
+          method: "POST",
+          body: JSON.stringify(currentPrepPayload())
+        });
+        latestFollowUpQuestionsMarkdown = "";
+        latestFollowUpQuestionCards = [];
+        renderPreDemoIntelligence(payload.preDemoIntelligence);
+        prepDirtyForPreDemoIntelligence = false;
+        markPageLoaded("pre-demo-intelligence", action);
+        setStatus("Pre-demo scoring refreshed with Codex.");
+        finishCodexProgress("Pre-demo scoring refreshed.");
         return payload;
       } catch (error) {
         failCodexProgress(error.message);
@@ -9443,6 +13100,7 @@ function html(response) {
         outputLanguage: outputLanguageSelect.value,
         instructions: document.getElementById("instructions").value,
         demoScope: demoScopeField.value,
+        competition: competitionField.value,
         companyUrl: document.getElementById("companyUrl").value,
         preDemoNotes: preDemoNotesField.value,
         valueIntensity: document.getElementById("intensity").value,
@@ -9452,16 +13110,25 @@ function html(response) {
       };
     }
 
-    document.querySelectorAll(".tab").forEach((button) => {
-      button.onclick = async () => {
+    async function activateTab(tabName, options = {}) {
+      const button = document.querySelector("[data-tab='" + tabName + "']");
+      if (!button) return;
+      if (!liveDemoFunctionalityEnabled && button.matches("[data-live-demo-only]")) {
+        return activateTab("prep", { skipAutoLoad: true });
+      }
         document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
         document.querySelectorAll(".screen").forEach((screen) => screen.classList.remove("active"));
         button.classList.add("active");
         document.getElementById("screen-" + button.dataset.tab).classList.add("active");
         sessionStorage.setItem("nsdhActiveTab", button.dataset.tab);
-        if (button.dataset.tab === "admin") await loadCmsStatus();
-        if (button.dataset.tab === "intelligence" && prepDirtyForIntelligence) await loadIntelligence();
-      };
+      if (options.skipAutoLoad) return;
+      if (button.dataset.tab === "admin") await loadCmsStatus();
+      if (button.dataset.tab === "intelligence" && prepDirtyForIntelligence) await loadIntelligence();
+      if (button.dataset.tab === "pre-demo-intelligence" && (prepDirtyForPreDemoIntelligence || !latestPreDemoIntelligence)) await loadPreDemoIntelligence();
+    }
+
+    document.querySelectorAll(".tab").forEach((button) => {
+      button.onclick = async () => activateTab(button.dataset.tab);
     });
 
     document.addEventListener("click", (event) => {
@@ -9487,8 +13154,19 @@ function html(response) {
       if (latestIntelligence) renderIntelligence(latestIntelligence);
     });
 
-    document.getElementById("reload").onclick = async () => { await load(); await loadGuide(); };
-    document.getElementById("reloadManifest").onclick = load;
+    document.getElementById("reload").onclick = async () => { await load("Reload"); await loadGuide("Reload"); };
+    document.getElementById("preDemoScoring").onclick = async () => {
+      setBusy(true);
+      try {
+        await loadPreDemoIntelligence("Pre-demo scoring");
+        await activateTab("pre-demo-intelligence", { skipAutoLoad: true });
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+    document.getElementById("reloadManifest").onclick = () => load("Reload Manifest");
     toggleIntelligenceCardsButton.onclick = () => {
       intelligenceCardsCompact = !intelligenceCardsCompact;
       syncIntelligenceCardDensity();
@@ -9498,9 +13176,19 @@ function html(response) {
       setActiveAiActionButton("refreshIntelligence");
       setBusy(true);
       try {
-        await loadIntelligence();
+        await loadIntelligence("Re-analyze Updated Guide");
         clearPendingAiAction("Insights rebuilt from the current saved SC guide and manifest. Use this after applying a shortened, executive, or technical demo version.");
         setStatus("Re-analyzed updated SC guide and manifest.");
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+    document.getElementById("refreshPreDemoScoring").onclick = async () => {
+      setBusy(true);
+      try {
+        await loadPreDemoIntelligence("Refresh Pre-Demo Scoring");
       } catch (error) {
         setStatus(error.message);
       } finally {
@@ -9547,6 +13235,32 @@ function html(response) {
       }
     };
     document.getElementById("cmsReloadButton").onclick = loadCmsContent;
+    liveDemoFunctionalityToggle.onchange = async () => {
+      try {
+        const payload = await api("/api/cms/feature-flags", {
+          method: "POST",
+          body: JSON.stringify({ liveDemoFunctionality: liveDemoFunctionalityToggle.checked })
+        });
+        applyFeatureFlags(payload.featureFlags);
+        renderCms(payload);
+        cmsStatus.textContent = liveDemoFunctionalityEnabled
+          ? "Live demo functionality is enabled. Narration, dry-run, dataset analysis, and Run controls are visible."
+          : "Live demo functionality is disabled. The app now focuses on Prep, SC Guide, and Intelligence only.";
+      } catch (error) {
+        liveDemoFunctionalityToggle.checked = liveDemoFunctionalityEnabled;
+        cmsStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("reloadButtonInstructionFiles").onclick = loadButtonInstructionCatalog;
+    document.getElementById("generateButtonInstructionFiles").onclick = async () => {
+      try {
+        const payload = await api("/api/button-instructions/export", { method: "POST", body: "{}" });
+        renderButtonInstructionFiles(payload.files || [], "Generated " + ((payload.files || []).length) + " JSON instruction files.");
+        markPageLoaded("admin", "Button/API JSON generated");
+      } catch (error) {
+        buttonInstructionStatus.textContent = error.message;
+      }
+    };
     document.getElementById("cmsSaveButton").onclick = async () => {
       try {
         await api("/api/cms/save", {
@@ -9575,17 +13289,36 @@ function html(response) {
         cmsStatus.textContent = error.message;
       }
     };
-    document.getElementById("createFollowUps").onclick = async () => {
-      setActiveAiActionButton("createFollowUps");
+    async function generateDiscoveryFollowUpsForCurrentPrep(actionLabel = "Generate With Codex") {
+      const payload = await api("/api/intelligence/follow-up-questions", {
+        method: "POST",
+        body: JSON.stringify(currentPrepPayload({
+          additionalComments: followUpQuestionComments.value
+        }))
+      });
+      latestFollowUpQuestionsMarkdown = payload.questions || "";
+      latestFollowUpQuestionCards = questionCardsFromMarkdown(latestFollowUpQuestionsMarkdown);
+      if (payload.preDemoIntelligence || payload.intelligence) {
+        renderPreDemoIntelligence(payload.preDemoIntelligence || preDemoIntelligenceFromDemoIntelligence(payload.intelligence));
+        markPageLoaded("pre-demo-intelligence", actionLabel);
+      }
+      if (payload.intelligence) {
+        renderIntelligence(payload.intelligence);
+        markPageLoaded("intelligence", actionLabel);
+      }
+      return payload;
+    }
+
+    async function runDiscoveryFollowUps({ showInAiOutput = false, actionLabel = "Generate With Codex" } = {}) {
       setBusy(true);
       try {
         startCodexProgress("Generating Discovery Questions", "Codex is checking the website context, pre-demo notes, SC guide, and Intelligence signals.", [
           "Package customer and demo context",
           "Ask Codex for missing discovery",
-          "Show the questions as editable output"
+          "Show the questions in Pre-Demo Intelligence"
         ]);
         setStatus("Running Codex discovery operator against the website context, prep notes, demo request, scope, SC guide, and current Intelligence...");
-        const payload = await api("/api/intelligence/follow-up-questions", { method: "POST", body: "{}" });
+        const payload = await generateDiscoveryFollowUpsForCurrentPrep(actionLabel);
         const operatorFooter = [
           "",
           "---",
@@ -9595,13 +13328,49 @@ function html(response) {
           payload.outputFile ? "Output file: " + payload.outputFile : "",
           payload.codexError ? "Codex note: " + payload.codexError : ""
         ].filter(Boolean).join("\\n");
-        showStandaloneAiOutput((payload.questions || "") + operatorFooter, payload.operator === "codex-background-operator"
-          ? "Codex discovery operator completed. These questions are for discovery only and are not applied to the SC guide."
-          : "Codex operator was unavailable, so the helper returned a fallback question set and saved the Codex prompt for manual use.");
+        if (showInAiOutput) {
+          showStandaloneAiOutput((payload.questions || "") + operatorFooter, payload.operator === "codex-background-operator"
+            ? "Codex discovery operator completed. These questions are also shown in Pre-Demo Intelligence and are not applied to the SC guide."
+            : "Codex operator was unavailable, so the helper returned a fallback question set and saved the Codex prompt for manual use.");
+        } else {
+          setStatus("Codex discovery questions generated. Review them in Recommended Follow-Up Questions.");
+        }
         finishCodexProgress("Discovery questions created.");
       } catch (error) {
         setStatus(error.message);
         failCodexProgress(error.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    document.getElementById("createFollowUps").onclick = async () => {
+      setActiveAiActionButton("createFollowUps");
+      await runDiscoveryFollowUps({ showInAiOutput: true, actionLabel: "Generate Discovery Follow-Up Questions" });
+    };
+
+    document.getElementById("generatePreDemoFollowUps").onclick = async () => {
+      await runDiscoveryFollowUps({ showInAiOutput: false, actionLabel: "Generate With Codex" });
+    };
+
+    document.getElementById("exportPreDemoFollowUps").onclick = async () => {
+      setBusy(true);
+      try {
+        const payload = await api("/api/export-follow-up-questions-docx", {
+          method: "POST",
+          body: JSON.stringify(currentPrepPayload({
+            additionalComments: followUpQuestionComments.value,
+            preDemoIntelligence: latestPreDemoIntelligence,
+            questions: latestFollowUpQuestionCards.length
+              ? latestFollowUpQuestionCards.map((card) => card.question)
+              : (latestPreDemoIntelligence?.recommended_follow_up_questions || []),
+            questionsMarkdown: latestFollowUpQuestionsMarkdown
+          }))
+        });
+        setStatus("Discovery follow-up questions exported: " + payload.path);
+        window.location.href = payload.downloadUrl;
+      } catch (error) {
+        setStatus(error.message);
       } finally {
         setBusy(false);
       }
@@ -9619,6 +13388,12 @@ function html(response) {
         scGuide.value = payload.guide || "";
         renderGuideOutputs(payload.guide || "", payload.guideOutputs);
         renderIntelligence(payload.intelligence);
+        renderPreDemoIntelligence(payload.preDemoIntelligence || preDemoIntelligenceFromDemoIntelligence(payload.intelligence));
+        prepDirtyForIntelligence = false;
+        prepDirtyForPreDemoIntelligence = false;
+        markPageLoaded("guide", "Apply All Recommendations To SC Guide");
+        markPageLoaded("intelligence", "Apply All Recommendations To SC Guide");
+        markPageLoaded("pre-demo-intelligence", "Apply All Recommendations To SC Guide");
         clearPendingAiAction("All Intelligence recommendations were applied to the SC guide. Review the SC Guide tab for the updated runbook and improvement section.");
         setStatus("Applied all Intelligence recommendations to the SC guide.");
         finishCodexProgress("SC guide improved and Intelligence refreshed.");
@@ -9676,6 +13451,12 @@ function html(response) {
         scGuide.value = payload.guide || "";
         renderGuideOutputs(payload.guide || "", payload.guideOutputs);
         renderIntelligence(payload.intelligence);
+        renderPreDemoIntelligence(payload.preDemoIntelligence || preDemoIntelligenceFromDemoIntelligence(payload.intelligence));
+        prepDirtyForIntelligence = false;
+        prepDirtyForPreDemoIntelligence = false;
+        markPageLoaded("guide", "Apply Edited Output To SC Guide");
+        markPageLoaded("intelligence", "Apply Edited Output To SC Guide");
+        markPageLoaded("pre-demo-intelligence", "Apply Edited Output To SC Guide");
         clearPendingAiAction((payload.message || "Applied edited output to SC guide.") + " Review the SC Guide tab for the updated runbook.");
         setStatus("Applied edited output to SC guide.");
         finishCodexProgress("SC guide updated.");
@@ -9740,7 +13521,7 @@ function html(response) {
           method: "POST",
           body: JSON.stringify({ manifest: editor.value })
         });
-        render(payload);
+        render(payload, "Save Manifest");
         setStatus("Manifest saved.");
       } catch (error) {
         setStatus(error.message);
@@ -9751,14 +13532,14 @@ function html(response) {
     document.getElementById("createManifestFromGuide").onclick = async () => {
       setBusy(true);
       try {
-        startCodexProgress("Creating Runnable Manifest", "The helper is turning the Codex-authored SC guide into browser steps and refreshing Intelligence.", [
-          "Read the SC guide",
-          "Build the runnable manifest",
+        startCodexProgress("Creating Runnable Manifest", "The helper is turning the Dry-run creation prompt into browser steps and refreshing Intelligence.", [
+          "Read the Dry-run creation prompt",
+          "Build the runnable manifest from the prompt",
           "Refresh Codex-backed Intelligence"
         ]);
         const payload = await api("/api/manifest/from-guide", { method: "POST", body: "{}" });
-        render(payload);
-        setStatus("Runnable manifest refreshed from the SC guide. Use Buffer Dry-Run before Live Demo.");
+        render(payload, "Create Dry-Run From Prompt");
+        setStatus("Runnable manifest refreshed from the Dry-run creation prompt. Use Buffer Dry-Run before Live Demo.");
         finishCodexProgress("Runnable manifest created.");
       } catch (error) {
         setStatus(error.message);
@@ -9768,7 +13549,80 @@ function html(response) {
       }
     };
 
+    document.getElementById("runDatasetAnalysis").onclick = async () => {
+      setBusy(true);
+      try {
+        startCodexProgress("Running Dataset Analysis", "NetSuite will open if needed. Log in there, then the helper will run the dry-run path and score the dataset.", [
+          "Refresh dry-run manifest",
+          "Open NetSuite and run dry-run",
+          "Score dataset readiness"
+        ]);
+        setStatus("Running Dataset Analysis. If NetSuite asks for login, complete login in the browser window.");
+        const payload = await api("/api/dataset-analysis", {
+          method: "POST",
+          body: JSON.stringify({
+            valueIntensity: document.getElementById("intensity").value
+          })
+        });
+        renderDatasetAnalysis(payload);
+        markPageLoaded("dataset", "Dataset Analysis");
+        setStatus("Dataset Analysis complete. Review missing data/customizations and the Codex setup prompt.");
+        finishCodexProgress("Dataset Analysis complete.");
+      } catch (error) {
+        setStatus(error.message);
+        failCodexProgress(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    executeDatasetPromptButton.onclick = async () => {
+      if (!latestDatasetAnalysis?.codexPrompt) {
+        setStatus("Run Dataset Analysis first so the Codex setup prompt can be generated.");
+        return;
+      }
+      const account = latestDatasetAnalysis.account || {};
+      const items = latestDatasetAnalysis.actionItems || [];
+      const confirmed = window.confirm(
+        "Prepare Codex to inspect and optionally create the missing dataset/customizations?\\n\\n" +
+        "Account: " + (account.account || "unknown") + "\\n" +
+        "Host: " + (account.host || "unknown") + "\\n" +
+        "Role: " + (account.role || "unknown") + "\\n\\n" +
+        "Items to inspect: " + (items.length ? items.map((item) => item.label).join(", ") : "none detected") + "\\n\\n" +
+        "Codex must confirm front-end and back-end NetSuite access and ask before doing write actions."
+      );
+      if (!confirmed) return;
+      setBusy(true);
+      try {
+        const payload = await api("/api/dataset-analysis/execute-prompt", {
+          method: "POST",
+          body: JSON.stringify({
+            confirmed: true,
+            account: account.account
+          })
+        });
+        setStatus(payload.message + "\\nPrompt file: " + payload.promptFile);
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    document.getElementById("stopDatasetRun").onclick = async () => {
+      try {
+        const payload = await api("/api/stop", { method: "POST", body: "{}" });
+        setStatus(payload.message || "Stop requested.");
+      } catch (error) {
+        setStatus(error.message);
+      }
+    };
+
     async function createDemoWorkflow(createRunnableManifest) {
+      if (createRunnableManifest && !liveDemoFunctionalityEnabled) {
+        setStatus("Live demo functionality is switched off in Admin. Use Learn / Create Demo to generate the SC guide and intelligence only.");
+        return;
+      }
       setBusy(true);
       try {
         setStatus(createRunnableManifest
@@ -9780,13 +13634,15 @@ function html(response) {
           "Analyze company and pre-demo notes",
           "Run Codex prep operator",
           "Generate Codex-authored SC guide",
-          createRunnableManifest ? "Create runnable manifest and dry-run" : "Refresh Intelligence dashboard"
+          createRunnableManifest ? "Create dry-run prompt, runnable manifest, and dry-run" : "Refresh Intelligence dashboard"
         ]);
         const payload = await api("/api/learn", {
           method: "POST",
           body: JSON.stringify(currentPrepPayload({ createRunnableManifest }))
         });
-        render(payload);
+        render(payload, createRunnableManifest ? "Learn / Create Demo & Dry-Run" : "Learn / Create Demo", {
+          markManifest: createRunnableManifest
+        });
         scGuide.value = payload.guide || "";
         renderGuideOutputs(payload.guide || "", payload.guideOutputs);
         if (createRunnableManifest) {
@@ -9854,8 +13710,6 @@ function html(response) {
     });
 
     async function run(mode) {
-      runInProgress = true;
-      setBusy(true);
       const runLabels = {
         "dry-run-prep": "Dry-Run Prep",
         "buffer-dry-run": "Buffer Dry-Run",
@@ -9864,6 +13718,21 @@ function html(response) {
         dry: "Dry Run",
         rehearse: "Rehearsal"
       };
+      if (["dry-run-prep", "buffer-dry-run", "live"].includes(mode)) {
+        let confirmed = false;
+        try {
+          confirmed = await confirmDryRunPromptForRun(runLabels[mode] || mode);
+        } catch (error) {
+          setStatus(error.message);
+          return;
+        }
+        if (!confirmed) {
+          setStatus((runLabels[mode] || mode) + " cancelled. The dry-run creation prompt was not used.");
+          return;
+        }
+      }
+      runInProgress = true;
+      setBusy(true);
       setStatus("Running " + (runLabels[mode] || mode) + "...");
       try {
         const payload = await apiWithLog("/api/run", {
@@ -9878,6 +13747,7 @@ function html(response) {
         });
         const prefix = payload.ok ? "" : "Run stopped with an error. Details:\\n\\n";
         setStatus(prefix + (payload.log || "Done."));
+        markPageLoaded("run", runLabels[mode] || mode);
       } catch (error) {
         setStatus(error.message);
       } finally {
@@ -9894,7 +13764,7 @@ function html(response) {
           method: "POST",
           body: JSON.stringify({ file: versions.value })
         });
-        render(payload);
+        render(payload, "Restore Selected");
         setStatus("Restored " + versions.value);
       } catch (error) {
         setStatus(error.message);
@@ -9924,14 +13794,16 @@ function html(response) {
         updateManifestDemoModeHint();
         syncVoiceProviderSettings();
         await loadVoices();
-        await load();
-      await loadGuide();
+        renderStakeholderPersonas();
+        await load("App load");
+      await loadGuide("App load");
       const activeTab = sessionStorage.getItem("nsdhActiveTab");
       if (activeTab && document.querySelector('.tab[data-tab="' + activeTab + '"]')) {
-        document.querySelector('.tab[data-tab="' + activeTab + '"]').click();
+        await activateTab(activeTab);
       }
       await pollNarrator();
       setInterval(pollNarrator, 1500);
+      setInterval(updatePageLoadedAges, 60000);
     })().catch((error) => setStatus(error.message));
   </script>
 </body>

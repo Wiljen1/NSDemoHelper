@@ -8,16 +8,20 @@ node_modules/
 
 artifacts/audio/
 artifacts/cache/
+artifacts/button-api-instructions/
 artifacts/cms/
 artifacts/codex-operators/
 artifacts/codex-prompts/
+artifacts/dataset-analysis/
 artifacts/presentations/
 artifacts/prep-buffer/
+artifacts/product-docs/
 artifacts/runtime/
 artifacts/screenshots/
 artifacts/sc-guides/
 artifacts/*.md
 artifacts/*.docx
+artifacts/*.pdf
 
 manifests/generated/
 manifests/versions/
