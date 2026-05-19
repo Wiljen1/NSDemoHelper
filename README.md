@@ -13,6 +13,14 @@ This workspace contains a first finance-demo package for NetSuite:
 - an Intelligence screen with risk analysis, discovery gaps, stakeholder coverage, winning moments, pacing guidance, and rehearsal coaching
 - a rehearsal/account-prep/cache step before the live run
 
+## Codex / AI Development Instructions
+
+Before using Codex or any AI coding assistant on this repository, read:
+
+`.codex/PROJECT_CONTEXT.md`
+
+All AI-assisted development should follow the MVP protection rules, release workflow, commit naming standards, and white-label readiness guidance documented there.
+
 ## Files
 
 - `manifests/finance-pl-cash360.demo.json` is the structured demo manifest.
