@@ -64,6 +64,7 @@ const defaultTargetAudience = "mid_market";
 const defaultOutputLanguage = "en";
 const defaultDemoStrategy = "standard_platform_demo";
 const defaultIndustry = "general_business";
+const appVersion = "v0.1.0-alpha";
 const cash360SegmentIds = new Set(["open-cash360-dashboard", "cash360-actions", "cash360-forecast", "cash360-preferences"]);
 
 function defaultTestPrepData() {
@@ -1124,6 +1125,7 @@ async function manifestPayload() {
   const intelligence = await readLatestIntelligence(manifest, guide);
   return {
     featureFlags: featureFlagsPayload(),
+    appVersion,
     manifest,
     versions: await listVersions(),
     guide,
@@ -10168,6 +10170,10 @@ function html(response) {
           <span class="dot" aria-hidden="true"></span>
           <span id="codexRuntimeText">Checking Codex</span>
         </div>
+        <span class="codex-runtime-badge" title="First internal MVP baseline version.">
+          <span class="dot" aria-hidden="true"></span>
+          <span>${escapeHtml(appVersion)}</span>
+        </span>
         <button class="codex-info-button" id="codexInfoButton" data-help="Shows which parts of the helper are using Codex and where the latest Codex output was saved.">Backbone</button>
         <label class="theme-toggle" for="nightMode">
           <input type="checkbox" id="nightMode">

@@ -1,6 +1,6 @@
 {
   "name": "ns-demo-helper",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha",
   "private": true,
   "type": "module",
   "description": "NetSuite Demo Helper for SC demo prep, manifest generation, rehearsal, and narrated demo runs.",
