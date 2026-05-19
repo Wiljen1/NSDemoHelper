@@ -1,5 +1,5 @@
 import http from "node:http";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
@@ -15,6 +15,8 @@ const scGuidePath = path.join(projectRoot, "artifacts/sc-demo-guide.md");
 const narratorStatePath = path.join(projectRoot, "artifacts/runtime/narrator-state.json");
 const latestIntelligencePath = path.join(projectRoot, "artifacts/runtime/latest-intelligence.json");
 const latestPreDemoIntelligencePath = path.join(projectRoot, "artifacts/runtime/latest-pre-demo-intelligence.json");
+const workspacesDir = path.join(projectRoot, "artifacts/workspaces");
+const activeWorkspacePath = path.join(projectRoot, "artifacts/runtime/active-workspace.json");
 const cmsContentPath = path.join(projectRoot, "artifacts/cms/content.json");
 const cmsVersionsDir = path.join(projectRoot, "artifacts/cms/versions");
 const buttonInstructionsDir = path.join(projectRoot, "artifacts/button-api-instructions");
@@ -897,12 +899,52 @@ const server = http.createServer(async (request, response) => {
       if (!fileName.endsWith(".json")) return json(response, { ok: false, error: "Only JSON instruction files are available here." }, 400);
       return sendFile(response, path.join(buttonInstructionsDir, fileName), "application/json");
     }
+    if (request.method === "GET" && request.url === "/api/workspaces") {
+      return json(response, { ok: true, workspaceState: await workspacesPayload() });
+    }
+    if (request.method === "POST" && request.url === "/api/workspaces/create") {
+      const body = await readBody(request);
+      const workspace = await createWorkspaceFromCurrentState(body);
+      await writeActiveWorkspaceId(workspace.id);
+      await applyWorkspaceToLocalState(workspace);
+      return json(response, { ok: true, ...(await manifestPayload()) });
+    }
+    if (request.method === "POST" && request.url === "/api/workspaces/open") {
+      const body = await readBody(request);
+      const workspace = await readWorkspace(body.id);
+      if (!workspace) throw httpError("Workspace could not be opened. It may have been deleted or the saved file is malformed.", 404);
+      await writeActiveWorkspaceId(workspace.id);
+      await applyWorkspaceToLocalState(workspace);
+      return json(response, { ok: true, ...(await manifestPayload()) });
+    }
+    if (request.method === "POST" && request.url === "/api/workspaces/rename") {
+      const body = await readBody(request);
+      const workspace = await renameWorkspace(body.id, body);
+      return json(response, { ok: true, workspace, workspaceState: await workspacesPayload() });
+    }
+    if (request.method === "POST" && request.url === "/api/workspaces/duplicate") {
+      const body = await readBody(request);
+      const workspace = await duplicateWorkspace(body.id, body);
+      return json(response, { ok: true, workspace, workspaceState: await workspacesPayload() });
+    }
+    if (request.method === "POST" && request.url === "/api/workspaces/delete") {
+      const body = await readBody(request);
+      const result = await deleteWorkspace(body.id);
+      return json(response, { ok: true, ...result, workspaceState: await workspacesPayload() });
+    }
+    if (request.method === "POST" && request.url === "/api/workspaces/save-current") {
+      const body = await readBody(request);
+      const result = await saveCurrentPrepToActiveWorkspace(body);
+      return json(response, { ok: true, ...result, workspaceState: await workspacesPayload() });
+    }
     if (request.method === "GET" && request.url === "/api/manifest") return json(response, await manifestPayload());
     if (request.method === "GET" && request.url === "/api/intelligence") {
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
       const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
-      return json(response, { ok: true, intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
+      const preDemoIntelligence = preDemoIntelligenceFromDemoIntelligencePayload(intelligence);
+      await saveActiveWorkspaceFromState({ manifest, guide, intelligence, preDemoIntelligence, lastAction: "Demo Intelligence refreshed" });
+      return json(response, { ok: true, intelligence, preDemoIntelligence, workspaceState: await workspacesPayload() });
     }
     if (request.method === "POST" && request.url === "/api/intelligence") {
       const body = await readBody(request);
@@ -913,7 +955,9 @@ const server = http.createServer(async (request, response) => {
         allowWebsiteScan: false
       });
       const intelligence = await demoIntelligencePayloadWithCodex(draftManifest, guide);
-      return json(response, { ok: true, draft: true, intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
+      const preDemoIntelligence = preDemoIntelligenceFromDemoIntelligencePayload(intelligence);
+      await saveActiveWorkspaceFromState({ manifest: draftManifest, guide, intelligence, preDemoIntelligence, lastAction: "Demo Intelligence refreshed" });
+      return json(response, { ok: true, draft: true, intelligence, preDemoIntelligence, workspaceState: await workspacesPayload() });
     }
     if (request.method === "POST" && request.url === "/api/pre-demo-intelligence") {
       const body = await readBody(request);
@@ -923,7 +967,8 @@ const server = http.createServer(async (request, response) => {
         allowWebsiteScan: true
       });
       const preDemoIntelligence = await preDemoIntelligencePayloadWithCodex(draftManifest);
-      return json(response, { ok: true, draft: true, preDemoIntelligence });
+      await saveActiveWorkspaceFromState({ manifest: draftManifest, preDemoIntelligence, lastAction: "Pre-demo scoring refreshed" });
+      return json(response, { ok: true, draft: true, preDemoIntelligence, workspaceState: await workspacesPayload() });
     }
     if (request.method === "GET" && request.url === "/api/versions") return json(response, { versions: await listVersions() });
     if (request.method === "GET" && request.url === "/api/run-state") return json(response, runState());
@@ -938,7 +983,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/api/sc-guide") {
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
-      return json(response, { guide, guideOutputs: guideOutputsPayload(manifest, guide) });
+      await saveActiveWorkspaceFromState({ manifest, guide, lastAction: "SC guide loaded" });
+      return json(response, { guide, guideOutputs: guideOutputsPayload(manifest, guide), workspaceState: await workspacesPayload() });
     }
     if (request.method === "POST" && request.url === "/api/dry-run-prompt/refresh") {
       ensureLiveDemoFunctionalityEnabled();
@@ -948,6 +994,7 @@ const server = http.createServer(async (request, response) => {
       const nextManifest = refreshDryRunPromptMetadata(manifest, guide);
       await writeFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(nextManifest);
+      await saveActiveWorkspaceFromState({ manifest: nextManifest, guide, lastAction: "Dry-run creation prompt refreshed" });
       return json(response, {
         ok: true,
         manifest: nextManifest,
@@ -955,7 +1002,8 @@ const server = http.createServer(async (request, response) => {
         guide,
         guideOutputs: guideOutputsPayload(nextManifest, guide),
         namedManifestPath,
-        setupPrompt: setupPromptPayload(nextManifest, guide)
+        setupPrompt: setupPromptPayload(nextManifest, guide),
+        workspaceState: await workspacesPayload()
       });
     }
     if (request.method === "GET" && request.url === "/api/setup-prompt") {
@@ -977,11 +1025,14 @@ const server = http.createServer(async (request, response) => {
       const questionsPayload = await codexDiscoveryFollowUpQuestions(manifest, guide, intelligence, {
         additionalComments: body.additionalComments
       });
+      const preDemoIntelligence = preDemoIntelligenceFromDemoIntelligencePayload(intelligence);
+      await saveActiveWorkspaceFromState({ manifest, guide, intelligence, preDemoIntelligence, lastAction: "Discovery follow-up questions generated" });
       return json(response, {
         ok: true,
         ...questionsPayload,
         intelligence,
-        preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence)
+        preDemoIntelligence,
+        workspaceState: await workspacesPayload()
       });
     }
     if (request.method === "POST" && request.url === "/api/intelligence/improve-guide") {
@@ -990,12 +1041,15 @@ const server = http.createServer(async (request, response) => {
       const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
       const improvedGuide = await writeImprovedScGuide(manifest, guide, intelligence);
       const updatedIntelligence = await demoIntelligencePayloadWithCodex(manifest, improvedGuide);
+      const preDemoIntelligence = preDemoIntelligenceFromDemoIntelligencePayload(updatedIntelligence);
+      await saveActiveWorkspaceFromState({ manifest, guide: improvedGuide, intelligence: updatedIntelligence, preDemoIntelligence, lastAction: "SC guide improved from Intelligence" });
       return json(response, {
         ok: true,
         guide: improvedGuide,
         guideOutputs: guideOutputsPayload(manifest, improvedGuide),
         intelligence: updatedIntelligence,
-        preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(updatedIntelligence)
+        preDemoIntelligence,
+        workspaceState: await workspacesPayload()
       });
     }
     if (request.method === "POST" && request.url === "/api/intelligence/apply-action") {
@@ -1005,12 +1059,15 @@ const server = http.createServer(async (request, response) => {
       const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
       const updatedGuide = await writeActionScGuide(manifest, guide, intelligence, body);
       const updatedIntelligence = await demoIntelligencePayloadWithCodex(manifest, updatedGuide);
+      const preDemoIntelligence = preDemoIntelligenceFromDemoIntelligencePayload(updatedIntelligence);
+      await saveActiveWorkspaceFromState({ manifest, guide: updatedGuide, intelligence: updatedIntelligence, preDemoIntelligence, lastAction: "Edited AI output applied to SC guide" });
       return json(response, {
         ok: true,
         guide: updatedGuide,
         guideOutputs: guideOutputsPayload(manifest, updatedGuide),
         intelligence: updatedIntelligence,
-        preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(updatedIntelligence),
+        preDemoIntelligence,
+        workspaceState: await workspacesPayload(),
         message: "Applied action to SC guide."
       });
     }
@@ -1031,7 +1088,9 @@ const server = http.createServer(async (request, response) => {
       const namedManifestPath = await writeNamedManifestCopy(parsedManifest);
       const guide = await readOrGenerateScGuide(parsedManifest);
       const intelligence = await demoIntelligencePayloadWithCodex(parsedManifest, guide);
-      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
+      const preDemoIntelligence = preDemoIntelligenceFromDemoIntelligencePayload(intelligence);
+      await saveActiveWorkspaceFromState({ manifest: parsedManifest, guide, intelligence, preDemoIntelligence, lastAction: "Dry-run manifest saved" });
+      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest, guide), intelligence, preDemoIntelligence, workspaceState: await workspacesPayload() });
     }
 
     if (request.method === "POST" && request.url === "/api/manifest/from-guide") {
@@ -1043,7 +1102,9 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(nextManifest);
       const intelligence = await demoIntelligencePayloadWithCodex(nextManifest, guide);
-      return json(response, { ok: true, manifest: nextManifest, versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(nextManifest, guide), setupPrompt: setupPromptPayload(nextManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
+      const preDemoIntelligence = preDemoIntelligenceFromDemoIntelligencePayload(intelligence);
+      await saveActiveWorkspaceFromState({ manifest: nextManifest, guide, intelligence, preDemoIntelligence, lastAction: "Dry-run manifest created from prompt" });
+      return json(response, { ok: true, manifest: nextManifest, versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(nextManifest, guide), setupPrompt: setupPromptPayload(nextManifest, guide), intelligence, preDemoIntelligence, workspaceState: await workspacesPayload() });
     }
 
     if (request.method === "POST" && request.url === "/api/learn") {
@@ -1064,7 +1125,9 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${JSON.stringify(finalManifest, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(finalManifest);
       const intelligence = await demoIntelligencePayloadWithCodex(finalManifest, guide);
-      return json(response, { ok: true, manifest: finalManifest, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(finalManifest, guide), namedManifestPath, setupPrompt: setupPromptPayload(finalManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence), runnableManifestCreated: Boolean(body.createRunnableManifest) });
+      const preDemoIntelligence = preDemoIntelligenceFromDemoIntelligencePayload(intelligence);
+      await saveActiveWorkspaceFromState({ manifest: finalManifest, guide, intelligence, preDemoIntelligence, overrides: body, lastAction: body.createRunnableManifest ? "Demo and dry-run created" : "Demo created" });
+      return json(response, { ok: true, manifest: finalManifest, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(finalManifest, guide), namedManifestPath, setupPrompt: setupPromptPayload(finalManifest, guide), intelligence, preDemoIntelligence, workspaceState: await workspacesPayload(), runnableManifestCreated: Boolean(body.createRunnableManifest) });
     }
 
     if (request.method === "POST" && request.url === "/api/restore") {
@@ -1075,7 +1138,9 @@ const server = http.createServer(async (request, response) => {
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
       const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
-      return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
+      const preDemoIntelligence = preDemoIntelligenceFromDemoIntelligencePayload(intelligence);
+      await saveActiveWorkspaceFromState({ manifest, guide, intelligence, preDemoIntelligence, lastAction: "Dry-run manifest version restored" });
+      return json(response, { ok: true, manifest, versions: await listVersions(), guideOutputs: guideOutputsPayload(manifest, guide), setupPrompt: setupPromptPayload(manifest, guide), intelligence, preDemoIntelligence, workspaceState: await workspacesPayload() });
     }
 
     if (request.method === "POST" && request.url === "/api/run") {
@@ -1131,7 +1196,305 @@ server.listen(port, () => {
   console.log(`NetSuite Demo Helper: http://localhost:${port}`);
 });
 
+async function workspacesPayload() {
+  const activeWorkspaceId = await readActiveWorkspaceId();
+  const workspaces = await listWorkspaces();
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) || null;
+  return {
+    activeWorkspaceId: activeWorkspace?.id || "",
+    activeWorkspace,
+    workspaces
+  };
+}
+
+async function listWorkspaces() {
+  await mkdir(workspacesDir, { recursive: true });
+  const files = (await readdir(workspacesDir)).filter((file) => file.endsWith(".json"));
+  const workspaces = [];
+  for (const file of files) {
+    const workspace = await readWorkspace(file.replace(/\.json$/i, ""));
+    if (workspace) workspaces.push(workspaceSummary(workspace));
+  }
+  return workspaces.sort((left, right) => Date.parse(right.updatedAt || "") - Date.parse(left.updatedAt || ""));
+}
+
+async function readWorkspace(id) {
+  const clean = normalizeWorkspaceId(id);
+  if (!clean) return null;
+  try {
+    const parsed = JSON.parse(await readFile(workspaceFilePath(clean), "utf8"));
+    if (!parsed || typeof parsed !== "object" || parsed.id !== clean) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writeWorkspace(workspace) {
+  if (!workspace?.id) throw httpError("Workspace id is required.", 400);
+  const clean = normalizeWorkspaceId(workspace.id);
+  if (!clean) throw httpError("Workspace id is invalid.", 400);
+  await mkdir(workspacesDir, { recursive: true });
+  const payload = scrubWorkspaceValue({ ...workspace, id: clean });
+  await writeFile(workspaceFilePath(clean), `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return payload;
+}
+
+function workspaceFilePath(id) {
+  const clean = normalizeWorkspaceId(id);
+  if (!clean) throw httpError("Workspace id is invalid.", 400);
+  return path.join(workspacesDir, `${clean}.json`);
+}
+
+function normalizeWorkspaceId(id) {
+  const clean = String(id || "").trim().toLowerCase();
+  return /^workspace-[a-z0-9-]+$/.test(clean) ? clean : "";
+}
+
+function newWorkspaceId() {
+  return `workspace-${Date.now().toString(36)}-${randomBytes(4).toString("hex")}`;
+}
+
+async function readActiveWorkspaceId() {
+  try {
+    const parsed = JSON.parse(await readFile(activeWorkspacePath, "utf8"));
+    return normalizeWorkspaceId(parsed.activeWorkspaceId);
+  } catch {
+    return "";
+  }
+}
+
+async function writeActiveWorkspaceId(id) {
+  const clean = normalizeWorkspaceId(id);
+  await mkdir(path.dirname(activeWorkspacePath), { recursive: true });
+  await writeFile(activeWorkspacePath, `${JSON.stringify({ activeWorkspaceId: clean, updatedAt: new Date().toISOString() }, null, 2)}\n`, "utf8");
+}
+
+async function clearActiveWorkspaceId() {
+  await rm(activeWorkspacePath, { force: true });
+}
+
+async function activeWorkspace() {
+  const id = await readActiveWorkspaceId();
+  if (!id) return null;
+  const workspace = await readWorkspace(id);
+  if (!workspace) {
+    await clearActiveWorkspaceId();
+    return null;
+  }
+  return workspace;
+}
+
+async function createWorkspaceFromCurrentState(body = {}) {
+  const savedManifest = await readManifest();
+  const prep = body.prep && typeof body.prep === "object" ? body.prep : body;
+  const manifest = manifestWithCurrentPrepInputs(savedManifest, prep);
+  const website = normalizeCompanyUrl(body.website || body.companyUrl || prep.companyUrl || manifest.context?.company?.url || "");
+  manifest.context = manifest.context || {};
+  manifest.context.company = {
+    ...(manifest.context.company || {}),
+    ...(website ? { url: website } : {}),
+    ...(String(body.customerName || "").trim() ? { companyName: String(body.customerName).trim() } : {})
+  };
+  if (String(body.dealName || "").trim()) manifest.name = String(body.dealName).trim();
+  const guide = await readScGuide();
+  const intelligence = await readLatestJson(latestIntelligencePath);
+  const preDemoIntelligence = await readLatestJson(latestPreDemoIntelligencePath);
+  const workspace = workspaceRecordFromState({
+    id: newWorkspaceId(),
+    manifest,
+    guide,
+    intelligence,
+    preDemoIntelligence,
+    overrides: body,
+    lastAction: "Workspace created"
+  });
+  return writeWorkspace(workspace);
+}
+
+async function renameWorkspace(id, body = {}) {
+  const workspace = await readWorkspace(id);
+  if (!workspace) throw httpError("Workspace could not be renamed because it was not found.", 404);
+  const updated = workspaceRecordFromState({
+    existing: workspace,
+    id: workspace.id,
+    manifest: workspace.manifest,
+    guide: workspace.generatedScGuide || workspace.scGuide || "",
+    intelligence: workspace.demoIntelligenceOutput,
+    preDemoIntelligence: workspace.preDemoIntelligenceOutput,
+    overrides: body,
+    lastAction: "Workspace renamed"
+  });
+  return writeWorkspace(updated);
+}
+
+async function duplicateWorkspace(id, body = {}) {
+  const workspace = await readWorkspace(id);
+  if (!workspace) throw httpError("Workspace could not be duplicated because it was not found.", 404);
+  const now = new Date().toISOString();
+  const duplicate = {
+    ...structuredClone(workspace),
+    id: newWorkspaceId(),
+    createdAt: now,
+    updatedAt: now,
+    customerName: String(body.customerName || workspace.customerName || "Copied workspace").trim(),
+    dealName: String(body.dealName || `${workspace.dealName || workspace.customerName || "Demo workspace"} copy`).trim(),
+    snapshotLabel: String(body.snapshotLabel || workspace.snapshotLabel || "Duplicated workspace").trim(),
+    lastAction: "Workspace duplicated"
+  };
+  return writeWorkspace(duplicate);
+}
+
+async function deleteWorkspace(id) {
+  const clean = normalizeWorkspaceId(id);
+  if (!clean) throw httpError("Choose a workspace to delete.", 400);
+  await rm(workspaceFilePath(clean), { force: true });
+  if ((await readActiveWorkspaceId()) === clean) await clearActiveWorkspaceId();
+  return { deletedWorkspaceId: clean };
+}
+
+async function saveCurrentPrepToActiveWorkspace(body = {}) {
+  const workspace = await activeWorkspace();
+  if (!workspace) return { saved: false, message: "No active workspace selected." };
+  const prep = body.prep && typeof body.prep === "object" ? body.prep : body;
+  const baseManifest = workspace.manifest || await readManifest();
+  const manifest = manifestWithCurrentPrepInputs(baseManifest, prep);
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  const updated = await saveActiveWorkspaceFromState({
+    manifest,
+    lastAction: body.lastAction || "Prep fields saved"
+  });
+  return { saved: Boolean(updated), workspace: updated ? workspaceSummary(updated) : null };
+}
+
+async function saveActiveWorkspaceFromState(updates = {}) {
+  const workspace = await activeWorkspace();
+  if (!workspace) return null;
+  const has = (key) => Object.prototype.hasOwnProperty.call(updates, key);
+  const manifest = has("manifest") ? updates.manifest : workspace.manifest || await readManifest();
+  const guide = has("guide") ? updates.guide : workspace.generatedScGuide || workspace.scGuide || await readScGuide();
+  const intelligence = has("intelligence")
+    ? updates.intelligence
+    : has("demoIntelligence")
+      ? updates.demoIntelligence
+      : workspace.demoIntelligenceOutput;
+  const preDemoIntelligence = has("preDemoIntelligence")
+    ? updates.preDemoIntelligence
+    : workspace.preDemoIntelligenceOutput;
+  const updated = workspaceRecordFromState({
+    existing: workspace,
+    id: workspace.id,
+    manifest,
+    guide,
+    intelligence,
+    preDemoIntelligence,
+    overrides: updates.overrides || {},
+    lastAction: updates.lastAction || "Workspace updated"
+  });
+  return writeWorkspace(updated);
+}
+
+async function applyWorkspaceToLocalState(workspace) {
+  if (!workspace?.manifest) return;
+  await writeFile(manifestPath, `${JSON.stringify(workspace.manifest, null, 2)}\n`, "utf8");
+  await mkdir(path.dirname(scGuidePath), { recursive: true });
+  await writeFile(scGuidePath, workspace.generatedScGuide || workspace.scGuide || "", "utf8");
+  if (workspace.demoIntelligenceOutput && typeof workspace.demoIntelligenceOutput === "object") {
+    await saveLatestJson(latestIntelligencePath, workspace.demoIntelligenceOutput);
+  } else {
+    await rm(latestIntelligencePath, { force: true });
+  }
+  if (workspace.preDemoIntelligenceOutput && typeof workspace.preDemoIntelligenceOutput === "object") {
+    await saveLatestJson(latestPreDemoIntelligencePath, workspace.preDemoIntelligenceOutput);
+  } else {
+    await rm(latestPreDemoIntelligencePath, { force: true });
+  }
+}
+
+function workspaceRecordFromState({ existing = {}, id, manifest, guide = "", intelligence = null, preDemoIntelligence = null, overrides = {}, lastAction = "" } = {}) {
+  const now = new Date().toISOString();
+  const safeManifest = scrubWorkspaceValue(manifest || existing.manifest || {});
+  const context = safeManifest.context || {};
+  const request = context.demoRequest || {};
+  const company = context.company || {};
+  const guideOutputs = guideOutputsPayload(safeManifest, guide || "");
+  const setupPayload = setupPromptPayload(safeManifest, guide || "");
+  const website = normalizeCompanyUrl(overrides.website || overrides.companyUrl || company.url || existing.website || "");
+  const customerName = String(overrides.customerName || company.companyName || company.title || existing.customerName || workspaceNameFromWebsite(website) || "Untitled customer").trim();
+  const dealName = String(overrides.dealName || safeManifest.name || existing.dealName || `${customerName} demo`).trim();
+  return {
+    schemaVersion: 1,
+    id: id || existing.id || newWorkspaceId(),
+    customerName,
+    website,
+    dealName,
+    industry: normalizeIndustry(overrides.industry || context.industry?.id || request.industry || existing.industry || safeManifest.defaults?.industry).id,
+    audienceType: normalizeAudience(overrides.audienceType || overrides.audience || context.audience?.value || request.audience || existing.audienceType).id,
+    targetSegment: normalizeMarketSegment(overrides.targetSegment || overrides.marketSegment || context.targetAudience?.value || context.marketSegment?.value || request.targetAudience || request.marketSegment || existing.targetSegment).id,
+    demoStrategy: normalizeDemoStrategy(overrides.demoStrategy || context.demoStrategy?.id || request.demoStrategy || existing.demoStrategy || safeManifest.defaults?.demoStrategy).id,
+    language: normalizeOutputLanguage(overrides.language || overrides.outputLanguage || context.outputLanguage?.value || request.outputLanguage || existing.language || safeManifest.defaults?.outputLanguage).value,
+    competitionStatusQuo: String(overrides.competitionStatusQuo || overrides.competition || context.competition || request.competition || existing.competitionStatusQuo || "").trim(),
+    demoScope: String(overrides.demoScope || context.demoScope || request.demoScope || existing.demoScope || "").trim(),
+    demoRequest: String(overrides.demoRequest || overrides.topic || request.topic || existing.demoRequest || "").trim(),
+    preDemoNotes: String(overrides.preDemoNotes || context.preDemoNotes || existing.preDemoNotes || "").trim(),
+    generatedScGuide: String(guide || existing.generatedScGuide || existing.scGuide || ""),
+    personalizedDemoStoryRunbook: guideOutputs.scRunbook || existing.personalizedDemoStoryRunbook || "",
+    preDemoIntelligenceOutput: preDemoIntelligence || existing.preDemoIntelligenceOutput || null,
+    demoIntelligenceOutput: intelligence || existing.demoIntelligenceOutput || null,
+    netSuiteSetupPrompt: setupPayload.prompt || existing.netSuiteSetupPrompt || "",
+    assetPptPrompt: guideOutputs.assetGenerationPrompt || existing.assetPptPrompt || "",
+    dryRunManifestOutput: safeManifest || existing.dryRunManifestOutput || null,
+    manifest: safeManifest,
+    snapshotLabel: String(overrides.snapshotLabel || existing.snapshotLabel || "").trim(),
+    createdAt: existing.createdAt || now,
+    updatedAt: now,
+    lastAction: lastAction || existing.lastAction || "Workspace saved"
+  };
+}
+
+function workspaceSummary(workspace) {
+  return {
+    id: workspace.id,
+    customerName: workspace.customerName || "Untitled customer",
+    website: workspace.website || "",
+    dealName: workspace.dealName || "Demo workspace",
+    industry: workspace.industry || "",
+    audienceType: workspace.audienceType || "",
+    targetSegment: workspace.targetSegment || "",
+    demoStrategy: workspace.demoStrategy || "",
+    language: workspace.language || "",
+    competitionStatusQuo: workspace.competitionStatusQuo || "",
+    snapshotLabel: workspace.snapshotLabel || "",
+    createdAt: workspace.createdAt || "",
+    updatedAt: workspace.updatedAt || "",
+    lastAction: workspace.lastAction || "",
+    hasScGuide: Boolean(String(workspace.generatedScGuide || workspace.scGuide || "").trim()),
+    hasPreDemoIntelligence: Boolean(workspace.preDemoIntelligenceOutput),
+    hasDemoIntelligence: Boolean(workspace.demoIntelligenceOutput),
+    hasDryRunManifest: Boolean(workspace.dryRunManifestOutput || workspace.manifest)
+  };
+}
+
+function workspaceNameFromWebsite(website) {
+  const slug = websiteNameSlug(website);
+  if (!slug) return "";
+  return slug.split("-").map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").join(" ");
+}
+
+function scrubWorkspaceValue(value) {
+  if (Array.isArray(value)) return value.map(scrubWorkspaceValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => {
+      const normalized = String(key || "").replace(/[-_\s]/g, "").toLowerCase();
+      return !["apikey", "voiceapikey", "password", "secret", "accesstoken", "refreshtoken", "sessionid", "sessiontoken"].includes(normalized);
+    })
+    .map(([key, item]) => [key, scrubWorkspaceValue(item)]));
+}
+
 async function manifestPayload() {
+  const workspace = await activeWorkspace();
+  if (workspace?.manifest) await applyWorkspaceToLocalState(workspace);
   const manifest = await readManifest();
   const guide = await readSavedOrLocalScGuide(manifest);
   const intelligence = await readLatestIntelligence(manifest, guide);
@@ -1145,7 +1508,8 @@ async function manifestPayload() {
     guideOutputs: guideOutputsPayload(manifest, guide),
     setupPrompt: setupPromptPayload(manifest, guide),
     intelligence,
-    preDemoIntelligence: await readLatestPreDemoIntelligence(manifest, intelligence)
+    preDemoIntelligence: await readLatestPreDemoIntelligence(manifest, intelligence),
+    workspaceState: await workspacesPayload()
   };
 }
 
@@ -1488,6 +1852,28 @@ function buttonInstructionCatalog() {
     }, "Loads available voices for the selected narration provider. API keys are session-only and are not saved in the manifest.", false),
     buttonInstruction("codex-backbone-status", "Codex active / Backbone check", "Header", "GET", "/api/codex/status", null, "Checks whether the local Codex runtime is available.", false),
     buttonInstruction("stop-codex-action", "Stop Codex Action", "Header", "POST", "/api/codex/stop", {}, "Requests cancellation of the currently running Codex background action.", false),
+    buttonInstruction("list-workspaces", "Refresh List", "Workspaces", "GET", "/api/workspaces", null, "Reloads the local customer/deal workspace list from this machine.", false),
+    buttonInstruction("create-workspace", "Create Workspace", "Workspaces", "POST", "/api/workspaces/create", {
+      ...prepPayload,
+      customerName: "Air Charter Service",
+      dealName: "ACS finance transformation demo"
+    }, "Creates and opens a new local workspace from the current Prep fields and generated outputs. API keys and secrets are not saved into workspace data.", false),
+    buttonInstruction("save-current-workspace", "Save Current Workspace", "Workspaces", "POST", "/api/workspaces/save-current", prepPayload, "Saves the visible Prep fields to the active local workspace without calling Codex.", false),
+    buttonInstruction("open-workspace", "Open", "Workspaces", "POST", "/api/workspaces/open", {
+      id: "workspace-example-id"
+    }, "Loads the selected workspace into the existing Prep, SC Guide, Intelligence, and Dry-Run screens.", false),
+    buttonInstruction("rename-workspace", "Rename", "Workspaces", "POST", "/api/workspaces/rename", {
+      id: "workspace-example-id",
+      customerName: "Updated customer name",
+      dealName: "Updated deal/demo name"
+    }, "Renames the selected local workspace.", false),
+    buttonInstruction("duplicate-workspace", "Duplicate", "Workspaces", "POST", "/api/workspaces/duplicate", {
+      id: "workspace-example-id",
+      dealName: "Copied deal/demo name"
+    }, "Copies the selected workspace into a separate local workspace with a new id.", false),
+    buttonInstruction("delete-workspace", "Delete", "Workspaces", "POST", "/api/workspaces/delete", {
+      id: "workspace-example-id"
+    }, "Deletes the selected local workspace after confirmation in the UI. It does not delete NetSuite data or GitHub files.", false),
     buttonInstruction("export-guide-word", "Export To Word", "SC Guide", "POST", "/api/export-guide-docx", {}, "Exports the current SC guide as a Word document.", false),
     buttonInstruction("execute-setup-prompt", "Execute Now", "SC Guide", "POST", "/api/execute-setup-prompt", {
       confirmed: true,
@@ -8249,7 +8635,26 @@ function html(response) {
         display: flex;
         align-items: center;
         gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
       }
+      .active-workspace-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        max-width: 280px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 7px 11px;
+        background: #fbfcfd;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      body.night .active-workspace-pill { background: #0b1218; }
       .codex-runtime-badge {
         display: inline-flex;
         align-items: center;
@@ -10126,6 +10531,89 @@ function html(response) {
       background: #d92d20;
       opacity: 1;
     }
+    .workspace-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      background: linear-gradient(135deg, #f8fcfb 0%, #eef7f4 100%);
+      margin-bottom: 16px;
+    }
+    body.night .workspace-hero { background: linear-gradient(135deg, #0b1218 0%, #10222a 100%); }
+    .workspace-hero h2 { margin-bottom: 5px; }
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .workspace-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfd;
+      padding: 15px;
+      display: grid;
+      gap: 11px;
+      min-height: 230px;
+    }
+    body.night .workspace-card { background: #0b1218; }
+    .workspace-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0, 122, 122, .10);
+    }
+    .workspace-card h3 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+    .workspace-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.42;
+    }
+    .workspace-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .workspace-card-meta span,
+    .workspace-output-chip {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      background: #fff;
+    }
+    body.night .workspace-card-meta span,
+    body.night .workspace-output-chip { background: #080e14; }
+    .workspace-output-chip.ready {
+      color: var(--accent-dark);
+      border-color: rgba(0, 122, 122, .35);
+      background: #eefaf8;
+    }
+    body.night .workspace-output-chip.ready { background: #102824; }
+    .workspace-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .workspace-empty {
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 26px;
+      text-align: center;
+      color: var(--muted);
+      background: #fbfcfd;
+    }
+    body.night .workspace-empty { background: #0b1218; }
     .live-demo-disabled [data-live-demo-only] {
       display: none !important;
     }
@@ -10168,6 +10656,7 @@ function html(response) {
       .intel-summary,
       .priority-intelligence-grid,
       .readiness-hero,
+      .workspace-hero,
       .cms-auth-grid,
       .cms-editor-grid { grid-template-columns: 1fr; }
       .steps { grid-template-columns: 1fr 1fr; }
@@ -10179,6 +10668,7 @@ function html(response) {
     <header>
       <h1>NetSuite Demo Helper</h1>
       <div class="header-actions">
+        <span id="activeWorkspaceName" class="active-workspace-pill" title="The currently open customer/deal workspace.">No workspace selected</span>
         <div id="codexRuntimeBadge" class="codex-runtime-badge checking" title="Checking whether the local Codex app can be used as the reasoning backbone.">
           <span class="dot" aria-hidden="true"></span>
           <span id="codexRuntimeText">Checking Codex</span>
@@ -10198,9 +10688,10 @@ function html(response) {
           Night mode
         </label>
       </div>
-    </header>
+  </header>
   <nav class="tabs" aria-label="Workspace screens">
     <button class="tab active" data-tab="prep" data-help="Enter the customer website, audience, scope, demo request, pre-demo notes, narration voice, and generator instructions before creating anything.">Prep</button>
+    <button class="tab" data-tab="workspaces" data-help="Create, open, duplicate, rename, or delete local customer/deal workspaces without overwriting other demo prep.">Workspaces</button>
     <button class="tab" data-tab="guide" data-help="Review the Codex-created SC story, setup prompt, asset prompt, and Dry-run creation prompt. Export the SC guide to Word from here.">SC Guide</button>
     <button class="tab" data-tab="pre-demo-intelligence" data-help="Check whether the pre-demo notes are strong enough. This page scores discovery quality, shows missing context, generates follow-up questions, and exports them to Word.">Pre-Demo Intelligence</button>
     <button class="tab" data-tab="intelligence" data-help="Review the generated demo and SC guide for risks, pacing, stakeholder coverage, winning moments, and suggested improvements.">Demo Intelligence</button>
@@ -10369,6 +10860,23 @@ function html(response) {
           </div>
         </div>
       </div>
+    </section>
+
+    <section class="screen" id="screen-workspaces">
+      <div class="workspace-hero">
+        <div>
+          <p class="hero-eyebrow">Customer / Deal Workspaces</p>
+          <h2>Keep each demo prep separate</h2>
+          <p class="hero-subline">Create a workspace per customer or deal, reopen earlier prep, and keep generated SC guides, intelligence, prompts, and dry-runs attached to the right account.</p>
+        </div>
+        <div class="workspace-actions">
+          <button id="createWorkspace" data-help="Creates a new local workspace from the current Prep fields and generated outputs.">Create Workspace</button>
+          <button class="secondary" id="saveWorkspaceNow" data-help="Saves the current Prep fields to the active workspace without running Codex.">Save Current Workspace</button>
+          <button class="secondary" id="refreshWorkspaces" data-help="Reloads the local workspace list from this machine.">Refresh List</button>
+        </div>
+      </div>
+      <div id="workspaceEmpty" class="workspace-empty" hidden>Create your first customer/demo workspace.</div>
+      <div class="workspace-grid" id="workspaceGrid"></div>
     </section>
 
     <section class="screen" id="screen-manifest">
@@ -10890,6 +11398,9 @@ function html(response) {
     const liveDemoFunctionalityToggle = document.getElementById("liveDemoFunctionalityToggle");
     const buttonInstructionStatus = document.getElementById("buttonInstructionStatus");
     const buttonInstructionFiles = document.getElementById("buttonInstructionFiles");
+    const activeWorkspaceName = document.getElementById("activeWorkspaceName");
+    const workspaceGrid = document.getElementById("workspaceGrid");
+    const workspaceEmpty = document.getElementById("workspaceEmpty");
     const audienceTypeConfig = ${JSON.stringify(demoAudienceConfiguration.audienceTypes)};
     const targetAudienceConfig = ${JSON.stringify(demoAudienceConfiguration.targetAudiences)};
     const demoStrategyConfig = ${JSON.stringify(demoStrategies)};
@@ -10924,6 +11435,9 @@ function html(response) {
     let latestFollowUpQuestionsMarkdown = "";
     let latestFollowUpQuestionCards = [];
     let latestDatasetAnalysis = null;
+    let latestWorkspaceState = null;
+    let workspaceSaveTimer = null;
+    let workspaceAutosaveInFlight = false;
     let prepDirtyForIntelligence = false;
     let prepDirtyForPreDemoIntelligence = false;
     let liveDemoFunctionalityEnabled = ${JSON.stringify(liveDemoFunctionalityEnabled)};
@@ -11037,6 +11551,87 @@ function html(response) {
             return "<div class='api-instruction-item'><div><strong>" + escapeClientHtml(file.label || file.id) + "</strong><span>" + escapeClientHtml(file.file || "") + "</span></div>" + download + "</div>";
           }).join("")
         : "<p class='hint'>Generate the files to see download links.</p>";
+    }
+
+    function renderWorkspaceState(state = {}) {
+      latestWorkspaceState = state || {};
+      const active = latestWorkspaceState.activeWorkspace || null;
+      activeWorkspaceName.textContent = active
+        ? "Workspace: " + (active.customerName || active.dealName || "Untitled")
+        : "No workspace selected";
+      activeWorkspaceName.title = active
+        ? [
+            "Active workspace",
+            active.dealName || "",
+            active.website || "",
+            active.updatedAt ? "Updated: " + formatDisplayDateTime(active.updatedAt) : ""
+          ].filter(Boolean).join("\\n")
+        : "No active workspace. The app is using the original single local saved state.";
+      const workspaces = latestWorkspaceState.workspaces || [];
+      workspaceEmpty.hidden = workspaces.length > 0;
+      workspaceGrid.innerHTML = workspaces.map(workspaceCardHtml).join("");
+    }
+
+    function workspaceCardHtml(workspace) {
+      const isActive = workspace.id === latestWorkspaceState?.activeWorkspaceId;
+      const meta = [
+        workspaceLabel(audienceTypeConfig, workspace.audienceType),
+        workspaceLabel(targetAudienceConfig, workspace.targetSegment),
+        workspaceLabel(demoStrategyConfig, workspace.demoStrategy),
+        workspaceLabel(industryConfig, workspace.industry)
+      ].filter(Boolean);
+      const outputs = [
+        ["SC guide", workspace.hasScGuide],
+        ["Pre-demo intel", workspace.hasPreDemoIntelligence],
+        ["Demo intel", workspace.hasDemoIntelligence],
+        ["Dry-run", workspace.hasDryRunManifest]
+      ];
+      return "<article class='workspace-card" + (isActive ? " active" : "") + "' data-workspace-id='" + escapeClientHtml(workspace.id) + "'>" +
+        "<div><h3>" + escapeClientHtml(workspace.customerName || "Untitled customer") + "</h3>" +
+        "<p>" + escapeClientHtml(workspace.dealName || "Demo workspace") + "</p></div>" +
+        (workspace.website ? "<p>" + escapeClientHtml(stripUrlForDisplay(workspace.website)) + "</p>" : "<p>No website saved yet.</p>") +
+        "<div class='workspace-card-meta'>" + meta.map((item) => "<span>" + escapeClientHtml(item) + "</span>").join("") + "</div>" +
+        "<div class='workspace-card-meta'>" + outputs.map(([label, ready]) => "<span class='workspace-output-chip" + (ready ? " ready" : "") + "'>" + escapeClientHtml(label) + "</span>").join("") + "</div>" +
+        "<p>Last updated: " + escapeClientHtml(workspace.updatedAt ? formatDisplayDateTime(workspace.updatedAt) : "not recorded") + "</p>" +
+        "<div class='workspace-actions'>" +
+          "<button class='secondary' data-workspace-action='open' data-help='Opens this workspace and loads its Prep fields and generated outputs.'>Open</button>" +
+          "<button class='secondary' data-workspace-action='rename' data-help='Renames the customer or deal label for this workspace.'>Rename</button>" +
+          "<button class='secondary' data-workspace-action='duplicate' data-help='Copies this workspace into a separate new local workspace.'>Duplicate</button>" +
+          "<button class='danger' data-workspace-action='delete' data-help='Deletes only this local workspace after confirmation.'>Delete</button>" +
+        "</div>" +
+      "</article>";
+    }
+
+    function workspaceLabel(config, value) {
+      return (config || []).find((item) => item.id === value || item.value === value)?.label || value || "";
+    }
+
+    async function refreshWorkspaceList() {
+      const payload = await api("/api/workspaces");
+      renderWorkspaceState(payload.workspaceState);
+      return payload;
+    }
+
+    async function saveActiveWorkspaceDraft(lastAction = "Prep fields saved") {
+      if (!latestWorkspaceState?.activeWorkspaceId || workspaceAutosaveInFlight) return;
+      workspaceAutosaveInFlight = true;
+      try {
+        const payload = await api("/api/workspaces/save-current", {
+          method: "POST",
+          body: JSON.stringify({ ...currentPrepPayload(), lastAction })
+        });
+        renderWorkspaceState(payload.workspaceState);
+      } catch (error) {
+        console.warn("Workspace autosave failed", error);
+      } finally {
+        workspaceAutosaveInFlight = false;
+      }
+    }
+
+    function scheduleWorkspaceAutosave() {
+      if (!latestWorkspaceState?.activeWorkspaceId) return;
+      clearTimeout(workspaceSaveTimer);
+      workspaceSaveTimer = setTimeout(() => saveActiveWorkspaceDraft("Prep fields autosaved"), 900);
     }
 
     function renderSelectedCmsBlock() {
@@ -11378,6 +11973,7 @@ function html(response) {
 
     function render(payload, source = "Workspace data", options = {}) {
       applyFeatureFlags(payload.featureFlags);
+      if (payload.workspaceState) renderWorkspaceState(payload.workspaceState);
       editor.value = JSON.stringify(payload.manifest, null, 2);
       scGuide.value = payload.guide || "";
       renderGuideOutputs(payload.guide || "", payload.guideOutputs);
@@ -12956,6 +13552,7 @@ function html(response) {
         prepDirtyForIntelligence = true;
         prepDirtyForPreDemoIntelligence = true;
         renderStakeholderPersonas();
+        scheduleWorkspaceAutosave();
       };
       document.getElementById("instructions").addEventListener("input", markPrepDirtyForIntelligence);
       document.getElementById("companyUrl").addEventListener("input", markPrepDirtyForIntelligence);
@@ -13047,6 +13644,7 @@ function html(response) {
       ]);
       try {
         const payload = await api("/api/sc-guide");
+        if (payload.workspaceState) renderWorkspaceState(payload.workspaceState);
         scGuide.value = payload.guide || "";
         renderGuideOutputs(payload.guide || "", payload.guideOutputs);
         const setupPayload = await api("/api/setup-prompt");
@@ -13070,6 +13668,7 @@ function html(response) {
           method: "POST",
           body: JSON.stringify(currentPrepPayload())
         });
+        if (payload.workspaceState) renderWorkspaceState(payload.workspaceState);
         renderIntelligence(payload.intelligence);
         latestFollowUpQuestionsMarkdown = "";
         latestFollowUpQuestionCards = [];
@@ -13098,6 +13697,7 @@ function html(response) {
           method: "POST",
           body: JSON.stringify(currentPrepPayload())
         });
+        if (payload.workspaceState) renderWorkspaceState(payload.workspaceState);
         latestFollowUpQuestionsMarkdown = "";
         latestFollowUpQuestionCards = [];
         renderPreDemoIntelligence(payload.preDemoIntelligence);
@@ -13146,6 +13746,7 @@ function html(response) {
         document.getElementById("screen-" + button.dataset.tab).classList.add("active");
         sessionStorage.setItem("nsdhActiveTab", button.dataset.tab);
       if (options.skipAutoLoad) return;
+      if (button.dataset.tab === "workspaces") await refreshWorkspaceList();
       if (button.dataset.tab === "admin") await loadCmsStatus();
       if (button.dataset.tab === "intelligence" && prepDirtyForIntelligence) await loadIntelligence();
       if (button.dataset.tab === "pre-demo-intelligence" && (prepDirtyForPreDemoIntelligence || !latestPreDemoIntelligence)) await loadPreDemoIntelligence();
@@ -13156,6 +13757,11 @@ function html(response) {
     });
 
     document.addEventListener("click", (event) => {
+      const workspaceButton = event.target.closest("[data-workspace-action]");
+      if (workspaceButton) {
+        handleWorkspaceAction(workspaceButton);
+        return;
+      }
       const intelligenceCard = event.target.closest("[data-intel-card]");
       if (intelligenceCard) {
         selectedIntelligenceCard = intelligenceCard.dataset.intelCard;
@@ -13177,6 +13783,110 @@ function html(response) {
       heatmapPages[key] = (Number(heatmapPages[key]) || 0) + step;
       if (latestIntelligence) renderIntelligence(latestIntelligence);
     });
+
+    async function handleWorkspaceAction(button) {
+      const card = button.closest("[data-workspace-id]");
+      const id = card?.dataset?.workspaceId;
+      if (!id) return;
+      const action = button.dataset.workspaceAction;
+      setBusy(true);
+      try {
+        if (action === "open") {
+          const payload = await api("/api/workspaces/open", {
+            method: "POST",
+            body: JSON.stringify({ id })
+          });
+          render(payload, "Workspace opened");
+          setStatus("Workspace opened.");
+          await activateTab("prep", { skipAutoLoad: true });
+        } else if (action === "rename") {
+          const current = (latestWorkspaceState?.workspaces || []).find((item) => item.id === id) || {};
+          const customerName = window.prompt("Customer/company name", current.customerName || "");
+          if (customerName === null) return;
+          const dealName = window.prompt("Deal/demo name", current.dealName || "");
+          if (dealName === null) return;
+          const payload = await api("/api/workspaces/rename", {
+            method: "POST",
+            body: JSON.stringify({ id, customerName, dealName })
+          });
+          renderWorkspaceState(payload.workspaceState);
+          setStatus("Workspace renamed.");
+        } else if (action === "duplicate") {
+          const current = (latestWorkspaceState?.workspaces || []).find((item) => item.id === id) || {};
+          const dealName = window.prompt("Name for the duplicated workspace", (current.dealName || current.customerName || "Demo workspace") + " copy");
+          if (dealName === null) return;
+          const payload = await api("/api/workspaces/duplicate", {
+            method: "POST",
+            body: JSON.stringify({ id, dealName })
+          });
+          renderWorkspaceState(payload.workspaceState);
+          setStatus("Workspace duplicated.");
+        } else if (action === "delete") {
+          const current = (latestWorkspaceState?.workspaces || []).find((item) => item.id === id) || {};
+          const confirmed = window.confirm("Delete this local workspace?\\n\\n" + (current.customerName || current.dealName || id) + "\\n\\nThis does not delete NetSuite data or GitHub files.");
+          if (!confirmed) return;
+          const payload = await api("/api/workspaces/delete", {
+            method: "POST",
+            body: JSON.stringify({ id })
+          });
+          renderWorkspaceState(payload.workspaceState);
+          setStatus("Workspace deleted.");
+        }
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    document.getElementById("createWorkspace").onclick = async () => {
+      const suggestedCustomer = stripUrlForDisplay(document.getElementById("companyUrl").value) || "New customer";
+      const customerName = window.prompt("Customer/company name", suggestedCustomer);
+      if (customerName === null) return;
+      const dealName = window.prompt("Deal/demo name", customerName ? customerName + " demo" : "Demo workspace");
+      if (dealName === null) return;
+      setBusy(true);
+      try {
+        const payload = await api("/api/workspaces/create", {
+          method: "POST",
+          body: JSON.stringify({ ...currentPrepPayload(), customerName, dealName })
+        });
+        render(payload, "Workspace created", { markManifest: false });
+        setStatus("Workspace created and opened.");
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    document.getElementById("saveWorkspaceNow").onclick = async () => {
+      setBusy(true);
+      try {
+        const payload = await api("/api/workspaces/save-current", {
+          method: "POST",
+          body: JSON.stringify({ ...currentPrepPayload(), lastAction: "Manual workspace save" })
+        });
+        renderWorkspaceState(payload.workspaceState);
+        setStatus(payload.saved ? "Current Prep fields saved to the active workspace." : "No active workspace selected. Create or open a workspace first.");
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    document.getElementById("refreshWorkspaces").onclick = async () => {
+      setBusy(true);
+      try {
+        await refreshWorkspaceList();
+        setStatus("Workspace list refreshed.");
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
 
     document.getElementById("reload").onclick = async () => { await load("Reload"); await loadGuide("Reload"); };
     document.getElementById("preDemoScoring").onclick = async () => {
@@ -13320,6 +14030,7 @@ function html(response) {
           additionalComments: followUpQuestionComments.value
         }))
       });
+      if (payload.workspaceState) renderWorkspaceState(payload.workspaceState);
       latestFollowUpQuestionsMarkdown = payload.questions || "";
       latestFollowUpQuestionCards = questionCardsFromMarkdown(latestFollowUpQuestionsMarkdown);
       if (payload.preDemoIntelligence || payload.intelligence) {
@@ -13409,6 +14120,7 @@ function html(response) {
           "Refresh the Intelligence dashboard"
         ]);
         const payload = await api("/api/intelligence/improve-guide", { method: "POST", body: "{}" });
+        if (payload.workspaceState) renderWorkspaceState(payload.workspaceState);
         scGuide.value = payload.guide || "";
         renderGuideOutputs(payload.guide || "", payload.guideOutputs);
         renderIntelligence(payload.intelligence);
@@ -13472,6 +14184,7 @@ function html(response) {
           method: "POST",
           body: JSON.stringify({ ...pendingAiAction, instruction: editedInstruction })
         });
+        if (payload.workspaceState) renderWorkspaceState(payload.workspaceState);
         scGuide.value = payload.guide || "";
         renderGuideOutputs(payload.guide || "", payload.guideOutputs);
         renderIntelligence(payload.intelligence);

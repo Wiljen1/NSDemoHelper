@@ -28,6 +28,10 @@ const scenarios = [
     run: () => requestJson(server, "/api/run-state")
   },
   {
+    name: "workspaces",
+    run: () => requestJson(server, "/api/workspaces")
+  },
+  {
     name: "voices",
     run: () => requestJson(server, "/api/voices", {
       method: "POST",

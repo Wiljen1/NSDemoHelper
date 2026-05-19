@@ -1,7 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { draftPrepPayload, projectRoot, requestJson, startTestServer, stopTestServer } from "./helpers.mjs";
 
@@ -10,19 +10,34 @@ let manifestBackup;
 let cmsAdminBackup;
 let cmsSessionsBackup;
 let cmsContentBackup;
+let activeWorkspaceBackup;
+let workspacesBackupExists = false;
 const mainManifestPath = path.join(projectRoot, "manifests/finance-pl-cash360.demo.json");
 const cmsAdminPath = path.join(projectRoot, ".auth/cms-admin.json");
 const cmsSessionsPath = path.join(projectRoot, ".auth/cms-sessions.json");
 const cmsContentPath = path.join(projectRoot, "artifacts/cms/content.json");
+const activeWorkspacePath = path.join(projectRoot, "artifacts/runtime/active-workspace.json");
+const workspacesDir = path.join(projectRoot, "artifacts/workspaces");
+const workspacesBackupDir = path.join(projectRoot, "artifacts/test-backups/workspaces-integration");
 
 before(async () => {
   manifestBackup = await readFile(mainManifestPath, "utf8");
   cmsAdminBackup = await readOptionalFile(cmsAdminPath);
   cmsSessionsBackup = await readOptionalFile(cmsSessionsPath);
   cmsContentBackup = await readOptionalFile(cmsContentPath);
+  activeWorkspaceBackup = await readOptionalFile(activeWorkspacePath);
+  await rm(workspacesBackupDir, { recursive: true, force: true });
+  try {
+    await cp(workspacesDir, workspacesBackupDir, { recursive: true });
+    workspacesBackupExists = true;
+  } catch {
+    workspacesBackupExists = false;
+  }
   await rm(cmsAdminPath, { force: true });
   await rm(cmsSessionsPath, { force: true });
   await rm(cmsContentPath, { force: true });
+  await rm(activeWorkspacePath, { force: true });
+  await rm(workspacesDir, { recursive: true, force: true });
   server = await startTestServer();
 });
 
@@ -32,6 +47,10 @@ after(async () => {
   await restoreOptionalFile(cmsAdminPath, cmsAdminBackup);
   await restoreOptionalFile(cmsSessionsPath, cmsSessionsBackup);
   await restoreOptionalFile(cmsContentPath, cmsContentBackup);
+  await restoreOptionalFile(activeWorkspacePath, activeWorkspaceBackup);
+  await rm(workspacesDir, { recursive: true, force: true });
+  if (workspacesBackupExists) await cp(workspacesBackupDir, workspacesDir, { recursive: true });
+  await rm(workspacesBackupDir, { recursive: true, force: true });
 });
 
 describe("NetSuite Demo Helper control panel", () => {
@@ -43,6 +62,7 @@ describe("NetSuite Demo Helper control panel", () => {
     for (const expected of [
       "NetSuite Demo Helper",
       ">Prep<",
+      ">Workspaces<",
       ">SC Guide<",
       ">Demo Intelligence<",
       ">Pre-Demo Intelligence<",
@@ -73,6 +93,7 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.match(html, /data-page-loaded="guide"/);
     assert.match(html, /data-page-loaded="dataset"/);
     assert.match(html, /\.page-load-info\.stale/);
+    assert.match(html, /Create your first customer\/demo workspace/);
   });
 
   it("detects the Codex backbone through the configured runtime", async () => {
@@ -94,6 +115,62 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.equal(payload.configured, false);
     assert.ok(Array.isArray(payload.voices));
     assert.ok(payload.voices.length > 0);
+  });
+
+  it("creates, saves, opens, renames, duplicates, and deletes local deal workspaces", async () => {
+    const created = await requestJson(server, "/api/workspaces/create", {
+      method: "POST",
+      body: JSON.stringify(draftPrepPayload({
+        customerName: "Workspace Test Co",
+        dealName: "Workspace Test Demo",
+        companyUrl: "https://workspace-test.example.com/",
+        preDemoNotes: "Workspace-specific notes with finance stakeholders and project profitability."
+      }))
+    });
+
+    assert.equal(created.ok, true);
+    assert.equal(created.workspaceState.activeWorkspace.customerName, "Workspace Test Co");
+    assert.equal(created.workspaceState.activeWorkspace.dealName, "Workspace Test Demo");
+    assert.equal(created.manifest.context.company.url, "https://workspace-test.example.com/");
+    assert.ok(created.workspaceState.workspaces.length >= 1);
+
+    const workspaceId = created.workspaceState.activeWorkspaceId;
+    const saved = await requestJson(server, "/api/workspaces/save-current", {
+      method: "POST",
+      body: JSON.stringify(draftPrepPayload({
+        companyUrl: "https://workspace-test.example.com/",
+        preDemoNotes: "Updated workspace note that should reload with this customer.",
+        demoScope: "Updated workspace scope."
+      }))
+    });
+    assert.equal(saved.saved, true);
+
+    const renamed = await requestJson(server, "/api/workspaces/rename", {
+      method: "POST",
+      body: JSON.stringify({ id: workspaceId, customerName: "Renamed Workspace Co", dealName: "Renamed Demo" })
+    });
+    assert.equal(renamed.workspace.customerName, "Renamed Workspace Co");
+
+    const duplicated = await requestJson(server, "/api/workspaces/duplicate", {
+      method: "POST",
+      body: JSON.stringify({ id: workspaceId, dealName: "Copied Demo" })
+    });
+    assert.notEqual(duplicated.workspace.id, workspaceId);
+    assert.equal(duplicated.workspace.dealName, "Copied Demo");
+
+    const opened = await requestJson(server, "/api/workspaces/open", {
+      method: "POST",
+      body: JSON.stringify({ id: workspaceId })
+    });
+    assert.equal(opened.manifest.context.preDemoNotes, "Updated workspace note that should reload with this customer.");
+    assert.equal(opened.manifest.context.demoScope, "Updated workspace scope.");
+
+    const deleted = await requestJson(server, "/api/workspaces/delete", {
+      method: "POST",
+      body: JSON.stringify({ id: duplicated.workspace.id })
+    });
+    assert.equal(deleted.deletedWorkspaceId, duplicated.workspace.id);
+    assert.ok(!deleted.workspaceState.workspaces.some((workspace) => workspace.id === duplicated.workspace.id));
   });
 
   it("scores current Prep page draft input without saving a new manifest", async () => {

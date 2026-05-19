@@ -19,6 +19,12 @@ The Core Platform should eventually contain the vendor-neutral application capab
 
 The Core Platform should not assume NetSuite terminology, NetSuite navigation, ERP-specific modules, or a specific demo methodology beyond generic demo preparation, discovery analysis, storytelling, risk detection, and rehearsal support.
 
+### Customer / Deal Workspaces
+
+The first workspace model is local-only and intentionally simple. A workspace represents one customer or deal and stores the prep inputs plus generated outputs that belong to that demo effort. This lets SCs switch between customers without overwriting the current manifest, SC guide, intelligence outputs, or prompt artifacts.
+
+Current workspace storage is local machine storage under ignored runtime artifacts. It is not cloud sync, not a CRM, and not intended to store secrets or API keys. Future versions can evolve this into a stronger workspace/snapshot service inside the Core Platform.
+
 ## NetSuite ERP Pack
 
 The NetSuite ERP Pack should contain the current NetSuite-specific behavior and content:

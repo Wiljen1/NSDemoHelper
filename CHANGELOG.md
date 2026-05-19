@@ -11,6 +11,14 @@ Each release entry should include:
 
 Do not create future release notes before the release exists.
 
+## Unreleased
+
+### Added
+
+- Customer/deal workspaces stored locally so SCs can create, reopen, rename, duplicate, and delete separate demo prep records without overwriting another customer’s work.
+- Active workspace indicator in the app header.
+- Workspace persistence for Prep fields, SC guide outputs, Pre-Demo Intelligence, Demo Intelligence, setup prompts, asset/PPT prompts, and dry-run manifest output.
+
 ## v0.1.0-alpha
 
 First internal MVP baseline for NetSuite Demo Helper.

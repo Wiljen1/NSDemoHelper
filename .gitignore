@@ -19,6 +19,8 @@ artifacts/product-docs/
 artifacts/runtime/
 artifacts/screenshots/
 artifacts/sc-guides/
+artifacts/test-backups/
+artifacts/workspaces/
 artifacts/*.md
 artifacts/*.docx
 artifacts/*.pdf
