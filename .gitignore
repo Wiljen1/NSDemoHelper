@@ -10,6 +10,7 @@ artifacts/audio/
 artifacts/cache/
 artifacts/button-api-instructions/
 artifacts/cms/
+artifacts/platform/
 artifacts/codex-operators/
 artifacts/codex-prompts/
 artifacts/dataset-analysis/

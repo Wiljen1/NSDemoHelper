@@ -67,6 +67,8 @@ Core Platform:
 - local storage
 - version/update system
 - admin/config management
+- AI provider registry
+- external knowledge source registry
 
 NetSuite ERP Pack:
 - NetSuite-specific terminology
@@ -89,6 +91,21 @@ Future White-Label Pack:
 Important:
 Do not remove NetSuite-specific functionality yet.
 Prepare for white-label readiness gradually through modularization and documentation.
+
+## Platform Foundation
+
+The current foundation keeps Codex as the active MVP provider while preparing future configuration points for:
+- OpenAI GPT
+- Azure OpenAI
+- Claude
+- Gemini
+- local/self-hosted LLMs
+- enterprise AI gateways
+- custom AI providers
+
+External knowledge sources should be treated as contextual intelligence providers, not guaranteed factual truth. Future source types may include internal enablement repositories, CRMs, knowledge bases, documentation portals, retrieval APIs, competitive intelligence sources, and public web intelligence.
+
+Do not store raw API keys in local JSON. Use environment variable names, secret references, or a future secret store.
 
 ## Release Workflow
 

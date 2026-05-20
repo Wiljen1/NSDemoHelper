@@ -6,6 +6,18 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
+import {
+  aiProviderTypes,
+  authMethods,
+  defaultAiProviderRegistry,
+  defaultKnowledgeSourceRegistry,
+  knowledgeSourceCategories,
+  knowledgeSourceTypes,
+  normalizeAiProviderRegistry,
+  normalizeKnowledgeSourceRegistry,
+  sanitizeKnowledgeRegistryForClient,
+  sanitizeProviderRegistryForClient
+} from "./platform/provider-config.mjs";
 
 const projectRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
 const manifestPath = path.join(projectRoot, "manifests/finance-pl-cash360.demo.json");
@@ -17,6 +29,9 @@ const latestIntelligencePath = path.join(projectRoot, "artifacts/runtime/latest-
 const latestPreDemoIntelligencePath = path.join(projectRoot, "artifacts/runtime/latest-pre-demo-intelligence.json");
 const cmsContentPath = path.join(projectRoot, "artifacts/cms/content.json");
 const cmsVersionsDir = path.join(projectRoot, "artifacts/cms/versions");
+const platformConfigDir = path.join(projectRoot, "artifacts/platform");
+const aiProvidersPath = path.join(platformConfigDir, "ai-providers.json");
+const knowledgeSourcesPath = path.join(platformConfigDir, "knowledge-sources.json");
 const buttonInstructionsDir = path.join(projectRoot, "artifacts/button-api-instructions");
 const cmsAdminPath = path.join(projectRoot, ".auth/cms-admin.json");
 const cmsSessionsPath = path.join(projectRoot, ".auth/cms-sessions.json");
@@ -886,6 +901,34 @@ const server = http.createServer(async (request, response) => {
       const body = await readBody(request);
       return json(response, await restoreCmsVersion(body.file));
     }
+    if (request.method === "GET" && request.url === "/api/platform/ai-providers") {
+      await requireCmsAuth(request);
+      return json(response, await aiProviderPayload());
+    }
+    if (request.method === "POST" && request.url === "/api/platform/ai-providers") {
+      await requireCmsAuth(request);
+      const body = await readBody(request);
+      return json(response, await saveAiProviderRegistry(body));
+    }
+    if (request.method === "POST" && request.url === "/api/platform/ai-providers/test") {
+      await requireCmsAuth(request);
+      const body = await readBody(request);
+      return json(response, await testAiProvider(body));
+    }
+    if (request.method === "GET" && request.url === "/api/platform/knowledge-sources") {
+      await requireCmsAuth(request);
+      return json(response, await knowledgeSourcePayload());
+    }
+    if (request.method === "POST" && request.url === "/api/platform/knowledge-sources") {
+      await requireCmsAuth(request);
+      const body = await readBody(request);
+      return json(response, await saveKnowledgeSourceRegistry(body));
+    }
+    if (request.method === "POST" && request.url === "/api/platform/knowledge-sources/test") {
+      await requireCmsAuth(request);
+      const body = await readBody(request);
+      return json(response, await testKnowledgeSources(body));
+    }
     if (request.method === "GET" && request.url === "/api/button-instructions") {
       return json(response, await buttonInstructionsPayload());
     }
@@ -1380,6 +1423,151 @@ async function cmsPayload() {
   };
 }
 
+async function aiProviderPayload() {
+  const registry = await readAiProviderRegistry();
+  return {
+    ok: true,
+    registry: sanitizeProviderRegistryForClient(registry),
+    providerTypes: aiProviderTypes,
+    authMethods,
+    securityNote: "Raw API keys are not saved by this MVP. Use an environment variable or future secret-vault reference.",
+    activeProvider: registry.providers.find((provider) => provider.id === registry.activeProviderId) || registry.providers[0]
+  };
+}
+
+async function knowledgeSourcePayload() {
+  const registry = await readKnowledgeSourceRegistry();
+  return {
+    ok: true,
+    registry: sanitizeKnowledgeRegistryForClient(registry),
+    sourceTypes: knowledgeSourceTypes,
+    categories: knowledgeSourceCategories,
+    authMethods,
+    trustPolicy: registry.trustPolicy
+  };
+}
+
+async function readAiProviderRegistry() {
+  try {
+    return normalizeAiProviderRegistry(JSON.parse(await readFile(aiProvidersPath, "utf8")));
+  } catch {
+    return defaultAiProviderRegistry();
+  }
+}
+
+async function readKnowledgeSourceRegistry() {
+  try {
+    return normalizeKnowledgeSourceRegistry(JSON.parse(await readFile(knowledgeSourcesPath, "utf8")));
+  } catch {
+    return defaultKnowledgeSourceRegistry();
+  }
+}
+
+async function saveAiProviderRegistry(body = {}) {
+  const rawRegistry = body.registry || body;
+  const registry = normalizeAiProviderRegistry({
+    ...rawRegistry,
+    updatedAt: new Date().toISOString()
+  });
+  await mkdir(platformConfigDir, { recursive: true });
+  await writeFile(aiProvidersPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
+  return {
+    ok: true,
+    registry: sanitizeProviderRegistryForClient(registry),
+    message: "AI provider configuration saved. The current MVP still uses Codex unless a future adapter is enabled."
+  };
+}
+
+async function saveKnowledgeSourceRegistry(body = {}) {
+  const rawRegistry = body.registry || body;
+  const registry = normalizeKnowledgeSourceRegistry({
+    ...rawRegistry,
+    updatedAt: new Date().toISOString()
+  });
+  await mkdir(platformConfigDir, { recursive: true });
+  await writeFile(knowledgeSourcesPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
+  return {
+    ok: true,
+    registry: sanitizeKnowledgeRegistryForClient(registry),
+    message: "Knowledge source configuration saved. Sources are stored as contextual intelligence providers, not factual truth."
+  };
+}
+
+async function testAiProvider(body = {}) {
+  const registry = normalizeAiProviderRegistry(body.registry || await readAiProviderRegistry(), new Date().toISOString());
+  const providerId = body.providerId || registry.activeProviderId;
+  const provider = registry.providers.find((item) => item.id === providerId) || registry.providers[0];
+  if (!provider) throw httpError("No AI providers are configured.", 400);
+
+  const now = new Date().toISOString();
+  let validationStatus = "Adapter planned";
+  let available = false;
+  let detail = "This provider is registered for future use. Its adapter has not been wired into demo generation yet.";
+
+  if (provider.providerType === "codex") {
+    const status = await codexRuntimeStatus();
+    available = Boolean(status.available);
+    validationStatus = available ? "Connected" : "Not detected";
+    detail = status.message || "Codex runtime status checked.";
+  } else if (!provider.apiEndpoint) {
+    validationStatus = "Missing endpoint";
+    detail = "Add an endpoint before this future provider can be tested.";
+  } else {
+    validationStatus = "Registered only";
+  }
+
+  return {
+    ok: true,
+    providerId: provider.id,
+    providerName: provider.name,
+    providerType: provider.providerType,
+    available,
+    validationStatus,
+    lastValidatedAt: now,
+    detail,
+    advisory: provider.providerType === "codex"
+      ? "Codex remains the active MVP provider."
+      : "This is a future provider registration. It does not change the current Codex-backed MVP path."
+  };
+}
+
+async function testKnowledgeSources(body = {}) {
+  const registry = normalizeKnowledgeSourceRegistry(body.registry || await readKnowledgeSourceRegistry(), new Date().toISOString());
+  const now = new Date().toISOString();
+  const results = (registry.sources || []).map((source) => {
+    let validationStatus = "Inactive";
+    let available = false;
+    let detail = "Source is disabled and will not be considered.";
+    if (source.active) {
+      if (!source.endpointUrl) {
+        validationStatus = "Missing endpoint";
+        detail = "Add an endpoint URL or connector target before this source can be queried.";
+      } else {
+        validationStatus = "Registered only";
+        detail = "The source is configured, but runtime retrieval adapters are planned for a later release.";
+      }
+    }
+    return {
+      sourceId: source.id,
+      sourceName: source.name,
+      sourceType: source.sourceType,
+      categories: source.categories,
+      available,
+      validationStatus,
+      lastValidatedAt: now,
+      detail,
+      confidenceLevel: source.confidenceLevel,
+      advisory: "Use as contextual intelligence only. Validate important claims before customer use."
+    };
+  });
+
+  return {
+    ok: true,
+    results,
+    trustPolicy: registry.trustPolicy
+  };
+}
+
 async function buttonInstructionsPayload() {
   const generatedAt = new Date().toISOString();
   const buttons = buttonInstructionCatalog();
@@ -1543,6 +1731,18 @@ function buttonInstructionCatalog() {
     buttonInstruction("cms-restore-version", "Restore Selected Version", "Admin", "POST", "/api/cms/restore", {
       file: "2026-05-19T00-00-00-000Z-before-cms-save.json"
     }, "Restores a previous CMS content snapshot.", false),
+    buttonInstruction("platform-ai-providers-load", "Load AI Providers", "Admin", "GET", "/api/platform/ai-providers", null, "Loads the active AI provider registry. Codex remains the default active provider for the MVP.", false),
+    buttonInstruction("platform-ai-providers-save", "Save AI Providers", "Admin", "POST", "/api/platform/ai-providers", {
+      registry: defaultAiProviderRegistry()
+    }, "Saves future AI provider registration settings. Raw API keys should be stored as environment or secret references, not plain text.", false),
+    buttonInstruction("platform-ai-provider-test", "Test Active AI Provider", "Admin", "POST", "/api/platform/ai-providers/test", {
+      providerId: "codex-local"
+    }, "Checks the active provider registration. For Codex this checks the local Codex runtime; future adapters are registration-only for now.", false),
+    buttonInstruction("platform-knowledge-sources-load", "Load Knowledge Sources", "Admin", "GET", "/api/platform/knowledge-sources", null, "Loads contextual knowledge source registrations for future enrichment and validation.", false),
+    buttonInstruction("platform-knowledge-sources-save", "Save Knowledge Sources", "Admin", "POST", "/api/platform/knowledge-sources", {
+      registry: defaultKnowledgeSourceRegistry()
+    }, "Saves contextual knowledge source registrations. External sources are advisory context and not guaranteed factual truth.", false),
+    buttonInstruction("platform-knowledge-sources-test", "Test Knowledge Sources", "Admin", "POST", "/api/platform/knowledge-sources/test", {}, "Validates source registrations without querying future adapters. Results are advisory and source-aware.", false),
     buttonInstruction("export-button-api-json", "Generate Button/API JSON Files", "Admin", "POST", "/api/button-instructions/export", {}, "Writes one JSON file per API-driving button plus an index file for download.", false)
   ];
   if (!liveDemoFunctionalityEnabled) {
@@ -9408,6 +9608,37 @@ function html(response) {
       color: var(--muted);
       font-size: 13px;
     }
+    .platform-config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+      gap: 16px;
+      margin-top: 14px;
+    }
+    .platform-config-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #fbfcfd;
+    }
+    body.night .platform-config-card { background: #0b1218; }
+    .platform-config-card h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .platform-config-card .section-head {
+      align-items: start;
+      margin-bottom: 10px;
+    }
+    .platform-config-preview {
+      min-height: 180px;
+      max-height: 280px;
+      margin-bottom: 12px;
+    }
+    #aiProviderEditor,
+    #knowledgeSourceEditor {
+      min-height: 260px;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
     .cms-history {
       max-height: 260px;
       overflow: auto;
@@ -10762,6 +10993,48 @@ function html(response) {
           </div>
         </div>
 
+        <div class="panel full" id="platformFoundationPanel" hidden>
+          <h2>Platform Foundation</h2>
+          <p class="hint">Future-ready configuration for white-label deployments. These settings register AI providers and knowledge sources, but the current MVP still uses the local Codex backbone unless a future adapter is built and enabled.</p>
+          <div class="platform-config-grid">
+            <section class="platform-config-card">
+              <div class="section-head">
+                <div>
+                  <h3>AI Providers</h3>
+                  <p>Register provider options such as Codex, OpenAI, Azure OpenAI, Claude, Gemini, local LLMs, or enterprise AI gateways.</p>
+                </div>
+              </div>
+              <div class="cms-readable platform-config-preview" id="aiProviderReadable"></div>
+              <label for="aiProviderEditor">Provider registry JSON</label>
+              <textarea id="aiProviderEditor" spellcheck="false"></textarea>
+              <p class="hint">Raw API keys are not saved here. Use an environment variable or future secret-vault reference.</p>
+              <div class="row" style="margin-top:10px">
+                <button class="secondary" id="saveAiProvidersButton" data-help="Saves the future AI provider registry. This does not switch the MVP away from Codex unless a future adapter exists.">Save AI Providers</button>
+                <button class="secondary" id="testAiProviderButton" data-help="Tests the active provider registration. For Codex, this checks the local Codex runtime.">Test Active AI Provider</button>
+              </div>
+              <p class="hint" id="aiProviderStatus">AI provider status will appear here.</p>
+            </section>
+
+            <section class="platform-config-card">
+              <div class="section-head">
+                <div>
+                  <h3>Knowledge Sources</h3>
+                  <p>Register contextual intelligence providers such as Confluence, SharePoint, Notion, CRM, search APIs, competitive battlecards, or enablement repositories.</p>
+                </div>
+              </div>
+              <div class="cms-readable platform-config-preview" id="knowledgeSourceReadable"></div>
+              <label for="knowledgeSourceEditor">Knowledge source registry JSON</label>
+              <textarea id="knowledgeSourceEditor" spellcheck="false"></textarea>
+              <p class="hint">External sources are contextual signals, not guaranteed truth. Competitive and AI-generated context must stay advisory.</p>
+              <div class="row" style="margin-top:10px">
+                <button class="secondary" id="saveKnowledgeSourcesButton" data-help="Saves external knowledge source registrations for future enrichment and validation.">Save Knowledge Sources</button>
+                <button class="secondary" id="testKnowledgeSourcesButton" data-help="Validates knowledge source registrations without treating any source as verified truth.">Test Knowledge Sources</button>
+              </div>
+              <p class="hint" id="knowledgeSourceStatus">Knowledge source status will appear here.</p>
+            </section>
+          </div>
+        </div>
+
         <div class="panel full">
           <h2>Button/API JSON Instructions</h2>
           <p class="hint">Generate downloadable JSON files that show which API endpoint each button calls and what example JSON body is sent. Runtime values still come from the current fields in the app.</p>
@@ -10878,6 +11151,7 @@ function html(response) {
     const cmsLoginPanel = document.getElementById("cmsLoginPanel");
     const cmsSessionPanel = document.getElementById("cmsSessionPanel");
     const cmsEditorPanel = document.getElementById("cmsEditorPanel");
+    const platformFoundationPanel = document.getElementById("platformFoundationPanel");
     const cmsStatus = document.getElementById("cmsStatus");
     const cmsBlockSelect = document.getElementById("cmsBlockSelect");
     const cmsBlockDescription = document.getElementById("cmsBlockDescription");
@@ -10888,6 +11162,12 @@ function html(response) {
     const cmsHistory = document.getElementById("cmsHistory");
     const cmsSecuritySummary = document.getElementById("cmsSecuritySummary");
     const liveDemoFunctionalityToggle = document.getElementById("liveDemoFunctionalityToggle");
+    const aiProviderReadable = document.getElementById("aiProviderReadable");
+    const aiProviderEditor = document.getElementById("aiProviderEditor");
+    const aiProviderStatus = document.getElementById("aiProviderStatus");
+    const knowledgeSourceReadable = document.getElementById("knowledgeSourceReadable");
+    const knowledgeSourceEditor = document.getElementById("knowledgeSourceEditor");
+    const knowledgeSourceStatus = document.getElementById("knowledgeSourceStatus");
     const buttonInstructionStatus = document.getElementById("buttonInstructionStatus");
     const buttonInstructionFiles = document.getElementById("buttonInstructionFiles");
     const audienceTypeConfig = ${JSON.stringify(demoAudienceConfiguration.audienceTypes)};
@@ -10911,6 +11191,8 @@ function html(response) {
     let intelligenceCardsCompact = false;
     let activeHeatmapTab = "discovery";
     let cmsBlocks = [];
+    let aiProviderRegistry = null;
+    let knowledgeSourceRegistry = null;
     const heatmapPages = { demo: 0, notes: 0 };
     let helpTimer = null;
     let helpTarget = null;
@@ -10966,6 +11248,7 @@ function html(response) {
       cmsLoginPanel.hidden = payload.setupRequired || payload.authenticated;
       cmsSessionPanel.hidden = !payload.authenticated;
       cmsEditorPanel.hidden = !payload.authenticated;
+      platformFoundationPanel.hidden = !payload.authenticated;
       cmsStatus.textContent = payload.setupRequired
         ? "Create the local CMS admin password before editing shared content."
         : payload.authenticated
@@ -10978,6 +11261,7 @@ function html(response) {
     async function loadCmsContent() {
       const payload = await api("/api/cms");
       renderCms(payload);
+      await loadPlatformFoundation();
       await loadButtonInstructionCatalog();
     }
 
@@ -10995,6 +11279,91 @@ function html(response) {
         "<div class='cms-history-item'><strong>" + escapeClientHtml(item.label || item.blockId) + "</strong><br>" +
         escapeClientHtml(item.note || "Updated") + "<br><span>" + escapeClientHtml(item.changedAt || "") + "</span></div>"
       ).join("") || "<p class='hint'>No CMS changes yet.</p>";
+    }
+
+    async function loadPlatformFoundation() {
+      try {
+        const [aiPayload, sourcePayload] = await Promise.all([
+          api("/api/platform/ai-providers"),
+          api("/api/platform/knowledge-sources")
+        ]);
+        renderAiProviderRegistry(aiPayload);
+        renderKnowledgeSourceRegistry(sourcePayload);
+      } catch (error) {
+        aiProviderStatus.textContent = error.message;
+        knowledgeSourceStatus.textContent = error.message;
+      }
+    }
+
+    function renderAiProviderRegistry(payload = {}) {
+      aiProviderRegistry = payload.registry || null;
+      aiProviderEditor.value = JSON.stringify(aiProviderRegistry || {}, null, 2);
+      aiProviderReadable.innerHTML = aiProviderRegistry
+        ? platformProviderReadableHtml(aiProviderRegistry)
+        : "<p class='hint'>No AI provider registry loaded.</p>";
+      const active = payload.activeProvider || (aiProviderRegistry?.providers || []).find((provider) => provider.active);
+      aiProviderStatus.textContent = active
+        ? "Active provider: " + active.name + " (" + active.providerType + "). Codex remains the active MVP path unless a future adapter is enabled."
+        : "No active provider configured.";
+    }
+
+    function renderKnowledgeSourceRegistry(payload = {}) {
+      knowledgeSourceRegistry = payload.registry || null;
+      knowledgeSourceEditor.value = JSON.stringify(knowledgeSourceRegistry || {}, null, 2);
+      knowledgeSourceReadable.innerHTML = knowledgeSourceRegistry
+        ? platformKnowledgeReadableHtml(knowledgeSourceRegistry)
+        : "<p class='hint'>No knowledge source registry loaded.</p>";
+      const activeCount = (knowledgeSourceRegistry?.sources || []).filter((source) => source.active).length;
+      knowledgeSourceStatus.textContent = activeCount
+        ? activeCount + " knowledge source(s) enabled as contextual intelligence providers."
+        : "No external knowledge sources are active yet.";
+    }
+
+    function platformProviderReadableHtml(registry = {}) {
+      const providers = registry.providers || [];
+      const notes = (registry.notes || []).slice(0, 3).map((note) => "<li>" + escapeClientHtml(note) + "</li>").join("");
+      return [
+        "<div class='readable-card'><h3>Provider Strategy</h3>",
+        "<p><strong>Active provider:</strong> " + escapeClientHtml(registry.activeProviderId || "Not selected") + "</p>",
+        notes ? "<ul>" + notes + "</ul>" : "",
+        "</div>",
+        ...providers.map((provider) =>
+          "<div class='readable-card'><h3>" + escapeClientHtml(provider.name) + "</h3>" +
+          "<p><strong>Type:</strong> " + escapeClientHtml(provider.providerType) + "</p>" +
+          "<p><strong>Status:</strong> " + escapeClientHtml(provider.active ? "Active" : "Inactive") + " | " + escapeClientHtml(provider.adapterStatus || "planned") + "</p>" +
+          "<p><strong>Model:</strong> " + escapeClientHtml(provider.defaultModel || "Not set") + "</p>" +
+          "<p><strong>Endpoint:</strong> " + escapeClientHtml(provider.apiEndpoint || "Not configured") + "</p>" +
+          "<p><strong>Credential reference:</strong> " + escapeClientHtml(provider.apiKeyReference || "None") + "</p>" +
+          (provider.description ? "<p>" + escapeClientHtml(provider.description) + "</p>" : "") +
+          "</div>"
+        )
+      ].join("");
+    }
+
+    function platformKnowledgeReadableHtml(registry = {}) {
+      const sources = registry.sources || [];
+      return [
+        "<div class='readable-card'><h3>Trust Policy</h3><p>" + escapeClientHtml(registry.trustPolicy || "External sources are contextual only.") + "</p></div>",
+        ...sources.map((source) =>
+          "<div class='readable-card'><h3>" + escapeClientHtml(source.name) + "</h3>" +
+          "<p><strong>Type:</strong> " + escapeClientHtml(source.sourceType) + "</p>" +
+          "<p><strong>Status:</strong> " + escapeClientHtml(source.active ? "Active" : "Inactive") + " | " + escapeClientHtml(source.validationStatus || "Not tested") + "</p>" +
+          "<p><strong>Categories:</strong> " + escapeClientHtml((source.categories || []).join(", ") || "Not assigned") + "</p>" +
+          "<p><strong>Priority:</strong> " + escapeClientHtml(source.priorityWeight) + "/100</p>" +
+          "<p><strong>Confidence:</strong> " + escapeClientHtml(source.confidenceLevel || "contextual") + "</p>" +
+          "<p><strong>Endpoint:</strong> " + escapeClientHtml(source.endpointUrl || "Not configured") + "</p>" +
+          (source.scope ? "<p>" + escapeClientHtml(source.scope) + "</p>" : "") +
+          "</div>"
+        )
+      ].join("");
+    }
+
+    function readJsonEditor(textarea, label) {
+      try {
+        return JSON.parse(textarea.value || "{}");
+      } catch (error) {
+        throw new Error(label + " JSON is not valid: " + error.message);
+      }
     }
 
     function applyFeatureFlags(flags = {}) {
@@ -13311,6 +13680,67 @@ function html(response) {
         reloadAfterCmsChange("CMS version restored.");
       } catch (error) {
         cmsStatus.textContent = error.message;
+      }
+    };
+    aiProviderEditor.oninput = () => {
+      try {
+        aiProviderReadable.innerHTML = platformProviderReadableHtml(readJsonEditor(aiProviderEditor, "AI provider registry"));
+      } catch {
+        aiProviderReadable.innerHTML = "<p class='hint'>The readable preview will update once the provider JSON is valid.</p>";
+      }
+    };
+    knowledgeSourceEditor.oninput = () => {
+      try {
+        knowledgeSourceReadable.innerHTML = platformKnowledgeReadableHtml(readJsonEditor(knowledgeSourceEditor, "Knowledge source registry"));
+      } catch {
+        knowledgeSourceReadable.innerHTML = "<p class='hint'>The readable preview will update once the source JSON is valid.</p>";
+      }
+    };
+    document.getElementById("saveAiProvidersButton").onclick = async () => {
+      try {
+        const payload = await api("/api/platform/ai-providers", {
+          method: "POST",
+          body: JSON.stringify({ registry: readJsonEditor(aiProviderEditor, "AI provider registry") })
+        });
+        renderAiProviderRegistry(payload);
+        markPageLoaded("admin", "Save AI Providers");
+      } catch (error) {
+        aiProviderStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("testAiProviderButton").onclick = async () => {
+      try {
+        const payload = await api("/api/platform/ai-providers/test", {
+          method: "POST",
+          body: JSON.stringify({ registry: readJsonEditor(aiProviderEditor, "AI provider registry") })
+        });
+        aiProviderStatus.textContent = payload.providerName + ": " + payload.validationStatus + ". " + payload.detail + " " + payload.advisory;
+      } catch (error) {
+        aiProviderStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("saveKnowledgeSourcesButton").onclick = async () => {
+      try {
+        const payload = await api("/api/platform/knowledge-sources", {
+          method: "POST",
+          body: JSON.stringify({ registry: readJsonEditor(knowledgeSourceEditor, "Knowledge source registry") })
+        });
+        renderKnowledgeSourceRegistry(payload);
+        markPageLoaded("admin", "Save Knowledge Sources");
+      } catch (error) {
+        knowledgeSourceStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("testKnowledgeSourcesButton").onclick = async () => {
+      try {
+        const payload = await api("/api/platform/knowledge-sources/test", {
+          method: "POST",
+          body: JSON.stringify({ registry: readJsonEditor(knowledgeSourceEditor, "Knowledge source registry") })
+        });
+        const summary = (payload.results || []).map((item) => item.sourceName + ": " + item.validationStatus).join(" | ");
+        knowledgeSourceStatus.textContent = (summary || "No sources configured.") + " " + (payload.trustPolicy || "");
+      } catch (error) {
+        knowledgeSourceStatus.textContent = error.message;
       }
     };
     async function generateDiscoveryFollowUpsForCurrentPrep(actionLabel = "Generate With Codex") {

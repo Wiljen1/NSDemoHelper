@@ -24,6 +24,10 @@ const scenarios = [
     run: () => requestJson(server, "/api/codex/status")
   },
   {
+    name: "cms-status",
+    run: () => requestJson(server, "/api/cms/status")
+  },
+  {
     name: "run-state",
     run: () => requestJson(server, "/api/run-state")
   },
@@ -40,6 +44,12 @@ const scenarios = [
       const payload = await requestJson(server, "/api/button-instructions");
       if (!payload.buttons?.some((button) => button.id === "learn-create-demo")) {
         throw new Error("button instruction catalog is missing learn-create-demo");
+      }
+      if (!payload.buttons?.some((button) => button.id === "platform-ai-providers-load")) {
+        throw new Error("button instruction catalog is missing platform-ai-providers-load");
+      }
+      if (!payload.buttons?.some((button) => button.id === "platform-knowledge-sources-load")) {
+        throw new Error("button instruction catalog is missing platform-knowledge-sources-load");
       }
     }
   },

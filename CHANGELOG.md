@@ -11,6 +11,19 @@ Each release entry should include:
 
 Do not create future release notes before the release exists.
 
+## Unreleased
+
+### Added
+
+- White-label platform foundation for registering future AI providers while keeping local Codex as the active MVP backbone.
+- Admin-managed knowledge source registry for future contextual intelligence sources such as internal enablement content, CRMs, knowledge bases, competitive battlecards, retrieval APIs, and documentation portals.
+- Lightweight validation endpoints for provider/source configuration so future integrations can be introduced without changing the current demo-prep workflow.
+
+### Changed
+
+- Admin now includes a Platform Foundation area with readable and JSON views for future AI provider and external knowledge-source configuration.
+- Button/API instruction exports now include the new provider and knowledge-source configuration endpoints.
+
 ## v0.1.0-alpha
 
 First internal MVP baseline for NetSuite Demo Helper.

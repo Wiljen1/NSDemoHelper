@@ -65,3 +65,14 @@ These areas should eventually be split into:
 - NetSuite ERP Pack
 - White-label product pack
 - Customer-specific workspace data
+
+## Current White-Label Foundation
+
+The app now has a lightweight, additive Platform Foundation area in Admin for future-facing configuration:
+
+- AI provider registry with Codex as the active MVP provider and planned provider types for OpenAI, Azure OpenAI, Claude, Gemini, local LLMs, enterprise gateways, and custom providers.
+- Knowledge source registry for future contextual intelligence sources such as internal enablement repositories, competitive battlecards, CRM systems, retrieval APIs, knowledge bases, documentation portals, and public web intelligence.
+- Validation endpoints that check the local Codex provider today and treat other providers/sources as registered future adapters.
+- Local storage under ignored `artifacts/platform/` files, keeping experimental configuration out of committed source.
+
+This foundation does not yet implement full multi-tenant routing, secret storage, external retrieval, or provider swapping. It creates the safe extension points needed to evolve toward those capabilities without disrupting the NetSuite MVP.

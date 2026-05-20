@@ -16,8 +16,71 @@ The Core Platform should eventually contain the vendor-neutral application capab
 - Local storage
 - Version and update system
 - Admin and configuration management
+- AI provider registry and orchestration boundary
+- External knowledge source registry
 
 The Core Platform should not assume NetSuite terminology, NetSuite navigation, ERP-specific modules, or a specific demo methodology beyond generic demo preparation, discovery analysis, storytelling, risk detection, and rehearsal support.
+
+## AI Provider Architecture
+
+The current MVP uses local Codex as the default reasoning backbone. That path should remain operational while the platform gradually moves toward a provider-adapter model.
+
+The intended structure is:
+
+- AI provider registry
+- Active provider selection
+- Provider-specific adapter layer
+- Generic prompt orchestration service
+- Shared result normalization
+- Connectivity testing
+- Future tenant-specific provider preferences
+
+Initial supported provider types are documented in code as configuration options:
+
+- Codex
+- OpenAI GPT
+- Azure OpenAI
+- Claude
+- Gemini
+- Local or self-hosted LLMs
+- Enterprise AI gateways
+- Custom providers
+
+For the current MVP, only the Codex provider is active. Other providers can be registered for future configuration work but do not change the runtime demo-prep behavior yet.
+
+Raw API keys should not be stored in local JSON configuration. Use environment variable names, secret references, or a future secret store.
+
+## External Knowledge Source Framework
+
+External systems should be treated as contextual intelligence providers, not guaranteed factual truth.
+
+Future knowledge sources may include:
+
+- REST APIs
+- Internal wiki pages
+- Documentation portals
+- Knowledge bases
+- AI chatbot endpoints
+- Retrieval/search APIs
+- CRM systems
+- Competitive intelligence sources
+- Public web intelligence
+- Internal enablement repositories
+
+Each source should preserve:
+
+- Source name
+- Source type
+- Endpoint or connector target
+- Authentication method
+- Active/inactive state
+- Scope or purpose
+- Category
+- Priority weighting
+- Validation status
+- Confidence level
+
+Important competitive, external, or AI-generated context must remain advisory and should not be presented as verified truth without human validation.
 
 ## NetSuite ERP Pack
 
@@ -48,3 +111,12 @@ A future White-Label Pack should allow a different company or product team to pr
 ## Current MVP Boundary
 
 Do not implement full white-label functionality yet. For v0.1.0-alpha, the goal is to preserve a stable NetSuite-focused MVP while documenting which areas should later move into content/vendor packs.
+
+## Current Foundation Added
+
+The current codebase now includes a lightweight Platform Foundation area in Admin that stores local provider/source registration under ignored `artifacts/platform/` files. This is intentionally additive:
+
+- It does not replace Codex.
+- It does not query external systems yet.
+- It does not implement multi-tenant routing yet.
+- It provides a safe place to evolve provider configuration and contextual source registration without disrupting the internal NetSuite MVP.
