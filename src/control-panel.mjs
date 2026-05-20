@@ -908,6 +908,9 @@ const server = http.createServer(async (request, response) => {
       const body = await readBody(request);
       return json(response, await restoreCmsVersion(body.file));
     }
+    if (request.method === "GET" && request.url === "/api/platform/status") {
+      return json(response, await platformRuntimeStatus());
+    }
     if (request.method === "GET" && request.url === "/api/platform/ai-providers") {
       await requireCmsAuth(request);
       return json(response, await aiProviderPayload());
@@ -1454,6 +1457,55 @@ async function knowledgeSourcePayload() {
   };
 }
 
+async function platformRuntimeStatus() {
+  const [aiRegistry, sourceRegistry] = await Promise.all([
+    readAiProviderRegistry(),
+    readKnowledgeSourceRegistry()
+  ]);
+  const activeProvider = aiRegistry.providers.find((provider) => provider.id === aiRegistry.activeProviderId) || aiRegistry.providers[0] || {};
+  const activeSources = (sourceRegistry.sources || []).filter((source) => source.active);
+  let runtime = {
+    available: false,
+    connectionStatus: "Unknown",
+    runtimeStatus: "Standby",
+    message: "Provider has not been checked yet."
+  };
+  if (activeProvider.providerType === "codex") {
+    const codex = await codexRuntimeStatus();
+    runtime = {
+      available: Boolean(codex.available),
+      connectionStatus: codex.available ? "Connected" : "Disconnected",
+      runtimeStatus: codex.available ? "Running" : "Disconnected",
+      message: codex.message || "",
+      version: codex.version || "",
+      command: codex.command || ""
+    };
+  } else if (activeProvider.adapterStatus !== "active") {
+    runtime = {
+      available: false,
+      connectionStatus: "Adapter planned",
+      runtimeStatus: "Standby",
+      message: "This provider is configured but does not have an active runtime adapter yet. The MVP execution path remains Codex-backed until an adapter is implemented."
+    };
+  }
+  return {
+    ok: true,
+    activeProvider: sanitizeProviderRegistryForClient({ providers: [activeProvider] }).providers[0] || null,
+    activeProviderId: aiRegistry.activeProviderId,
+    runtime,
+    activeKnowledgeSourceCount: activeSources.length,
+    activeKnowledgeSources: activeSources.slice(0, 6).map((source) => ({
+      id: source.id,
+      name: source.name,
+      sourceType: source.sourceType,
+      categories: source.categories,
+      priorityWeight: source.priorityWeight,
+      validationStatus: source.validationStatus
+    })),
+    trustPolicy: sourceRegistry.trustPolicy
+  };
+}
+
 async function readAiProviderRegistry() {
   try {
     return normalizeAiProviderRegistry(JSON.parse(await readFile(aiProvidersPath, "utf8")));
@@ -1507,20 +1559,36 @@ async function testAiProvider(body = {}) {
   if (!provider) throw httpError("No AI providers are configured.", 400);
 
   const now = new Date().toISOString();
+  let connectionStatus = "Unknown";
+  let runtimeStatus = "Standby";
   let validationStatus = "Adapter planned";
   let available = false;
+  let modelAccess = "Not checked";
   let detail = "This provider is registered for future use. Its adapter has not been wired into demo generation yet.";
 
   if (provider.providerType === "codex") {
     const status = await codexRuntimeStatus();
     available = Boolean(status.available);
+    connectionStatus = available ? "Connected" : "Disconnected";
+    runtimeStatus = available ? "Running" : "Disconnected";
     validationStatus = available ? "Connected" : "Not detected";
+    modelAccess = available ? "Codex runtime available" : "Unavailable";
     detail = status.message || "Codex runtime status checked.";
   } else if (!provider.apiEndpoint) {
-    validationStatus = "Missing endpoint";
+    connectionStatus = "Endpoint unreachable";
+    runtimeStatus = "Standby";
+    validationStatus = "Endpoint Unreachable";
     detail = "Add an endpoint before this future provider can be tested.";
+  } else if (provider.authMethod !== "none" && !provider.apiKeyReference) {
+    connectionStatus = "Invalid credentials";
+    runtimeStatus = "Standby";
+    validationStatus = "Invalid API Key";
+    detail = "Add an API key environment variable or secret reference before this provider can be validated.";
   } else {
-    validationStatus = "Registered only";
+    connectionStatus = "Registered";
+    runtimeStatus = provider.adapterStatus === "active" ? "Standby" : "Adapter planned";
+    validationStatus = provider.adapterStatus === "active" ? "Ready for adapter health check" : "Adapter planned";
+    modelAccess = provider.defaultModel ? "Model configured" : "No default model configured";
   }
 
   return {
@@ -1529,8 +1597,11 @@ async function testAiProvider(body = {}) {
     providerName: provider.name,
     providerType: provider.providerType,
     available,
+    connectionStatus,
+    runtimeStatus,
     validationStatus,
     lastValidatedAt: now,
+    modelAccess,
     detail,
     advisory: provider.providerType === "codex"
       ? "Codex remains the active MVP provider."
@@ -1544,13 +1615,20 @@ async function testKnowledgeSources(body = {}) {
   const results = (registry.sources || []).map((source) => {
     let validationStatus = "Inactive";
     let available = false;
+    let authenticationStatus = source.authMethod === "none" ? "Not required" : "Not checked";
     let detail = "Source is disabled and will not be considered.";
     if (source.active) {
       if (!source.endpointUrl) {
         validationStatus = "Missing endpoint";
+        authenticationStatus = source.authMethod === "none" ? "Not required" : "Not checked";
         detail = "Add an endpoint URL or connector target before this source can be queried.";
+      } else if (source.authMethod !== "none" && !source.apiKeyReference) {
+        validationStatus = "Invalid credentials";
+        authenticationStatus = "Missing credential reference";
+        detail = "Add an API key environment variable, OAuth profile, SSO reference, or future secret-vault reference.";
       } else {
         validationStatus = "Registered only";
+        authenticationStatus = source.authMethod === "none" ? "Not required" : "Credential reference configured";
         detail = "The source is configured, but runtime retrieval adapters are planned for a later release.";
       }
     }
@@ -1561,6 +1639,7 @@ async function testKnowledgeSources(body = {}) {
       categories: source.categories,
       available,
       validationStatus,
+      authenticationStatus,
       lastValidatedAt: now,
       detail,
       confidenceLevel: source.confidenceLevel,
@@ -1738,18 +1817,19 @@ function buttonInstructionCatalog() {
     buttonInstruction("cms-restore-version", "Restore Selected Version", "Admin", "POST", "/api/cms/restore", {
       file: "2026-05-19T00-00-00-000Z-before-cms-save.json"
     }, "Restores a previous CMS content snapshot.", false),
-    buttonInstruction("platform-ai-providers-load", "Load AI Providers", "Admin", "GET", "/api/platform/ai-providers", null, "Loads the active AI provider registry. Codex remains the default active provider for the MVP.", false),
-    buttonInstruction("platform-ai-providers-save", "Save AI Providers", "Admin", "POST", "/api/platform/ai-providers", {
+    buttonInstruction("platform-status", "Check Active AI Brain", "Admin", "GET", "/api/platform/status", null, "Shows the globally visible active AI brain, runtime status, model, and enabled knowledge source count.", false),
+    buttonInstruction("platform-ai-providers-load", "Load AI Brain Management", "Admin", "GET", "/api/platform/ai-providers", null, "Loads the AI brain/provider registry. Codex remains the default active provider for the MVP.", false),
+    buttonInstruction("platform-ai-providers-save", "Save AI Brain Registry", "Admin", "POST", "/api/platform/ai-providers", {
       registry: defaultAiProviderRegistry()
     }, "Saves future AI provider registration settings. Raw API keys should be stored as environment or secret references, not plain text.", false),
-    buttonInstruction("platform-ai-provider-test", "Test Active AI Provider", "Admin", "POST", "/api/platform/ai-providers/test", {
+    buttonInstruction("platform-ai-provider-test", "Test AI Brain Connection", "Admin", "POST", "/api/platform/ai-providers/test", {
       providerId: "codex-local"
     }, "Checks the active provider registration. For Codex this checks the local Codex runtime; future adapters are registration-only for now.", false),
-    buttonInstruction("platform-knowledge-sources-load", "Load Knowledge Sources", "Admin", "GET", "/api/platform/knowledge-sources", null, "Loads contextual knowledge source registrations for future enrichment and validation.", false),
-    buttonInstruction("platform-knowledge-sources-save", "Save Knowledge Sources", "Admin", "POST", "/api/platform/knowledge-sources", {
+    buttonInstruction("platform-knowledge-sources-load", "Load Knowledge Source Management", "Admin", "GET", "/api/platform/knowledge-sources", null, "Loads contextual knowledge source registrations for future enrichment and validation.", false),
+    buttonInstruction("platform-knowledge-sources-save", "Save Knowledge Source Registry", "Admin", "POST", "/api/platform/knowledge-sources", {
       registry: defaultKnowledgeSourceRegistry()
     }, "Saves contextual knowledge source registrations. External sources are advisory context and not guaranteed factual truth.", false),
-    buttonInstruction("platform-knowledge-sources-test", "Test Knowledge Sources", "Admin", "POST", "/api/platform/knowledge-sources/test", {}, "Validates source registrations without querying future adapters. Results are advisory and source-aware.", false),
+    buttonInstruction("platform-knowledge-sources-test", "Test Knowledge Source Connection", "Admin", "POST", "/api/platform/knowledge-sources/test", {}, "Validates source registrations without querying future adapters. Results are advisory and source-aware.", false),
     buttonInstruction("export-button-api-json", "Generate Button/API JSON Files", "Admin", "POST", "/api/button-instructions/export", {}, "Writes one JSON file per API-driving button plus an index file for download.", false)
   ];
   if (!liveDemoFunctionalityEnabled) {
@@ -9442,6 +9522,7 @@ function html(response) {
       color: #10201b;
       white-space: nowrap;
     }
+    .status-badge.strong { background: #dff4e8; color: #10201b; }
     .status-badge.warning { background: #fff1c6; color: #3b2b00; }
     .status-badge.critical { background: #ffd8d1; color: #4a1409; }
     .status-badge.advisory { background: #e8edf3; color: #26313d; }
@@ -9621,6 +9702,34 @@ function html(response) {
       gap: 16px;
       margin-top: 14px;
     }
+    .platform-layer-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .platform-layer-summary > div {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fbfcfd;
+    }
+    body.night .platform-layer-summary > div { background: #0b1218; }
+    .platform-layer-summary strong,
+    .platform-layer-summary span {
+      display: block;
+    }
+    .platform-layer-summary span {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    .platform-management-section {
+      border-top: 1px solid var(--line);
+      padding-top: 18px;
+      margin-top: 20px;
+    }
     .platform-config-card {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -9640,6 +9749,75 @@ function html(response) {
       min-height: 180px;
       max-height: 280px;
       margin-bottom: 12px;
+    }
+    .provider-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+      gap: 12px;
+      margin: 12px 0;
+    }
+    .provider-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 13px;
+      background: #fff;
+      display: grid;
+      gap: 9px;
+      transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+    body.night .provider-card { background: #0f1821; }
+    .provider-card.active,
+    .provider-card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 12px 24px rgba(24, 33, 47, .08);
+    }
+    .provider-card:hover {
+      transform: translateY(-1px);
+    }
+    .provider-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .provider-card h4 {
+      margin: 0;
+      font-size: 15px;
+    }
+    .provider-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .provider-meta-grid strong {
+      display: block;
+      color: var(--ink);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: 2px;
+    }
+    .provider-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .provider-actions button {
+      padding: 6px 9px;
+      font-size: 12px;
+    }
+    .provider-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .advanced-json-details {
+      margin-top: 12px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
     }
     #aiProviderEditor,
     #knowledgeSourceEditor {
@@ -10421,6 +10599,10 @@ function html(response) {
           <span class="dot" aria-hidden="true"></span>
           <span id="codexRuntimeText">Checking Codex</span>
         </div>
+        <div id="activeBrainBadge" class="codex-runtime-badge checking" title="Checking the active AI brain and knowledge source configuration.">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="activeBrainText">Active Brain: Checking</span>
+        </div>
         <span class="codex-runtime-badge" title="${escapeHtml([
           "First internal MVP baseline.",
           `Environment: ${buildMetadata.environment}`,
@@ -11003,44 +11185,168 @@ function html(response) {
 
         <div class="panel full" id="platformFoundationPanel" hidden>
           <h2>Platform Foundation</h2>
-          <p class="hint">Future-ready configuration for white-label deployments. These settings register AI providers and knowledge sources, but the current MVP still uses the local Codex backbone unless a future adapter is built and enabled.</p>
-          <div class="platform-config-grid">
-            <section class="platform-config-card">
+          <p class="hint">Configure the future orchestration layer without disrupting the current MVP. AI brains decide and generate. Knowledge sources provide contextual evidence and enrichment. Local Codex remains the default running brain until another runtime adapter is implemented.</p>
+          <div class="platform-layer-summary">
+            <div>
+              <strong>AI Brain Layer</strong>
+              <span>Codex, GPT/OpenAI, Claude, Gemini, Azure OpenAI, local models, or enterprise gateways.</span>
+            </div>
+            <div>
+              <strong>Knowledge Source Layer</strong>
+              <span>Confluence, SharePoint, Notion, CRM, internal docs, RAG, APIs, battlecards, or public web context.</span>
+            </div>
+          </div>
+
+          <section class="platform-management-section" id="aiBrainManagement">
+            <div class="section-head">
+              <div>
+                <h2>AI Brain Management</h2>
+                <p>Manage which AI provider is registered, healthy, and eligible to become the active runtime brain.</p>
+              </div>
+              <span class="status-badge strong" id="activeBrainSummary">Active Brain: Loading</span>
+            </div>
+            <div class="provider-card-grid" id="aiProviderCards"></div>
+            <div class="platform-config-card">
               <div class="section-head">
                 <div>
-                  <h3>AI Providers</h3>
-                  <p>Register provider options such as Codex, OpenAI, Azure OpenAI, Claude, Gemini, local LLMs, or enterprise AI gateways.</p>
+                  <h3>Configure Selected Brain</h3>
+                  <p>Use the fields below for provider setup. API keys should be stored as environment variables or future secret references, not pasted as raw secrets into committed files.</p>
                 </div>
               </div>
-              <div class="cms-readable platform-config-preview" id="aiProviderReadable"></div>
-              <label for="aiProviderEditor">Provider registry JSON</label>
-              <textarea id="aiProviderEditor" spellcheck="false"></textarea>
-              <p class="hint">Raw API keys are not saved here. Use an environment variable or future secret-vault reference.</p>
+              <input id="aiProviderId" type="hidden">
+              <div class="provider-form-grid">
+                <div>
+                  <label for="aiProviderName">Provider name</label>
+                  <input id="aiProviderName" placeholder="Example: Local Codex">
+                </div>
+                <div>
+                  <label for="aiProviderType">Provider type</label>
+                  <select id="aiProviderType"></select>
+                </div>
+                <div>
+                  <label for="aiProviderEndpoint">API endpoint / host</label>
+                  <input id="aiProviderEndpoint" placeholder="https://api.provider.com">
+                </div>
+                <div>
+                  <label for="aiProviderAuthMethod">Authentication method</label>
+                  <select id="aiProviderAuthMethod"></select>
+                </div>
+                <div>
+                  <label for="aiProviderKeyReference">API key / secret reference</label>
+                  <input id="aiProviderKeyReference" placeholder="OPENAI_API_KEY or vault/provider/key">
+                </div>
+                <div>
+                  <label for="aiProviderModel">Default model</label>
+                  <input id="aiProviderModel" placeholder="Example: gpt-5.1">
+                </div>
+                <div>
+                  <label for="aiProviderTemperature">Temperature</label>
+                  <input id="aiProviderTemperature" type="number" min="0" max="2" step="0.1" placeholder="0.2">
+                </div>
+                <div>
+                  <label for="aiProviderTimeout">Timeout ms</label>
+                  <input id="aiProviderTimeout" type="number" min="1000" step="1000" placeholder="120000">
+                </div>
+                <div>
+                  <label for="aiProviderRetryCount">Retry count</label>
+                  <input id="aiProviderRetryCount" type="number" min="0" max="10" step="1" placeholder="1">
+                </div>
+                <div>
+                  <label for="aiProviderMaxTokens">Max tokens</label>
+                  <input id="aiProviderMaxTokens" type="number" min="1" step="100" placeholder="Optional">
+                </div>
+              </div>
               <div class="row" style="margin-top:10px">
-                <button class="secondary" id="saveAiProvidersButton" data-help="Saves the future AI provider registry. This does not switch the MVP away from Codex unless a future adapter exists.">Save AI Providers</button>
-                <button class="secondary" id="testAiProviderButton" data-help="Tests the active provider registration. For Codex, this checks the local Codex runtime.">Test Active AI Provider</button>
+                <button class="secondary" id="saveAiProviderButton" data-help="Saves the selected AI brain configuration.">Save Brain</button>
+                <button class="secondary" id="addAiProviderButton" data-help="Adds this configuration as a new AI brain registration.">Add New Brain</button>
+                <button class="secondary" id="testAiProviderButton" data-help="Tests the selected AI brain. Codex checks the local runtime; future providers validate their configured endpoint and credential reference.">Test Connection</button>
+                <button class="secondary" id="activateAiProviderButton" data-help="Activates this AI brain only when it has a working runtime adapter. Codex is currently the active MVP adapter.">Activate</button>
+                <button class="secondary" id="disableAiProviderButton" data-help="Disables the selected AI brain if it is not currently active.">Disable</button>
               </div>
               <p class="hint" id="aiProviderStatus">AI provider status will appear here.</p>
-            </section>
+              <details class="advanced-json-details">
+                <summary>Advanced AI provider JSON</summary>
+                <div class="cms-readable platform-config-preview" id="aiProviderReadable"></div>
+                <label for="aiProviderEditor">Provider registry JSON</label>
+                <textarea id="aiProviderEditor" spellcheck="false"></textarea>
+                <div class="row" style="margin-top:10px">
+                  <button class="secondary" id="saveAiProvidersJsonButton" data-help="Saves the complete AI provider registry JSON.">Save Registry JSON</button>
+                </div>
+              </details>
+            </div>
+          </section>
 
-            <section class="platform-config-card">
+          <section class="platform-management-section" id="knowledgeSourceManagement">
+            <div class="section-head">
+              <div>
+                <h2>Knowledge Source Management</h2>
+                <p>Manage external context sources separately from AI brains. Sources enrich decisions, but remain advisory unless validated by the SC.</p>
+              </div>
+              <span class="status-badge advisory" id="activeSourcesSummary">Sources: Loading</span>
+            </div>
+            <div class="provider-card-grid" id="knowledgeSourceCards"></div>
+            <div class="platform-config-card">
               <div class="section-head">
                 <div>
-                  <h3>Knowledge Sources</h3>
-                  <p>Register contextual intelligence providers such as Confluence, SharePoint, Notion, CRM, search APIs, competitive battlecards, or enablement repositories.</p>
+                  <h3>Configure Selected Source</h3>
+                  <p>Set up contextual sources for future discovery enrichment, source-aware scoring, battlecard checks, and demo asset guidance.</p>
                 </div>
               </div>
-              <div class="cms-readable platform-config-preview" id="knowledgeSourceReadable"></div>
-              <label for="knowledgeSourceEditor">Knowledge source registry JSON</label>
-              <textarea id="knowledgeSourceEditor" spellcheck="false"></textarea>
-              <p class="hint">External sources are contextual signals, not guaranteed truth. Competitive and AI-generated context must stay advisory.</p>
+              <input id="knowledgeSourceId" type="hidden">
+              <div class="provider-form-grid">
+                <div>
+                  <label for="knowledgeSourceName">Source name</label>
+                  <input id="knowledgeSourceName" placeholder="Example: Internal enablement wiki">
+                </div>
+                <div>
+                  <label for="knowledgeSourceType">Source type</label>
+                  <select id="knowledgeSourceType"></select>
+                </div>
+                <div>
+                  <label for="knowledgeSourceEndpoint">Endpoint / source URL</label>
+                  <input id="knowledgeSourceEndpoint" placeholder="https://wiki.example.com">
+                </div>
+                <div>
+                  <label for="knowledgeSourceAuthMethod">Authentication method</label>
+                  <select id="knowledgeSourceAuthMethod"></select>
+                </div>
+                <div>
+                  <label for="knowledgeSourceKeyReference">API key / auth reference</label>
+                  <input id="knowledgeSourceKeyReference" placeholder="CONFLUENCE_API_KEY or SSO profile">
+                </div>
+                <div>
+                  <label for="knowledgeSourcePriority">Priority weight</label>
+                  <input id="knowledgeSourcePriority" type="number" min="0" max="100" step="5" placeholder="50">
+                </div>
+                <div>
+                  <label for="knowledgeSourceCategories">Categories</label>
+                  <input id="knowledgeSourceCategories" placeholder="Discovery Enrichment, Product Knowledge">
+                </div>
+                <div>
+                  <label for="knowledgeSourceConfidence">Confidence level</label>
+                  <input id="knowledgeSourceConfidence" placeholder="contextual">
+                </div>
+              </div>
+              <label for="knowledgeSourceScope">Scope / purpose</label>
+              <textarea id="knowledgeSourceScope" spellcheck="false" placeholder="Describe what this source should be used for."></textarea>
               <div class="row" style="margin-top:10px">
-                <button class="secondary" id="saveKnowledgeSourcesButton" data-help="Saves external knowledge source registrations for future enrichment and validation.">Save Knowledge Sources</button>
-                <button class="secondary" id="testKnowledgeSourcesButton" data-help="Validates knowledge source registrations without treating any source as verified truth.">Test Knowledge Sources</button>
+                <button class="secondary" id="saveKnowledgeSourceButton" data-help="Saves the selected knowledge source configuration.">Save Source</button>
+                <button class="secondary" id="addKnowledgeSourceButton" data-help="Adds this as a new knowledge source.">Add New Source</button>
+                <button class="secondary" id="testKnowledgeSourceButton" data-help="Tests the selected knowledge source registration. Runtime retrieval adapters are planned for a later release.">Test Connection</button>
+                <button class="secondary" id="toggleKnowledgeSourceButton" data-help="Enables or disables the selected knowledge source.">Enable / Disable</button>
               </div>
               <p class="hint" id="knowledgeSourceStatus">Knowledge source status will appear here.</p>
-            </section>
-          </div>
+              <details class="advanced-json-details">
+                <summary>Advanced knowledge source JSON</summary>
+                <div class="cms-readable platform-config-preview" id="knowledgeSourceReadable"></div>
+                <label for="knowledgeSourceEditor">Knowledge source registry JSON</label>
+                <textarea id="knowledgeSourceEditor" spellcheck="false"></textarea>
+                <div class="row" style="margin-top:10px">
+                  <button class="secondary" id="saveKnowledgeSourcesJsonButton" data-help="Saves the complete knowledge source registry JSON.">Save Registry JSON</button>
+                </div>
+              </details>
+            </div>
+          </section>
         </div>
 
         <div class="panel full">
@@ -11088,6 +11394,8 @@ function html(response) {
     const statusBox = document.getElementById("status");
     const codexRuntimeBadge = document.getElementById("codexRuntimeBadge");
     const codexRuntimeText = document.getElementById("codexRuntimeText");
+    const activeBrainBadge = document.getElementById("activeBrainBadge");
+    const activeBrainText = document.getElementById("activeBrainText");
     const codexInfoButton = document.getElementById("codexInfoButton");
     const codexInfoModal = document.getElementById("codexInfoModal");
     const codexInfoClose = document.getElementById("codexInfoClose");
@@ -11173,9 +11481,34 @@ function html(response) {
     const aiProviderReadable = document.getElementById("aiProviderReadable");
     const aiProviderEditor = document.getElementById("aiProviderEditor");
     const aiProviderStatus = document.getElementById("aiProviderStatus");
+    const activeBrainSummary = document.getElementById("activeBrainSummary");
+    const aiProviderCards = document.getElementById("aiProviderCards");
+    const aiProviderIdField = document.getElementById("aiProviderId");
+    const aiProviderNameField = document.getElementById("aiProviderName");
+    const aiProviderTypeField = document.getElementById("aiProviderType");
+    const aiProviderEndpointField = document.getElementById("aiProviderEndpoint");
+    const aiProviderAuthMethodField = document.getElementById("aiProviderAuthMethod");
+    const aiProviderKeyReferenceField = document.getElementById("aiProviderKeyReference");
+    const aiProviderModelField = document.getElementById("aiProviderModel");
+    const aiProviderTemperatureField = document.getElementById("aiProviderTemperature");
+    const aiProviderTimeoutField = document.getElementById("aiProviderTimeout");
+    const aiProviderRetryCountField = document.getElementById("aiProviderRetryCount");
+    const aiProviderMaxTokensField = document.getElementById("aiProviderMaxTokens");
     const knowledgeSourceReadable = document.getElementById("knowledgeSourceReadable");
     const knowledgeSourceEditor = document.getElementById("knowledgeSourceEditor");
     const knowledgeSourceStatus = document.getElementById("knowledgeSourceStatus");
+    const activeSourcesSummary = document.getElementById("activeSourcesSummary");
+    const knowledgeSourceCards = document.getElementById("knowledgeSourceCards");
+    const knowledgeSourceIdField = document.getElementById("knowledgeSourceId");
+    const knowledgeSourceNameField = document.getElementById("knowledgeSourceName");
+    const knowledgeSourceTypeField = document.getElementById("knowledgeSourceType");
+    const knowledgeSourceEndpointField = document.getElementById("knowledgeSourceEndpoint");
+    const knowledgeSourceAuthMethodField = document.getElementById("knowledgeSourceAuthMethod");
+    const knowledgeSourceKeyReferenceField = document.getElementById("knowledgeSourceKeyReference");
+    const knowledgeSourcePriorityField = document.getElementById("knowledgeSourcePriority");
+    const knowledgeSourceCategoriesField = document.getElementById("knowledgeSourceCategories");
+    const knowledgeSourceConfidenceField = document.getElementById("knowledgeSourceConfidence");
+    const knowledgeSourceScopeField = document.getElementById("knowledgeSourceScope");
     const buttonInstructionStatus = document.getElementById("buttonInstructionStatus");
     const buttonInstructionFiles = document.getElementById("buttonInstructionFiles");
     const audienceTypeConfig = ${JSON.stringify(demoAudienceConfiguration.audienceTypes)};
@@ -11184,6 +11517,9 @@ function html(response) {
     const industryConfig = ${JSON.stringify(industryPlaybooks)};
     const manifestDemoModeConfig = ${JSON.stringify(manifestDemoModes)};
     const outputLanguageConfig = ${JSON.stringify(Object.values(outputLanguages))};
+    const aiProviderTypeConfig = ${JSON.stringify(aiProviderTypes)};
+    const knowledgeSourceTypeConfig = ${JSON.stringify(knowledgeSourceTypes)};
+    const platformAuthMethodConfig = ${JSON.stringify(authMethods)};
     const defaultPrepData = ${JSON.stringify(defaultPrepData)};
     const defaultAudienceType = ${JSON.stringify(defaultAudienceType)};
     const defaultTargetAudience = ${JSON.stringify(defaultTargetAudience)};
@@ -11201,6 +11537,8 @@ function html(response) {
     let cmsBlocks = [];
     let aiProviderRegistry = null;
     let knowledgeSourceRegistry = null;
+    let selectedAiProviderId = "";
+    let selectedKnowledgeSourceId = "";
     const heatmapPages = { demo: 0, notes: 0 };
     let helpTimer = null;
     let helpTarget = null;
@@ -11291,6 +11629,7 @@ function html(response) {
 
     async function loadPlatformFoundation() {
       try {
+        initPlatformSelectOptions();
         const [aiPayload, sourcePayload] = await Promise.all([
           api("/api/platform/ai-providers"),
           api("/api/platform/knowledge-sources")
@@ -11303,28 +11642,262 @@ function html(response) {
       }
     }
 
+    function initPlatformSelectOptions() {
+      if (!aiProviderTypeField.options.length) {
+        aiProviderTypeField.innerHTML = aiProviderTypeConfig.map(optionHtml).join("");
+      }
+      if (!knowledgeSourceTypeField.options.length) {
+        knowledgeSourceTypeField.innerHTML = knowledgeSourceTypeConfig.map(optionHtml).join("");
+      }
+      const authHtml = platformAuthMethodConfig.map(optionHtml).join("");
+      if (!aiProviderAuthMethodField.options.length) aiProviderAuthMethodField.innerHTML = authHtml;
+      if (!knowledgeSourceAuthMethodField.options.length) knowledgeSourceAuthMethodField.innerHTML = authHtml;
+    }
+
+    function optionHtml(item) {
+      return "<option value='" + escapeClientHtml(item.value) + "'>" + escapeClientHtml(item.label || item.value) + "</option>";
+    }
+
     function renderAiProviderRegistry(payload = {}) {
       aiProviderRegistry = payload.registry || null;
+      const providers = aiProviderRegistry?.providers || [];
+      if (!selectedAiProviderId || !providers.some((provider) => provider.id === selectedAiProviderId)) {
+        selectedAiProviderId = aiProviderRegistry?.activeProviderId || providers[0]?.id || "";
+      }
       aiProviderEditor.value = JSON.stringify(aiProviderRegistry || {}, null, 2);
+      aiProviderCards.innerHTML = providers.length
+        ? providers.map(aiProviderCardHtml).join("")
+        : "<p class='hint'>No AI brains registered yet.</p>";
       aiProviderReadable.innerHTML = aiProviderRegistry
         ? platformProviderReadableHtml(aiProviderRegistry)
         : "<p class='hint'>No AI provider registry loaded.</p>";
       const active = payload.activeProvider || (aiProviderRegistry?.providers || []).find((provider) => provider.active);
+      activeBrainSummary.textContent = active
+        ? "Active Brain: " + active.name + " | " + (active.runtimeStatus || active.validationStatus || "Unknown")
+        : "Active Brain: Not configured";
+      if (selectedAiProviderId) fillAiProviderForm(providers.find((provider) => provider.id === selectedAiProviderId) || providers[0]);
       aiProviderStatus.textContent = active
         ? "Active provider: " + active.name + " (" + active.providerType + "). Codex remains the active MVP path unless a future adapter is enabled."
         : "No active provider configured.";
+      refreshPlatformStatus();
     }
 
     function renderKnowledgeSourceRegistry(payload = {}) {
       knowledgeSourceRegistry = payload.registry || null;
+      const sources = knowledgeSourceRegistry?.sources || [];
+      if (!selectedKnowledgeSourceId || !sources.some((source) => source.id === selectedKnowledgeSourceId)) {
+        selectedKnowledgeSourceId = sources[0]?.id || "";
+      }
       knowledgeSourceEditor.value = JSON.stringify(knowledgeSourceRegistry || {}, null, 2);
+      knowledgeSourceCards.innerHTML = sources.length
+        ? sources.map(knowledgeSourceCardHtml).join("")
+        : "<p class='hint'>No knowledge sources registered yet.</p>";
       knowledgeSourceReadable.innerHTML = knowledgeSourceRegistry
         ? platformKnowledgeReadableHtml(knowledgeSourceRegistry)
         : "<p class='hint'>No knowledge source registry loaded.</p>";
       const activeCount = (knowledgeSourceRegistry?.sources || []).filter((source) => source.active).length;
+      activeSourcesSummary.textContent = "Sources: " + activeCount + " active";
+      if (selectedKnowledgeSourceId) fillKnowledgeSourceForm(sources.find((source) => source.id === selectedKnowledgeSourceId) || sources[0]);
       knowledgeSourceStatus.textContent = activeCount
         ? activeCount + " knowledge source(s) enabled as contextual intelligence providers."
         : "No external knowledge sources are active yet.";
+      refreshPlatformStatus();
+    }
+
+    async function refreshPlatformStatus() {
+      try {
+        const payload = await api("/api/platform/status");
+        renderPlatformStatus(payload);
+      } catch (error) {
+        activeBrainBadge.classList.remove("ready", "missing", "checking");
+        activeBrainBadge.classList.add("missing");
+        activeBrainText.textContent = "Active Brain: Unknown";
+        activeBrainBadge.title = error.message;
+      }
+    }
+
+    function renderPlatformStatus(payload = {}) {
+      const provider = payload.activeProvider || {};
+      const runtime = payload.runtime || {};
+      activeBrainBadge.classList.remove("ready", "missing", "checking");
+      activeBrainBadge.classList.add(runtime.available ? "ready" : "missing");
+      const sourceText = (payload.activeKnowledgeSourceCount || 0) + " source" + (payload.activeKnowledgeSourceCount === 1 ? "" : "s");
+      activeBrainText.textContent = "Active Brain: " + (provider.name || "Not configured") + " | " + (runtime.runtimeStatus || "Unknown") + " | " + sourceText;
+      activeBrainBadge.title = [
+        "Provider: " + (provider.name || "Not configured"),
+        "Model: " + (provider.defaultModel || "Not configured"),
+        "Connection: " + (runtime.connectionStatus || "Unknown"),
+        "Runtime: " + (runtime.runtimeStatus || "Unknown"),
+        "Knowledge sources: " + ((payload.activeKnowledgeSources || []).map((source) => source.name).join(", ") || "None active"),
+        runtime.message || ""
+      ].filter(Boolean).join("\\n");
+      if (activeBrainSummary) activeBrainSummary.textContent = "Active Brain: " + (provider.name || "Not configured") + " | " + (runtime.runtimeStatus || "Unknown");
+      if (activeSourcesSummary) activeSourcesSummary.textContent = "Sources: " + (payload.activeKnowledgeSourceCount || 0) + " active";
+    }
+
+    function aiProviderCardHtml(provider) {
+      const selected = provider.id === selectedAiProviderId;
+      const active = provider.active;
+      const statusClass = providerStatusClass(provider.connectionStatus || provider.validationStatus || provider.runtimeStatus);
+      return "<article class='provider-card" + (active ? " active" : "") + (selected ? " selected" : "") + "' data-provider-card='" + escapeClientHtml(provider.id) + "'>" +
+        "<div class='provider-card-head'><div><h4>" + escapeClientHtml(provider.name) + "</h4><p class='hint'>" + escapeClientHtml(providerLabel(provider.providerType, aiProviderTypeConfig)) + "</p></div>" +
+        "<span class='status-badge " + statusClass + "'>" + escapeClientHtml(active ? "ACTIVE" : (provider.adapterStatus || "standby")) + "</span></div>" +
+        "<div class='provider-meta-grid'>" +
+          providerMeta("Connection", provider.connectionStatus || provider.validationStatus || "Unknown") +
+          providerMeta("Last Health Check", formatPlatformDate(provider.lastValidatedAt)) +
+          providerMeta("Current Model", provider.defaultModel || "Not set") +
+          providerMeta("Endpoint / Host", provider.apiEndpoint || "Not configured") +
+          providerMeta("Runtime Status", provider.runtimeStatus || "Standby") +
+          providerMeta("Credentials", provider.apiKeyReference ? "Reference set" : "Not required / missing") +
+        "</div>" +
+        "<div class='provider-actions'>" +
+          providerActionButton("configure", provider.id, "Configure") +
+          providerActionButton("test", provider.id, "Test Connection") +
+          providerActionButton("activate", provider.id, "Activate") +
+          providerActionButton("disable", provider.id, "Disable") +
+          providerActionButton("logs", provider.id, "View Logs/Status") +
+        "</div></article>";
+    }
+
+    function knowledgeSourceCardHtml(source) {
+      const selected = source.id === selectedKnowledgeSourceId;
+      const statusClass = source.active ? providerStatusClass(source.validationStatus) : "advisory";
+      return "<article class='provider-card" + (source.active ? " active" : "") + (selected ? " selected" : "") + "' data-source-card='" + escapeClientHtml(source.id) + "'>" +
+        "<div class='provider-card-head'><div><h4>" + escapeClientHtml(source.name) + "</h4><p class='hint'>" + escapeClientHtml(providerLabel(source.sourceType, knowledgeSourceTypeConfig)) + "</p></div>" +
+        "<span class='status-badge " + statusClass + "'>" + escapeClientHtml(source.active ? "ENABLED" : "DISABLED") + "</span></div>" +
+        "<div class='provider-meta-grid'>" +
+          providerMeta("Status", source.validationStatus || "Not tested") +
+          providerMeta("Last Sync/Test", formatPlatformDate(source.lastValidatedAt)) +
+          providerMeta("Auth Status", source.authMethod === "none" ? "Not required" : (source.apiKeyReference ? "Reference set" : "Missing")) +
+          providerMeta("Priority", String(source.priorityWeight || 0) + "/100") +
+          providerMeta("Scope", source.scope || "Not described") +
+          providerMeta("Categories", (source.categories || []).join(", ") || "None") +
+        "</div>" +
+        "<div class='provider-actions'>" +
+          sourceActionButton("configure", source.id, "Configure") +
+          sourceActionButton("test", source.id, "Test Connection") +
+          sourceActionButton("toggle", source.id, source.active ? "Disable" : "Enable") +
+          sourceActionButton("logs", source.id, "View Status") +
+        "</div></article>";
+    }
+
+    function providerMeta(label, value) {
+      return "<div><strong>" + escapeClientHtml(label) + "</strong><span>" + escapeClientHtml(value || "-") + "</span></div>";
+    }
+
+    function providerActionButton(action, id, label) {
+      return "<button class='secondary' data-provider-action='" + action + "' data-provider-id='" + escapeClientHtml(id) + "'>" + escapeClientHtml(label) + "</button>";
+    }
+
+    function sourceActionButton(action, id, label) {
+      return "<button class='secondary' data-source-action='" + action + "' data-source-id='" + escapeClientHtml(id) + "'>" + escapeClientHtml(label) + "</button>";
+    }
+
+    function providerStatusClass(status = "") {
+      const text = String(status || "").toLowerCase();
+      if (/connected|running|success|registered|ready/.test(text)) return "strong";
+      if (/invalid|missing|timeout|unreachable|disconnected|failure|not detected/.test(text)) return "critical";
+      if (/planned|standby|unknown|not tested/.test(text)) return "advisory";
+      return "warning";
+    }
+
+    function providerLabel(value, options = []) {
+      return (options.find((item) => item.value === value) || {}).label || value || "Unknown";
+    }
+
+    function formatPlatformDate(value) {
+      if (!value) return "Not checked";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    }
+
+    function fillAiProviderForm(provider = {}) {
+      if (!provider) return;
+      selectedAiProviderId = provider.id || "";
+      aiProviderIdField.value = provider.id || "";
+      aiProviderNameField.value = provider.name || "";
+      aiProviderTypeField.value = provider.providerType || "custom";
+      aiProviderEndpointField.value = provider.apiEndpoint || "";
+      aiProviderAuthMethodField.value = provider.authMethod || (provider.providerType === "codex" ? "none" : "api_key_env");
+      aiProviderKeyReferenceField.value = provider.apiKeyReference || "";
+      aiProviderModelField.value = provider.defaultModel || "";
+      aiProviderTemperatureField.value = provider.temperature ?? "";
+      aiProviderTimeoutField.value = provider.timeoutMs || "";
+      aiProviderRetryCountField.value = provider.retryCount ?? "";
+      aiProviderMaxTokensField.value = provider.maxTokens ?? "";
+      if (aiProviderRegistry) aiProviderCards.innerHTML = (aiProviderRegistry.providers || []).map(aiProviderCardHtml).join("");
+    }
+
+    function aiProviderFromForm(existing = {}) {
+      const id = aiProviderIdField.value || slugifyClient(aiProviderNameField.value || "ai-provider");
+      return {
+        ...existing,
+        id,
+        name: aiProviderNameField.value.trim() || id,
+        providerType: aiProviderTypeField.value || "custom",
+        apiEndpoint: aiProviderEndpointField.value.trim(),
+        authMethod: aiProviderAuthMethodField.value || "none",
+        apiKeyReference: aiProviderKeyReferenceField.value.trim(),
+        defaultModel: aiProviderModelField.value.trim(),
+        temperature: numberOrNullClient(aiProviderTemperatureField.value),
+        timeoutMs: numberOrDefaultClient(aiProviderTimeoutField.value, 120000),
+        retryCount: numberOrDefaultClient(aiProviderRetryCountField.value, 1),
+        maxTokens: numberOrNullClient(aiProviderMaxTokensField.value),
+        adapterStatus: existing.adapterStatus || (aiProviderTypeField.value === "codex" ? "active" : "planned")
+      };
+    }
+
+    function fillKnowledgeSourceForm(source = {}) {
+      if (!source) return;
+      selectedKnowledgeSourceId = source.id || "";
+      knowledgeSourceIdField.value = source.id || "";
+      knowledgeSourceNameField.value = source.name || "";
+      knowledgeSourceTypeField.value = source.sourceType || "custom";
+      knowledgeSourceEndpointField.value = source.endpointUrl || "";
+      knowledgeSourceAuthMethodField.value = source.authMethod || "none";
+      knowledgeSourceKeyReferenceField.value = source.apiKeyReference || "";
+      knowledgeSourcePriorityField.value = source.priorityWeight ?? 50;
+      knowledgeSourceCategoriesField.value = (source.categories || []).join(", ");
+      knowledgeSourceConfidenceField.value = source.confidenceLevel || "contextual";
+      knowledgeSourceScopeField.value = source.scope || "";
+      if (knowledgeSourceRegistry) knowledgeSourceCards.innerHTML = (knowledgeSourceRegistry.sources || []).map(knowledgeSourceCardHtml).join("");
+    }
+
+    function knowledgeSourceFromForm(existing = {}) {
+      const id = knowledgeSourceIdField.value || slugifyClient(knowledgeSourceNameField.value || "knowledge-source");
+      return {
+        ...existing,
+        id,
+        name: knowledgeSourceNameField.value.trim() || id,
+        sourceType: knowledgeSourceTypeField.value || "custom",
+        endpointUrl: knowledgeSourceEndpointField.value.trim(),
+        authMethod: knowledgeSourceAuthMethodField.value || "none",
+        apiKeyReference: knowledgeSourceKeyReferenceField.value.trim(),
+        priorityWeight: numberOrDefaultClient(knowledgeSourcePriorityField.value, 50),
+        categories: knowledgeSourceCategoriesField.value.split(",").map((item) => item.trim()).filter(Boolean),
+        confidenceLevel: knowledgeSourceConfidenceField.value.trim() || "contextual",
+        scope: knowledgeSourceScopeField.value.trim()
+      };
+    }
+
+    function slugifyClient(value) {
+      return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "item";
+    }
+
+    function numberOrNullClient(value) {
+      const number = Number(value);
+      return Number.isFinite(number) && String(value).trim() !== "" ? number : null;
+    }
+
+    function numberOrDefaultClient(value, fallback) {
+      const number = Number(value);
+      return Number.isFinite(number) && String(value).trim() !== "" ? number : fallback;
     }
 
     function platformProviderReadableHtml(registry = {}) {
@@ -11339,9 +11912,12 @@ function html(response) {
           "<div class='readable-card'><h3>" + escapeClientHtml(provider.name) + "</h3>" +
           "<p><strong>Type:</strong> " + escapeClientHtml(provider.providerType) + "</p>" +
           "<p><strong>Status:</strong> " + escapeClientHtml(provider.active ? "Active" : "Inactive") + " | " + escapeClientHtml(provider.adapterStatus || "planned") + "</p>" +
+          "<p><strong>Connection:</strong> " + escapeClientHtml(provider.connectionStatus || "Unknown") + " | <strong>Runtime:</strong> " + escapeClientHtml(provider.runtimeStatus || "Standby") + "</p>" +
           "<p><strong>Model:</strong> " + escapeClientHtml(provider.defaultModel || "Not set") + "</p>" +
           "<p><strong>Endpoint:</strong> " + escapeClientHtml(provider.apiEndpoint || "Not configured") + "</p>" +
+          "<p><strong>Authentication:</strong> " + escapeClientHtml(provider.authMethod || "none") + "</p>" +
           "<p><strong>Credential reference:</strong> " + escapeClientHtml(provider.apiKeyReference || "None") + "</p>" +
+          "<p><strong>Last health check:</strong> " + escapeClientHtml(formatPlatformDate(provider.lastValidatedAt)) + "</p>" +
           (provider.description ? "<p>" + escapeClientHtml(provider.description) + "</p>" : "") +
           "</div>"
         )
@@ -11356,10 +11932,12 @@ function html(response) {
           "<div class='readable-card'><h3>" + escapeClientHtml(source.name) + "</h3>" +
           "<p><strong>Type:</strong> " + escapeClientHtml(source.sourceType) + "</p>" +
           "<p><strong>Status:</strong> " + escapeClientHtml(source.active ? "Active" : "Inactive") + " | " + escapeClientHtml(source.validationStatus || "Not tested") + "</p>" +
+          "<p><strong>Authentication:</strong> " + escapeClientHtml(source.authMethod || "none") + " | " + escapeClientHtml(source.authenticationStatus || "Not checked") + "</p>" +
           "<p><strong>Categories:</strong> " + escapeClientHtml((source.categories || []).join(", ") || "Not assigned") + "</p>" +
           "<p><strong>Priority:</strong> " + escapeClientHtml(source.priorityWeight) + "/100</p>" +
           "<p><strong>Confidence:</strong> " + escapeClientHtml(source.confidenceLevel || "contextual") + "</p>" +
           "<p><strong>Endpoint:</strong> " + escapeClientHtml(source.endpointUrl || "Not configured") + "</p>" +
+          "<p><strong>Last sync/test:</strong> " + escapeClientHtml(formatPlatformDate(source.lastValidatedAt)) + "</p>" +
           (source.scope ? "<p>" + escapeClientHtml(source.scope) + "</p>" : "") +
           "</div>"
         )
@@ -11372,6 +11950,252 @@ function html(response) {
       } catch (error) {
         throw new Error(label + " JSON is not valid: " + error.message);
       }
+    }
+
+    function selectAiProvider(id) {
+      const provider = (aiProviderRegistry?.providers || []).find((item) => item.id === id);
+      if (!provider) return;
+      fillAiProviderForm(provider);
+      aiProviderStatus.textContent = "Selected " + provider.name + ". Use Configure/Edit fields, Test Connection, or Activate when a runtime adapter is available.";
+    }
+
+    function selectKnowledgeSource(id) {
+      const source = (knowledgeSourceRegistry?.sources || []).find((item) => item.id === id);
+      if (!source) return;
+      fillKnowledgeSourceForm(source);
+      knowledgeSourceStatus.textContent = "Selected " + source.name + ". Configure, test, enable/disable, or adjust priority.";
+    }
+
+    async function handleAiProviderAction(action, id) {
+      selectAiProvider(id);
+      if (action === "configure") return;
+      if (action === "test") return testSelectedAiProvider();
+      if (action === "activate") return activateSelectedAiProvider();
+      if (action === "disable") return disableSelectedAiProvider();
+      if (action === "logs") return showSelectedAiProviderStatus();
+    }
+
+    async function handleKnowledgeSourceAction(action, id) {
+      selectKnowledgeSource(id);
+      if (action === "configure") return;
+      if (action === "test") return testSelectedKnowledgeSource();
+      if (action === "toggle") return toggleSelectedKnowledgeSource();
+      if (action === "logs") return showSelectedKnowledgeSourceStatus();
+    }
+
+    async function saveAiProviderFromForm({ asNew = false } = {}) {
+      const registry = aiProviderRegistry || { activeProviderId: "codex-local", providers: [] };
+      const providers = (registry.providers || []).slice();
+      const existingIndex = providers.findIndex((provider) => provider.id === aiProviderIdField.value);
+      const existing = existingIndex >= 0 ? providers[existingIndex] : {};
+      const next = aiProviderFromForm(existing);
+      if (asNew || existingIndex < 0) {
+        next.id = uniqueId(next.id, providers.map((provider) => provider.id));
+        next.active = false;
+        providers.push(next);
+        selectedAiProviderId = next.id;
+      } else {
+        providers[existingIndex] = {
+          ...next,
+          active: providers[existingIndex].active
+        };
+      }
+      const payload = await api("/api/platform/ai-providers", {
+        method: "POST",
+        body: JSON.stringify({
+          registry: {
+            ...registry,
+            providers
+          }
+        })
+      });
+      renderAiProviderRegistry(payload);
+      aiProviderStatus.textContent = asNew ? "New AI brain added." : "AI brain configuration saved.";
+      markPageLoaded("admin", asNew ? "Add AI Brain" : "Save AI Brain");
+      return payload;
+    }
+
+    async function activateSelectedAiProvider() {
+      const provider = (aiProviderRegistry?.providers || []).find((item) => item.id === selectedAiProviderId);
+      if (!provider) return;
+      if (provider.adapterStatus !== "active") {
+        aiProviderStatus.textContent = provider.name + " is registered, but cannot become the running brain yet because its runtime adapter is still planned. Codex remains the active MVP brain.";
+        return;
+      }
+      const providers = (aiProviderRegistry.providers || []).map((item) => ({
+        ...item,
+        active: item.id === provider.id,
+        runtimeStatus: item.id === provider.id ? "Standby" : "Standby"
+      }));
+      const payload = await api("/api/platform/ai-providers", {
+        method: "POST",
+        body: JSON.stringify({
+          registry: {
+            ...aiProviderRegistry,
+            activeProviderId: provider.id,
+            providers
+          }
+        })
+      });
+      renderAiProviderRegistry(payload);
+      await testSelectedAiProvider();
+      aiProviderStatus.textContent = provider.name + " is now the active AI brain.";
+      markPageLoaded("admin", "Activate AI Brain");
+    }
+
+    async function disableSelectedAiProvider() {
+      const provider = (aiProviderRegistry?.providers || []).find((item) => item.id === selectedAiProviderId);
+      if (!provider) return;
+      if (provider.active) {
+        aiProviderStatus.textContent = "Cannot disable the active AI brain. Activate another working provider first.";
+        return;
+      }
+      const providers = (aiProviderRegistry.providers || []).map((item) => item.id === provider.id
+        ? { ...item, connectionStatus: "Disabled", runtimeStatus: "Standby", validationStatus: "Disabled" }
+        : item);
+      const payload = await api("/api/platform/ai-providers", {
+        method: "POST",
+        body: JSON.stringify({ registry: { ...aiProviderRegistry, providers } })
+      });
+      renderAiProviderRegistry(payload);
+      aiProviderStatus.textContent = provider.name + " disabled for runtime consideration.";
+      markPageLoaded("admin", "Disable AI Brain");
+    }
+
+    async function testSelectedAiProvider() {
+      const provider = (aiProviderRegistry?.providers || []).find((item) => item.id === selectedAiProviderId);
+      if (!provider) return;
+      const test = await api("/api/platform/ai-providers/test", {
+        method: "POST",
+        body: JSON.stringify({ providerId: provider.id, registry: aiProviderRegistry })
+      });
+      const providers = (aiProviderRegistry.providers || []).map((item) => item.id === provider.id
+        ? {
+            ...item,
+            connectionStatus: test.connectionStatus,
+            runtimeStatus: test.runtimeStatus,
+            validationStatus: test.validationStatus,
+            modelAccess: test.modelAccess,
+            lastValidatedAt: test.lastValidatedAt
+          }
+        : item);
+      const payload = await api("/api/platform/ai-providers", {
+        method: "POST",
+        body: JSON.stringify({ registry: { ...aiProviderRegistry, providers } })
+      });
+      renderAiProviderRegistry(payload);
+      aiProviderStatus.textContent = test.providerName + ": " + test.validationStatus + ". " + test.detail + " " + test.advisory;
+      markPageLoaded("admin", "Test AI Provider");
+    }
+
+    function showSelectedAiProviderStatus() {
+      const provider = (aiProviderRegistry?.providers || []).find((item) => item.id === selectedAiProviderId);
+      if (!provider) return;
+      aiProviderStatus.textContent = [
+        provider.name,
+        "Type: " + providerLabel(provider.providerType, aiProviderTypeConfig),
+        "Connection: " + (provider.connectionStatus || "Unknown"),
+        "Runtime: " + (provider.runtimeStatus || "Standby"),
+        "Last check: " + formatPlatformDate(provider.lastValidatedAt),
+        "Model: " + (provider.defaultModel || "Not set"),
+        "Model access: " + (provider.modelAccess || "Not checked"),
+        provider.adapterStatus === "active" ? "Runtime adapter is active." : "Runtime adapter is planned; Codex remains the working MVP brain."
+      ].join(" | ");
+    }
+
+    async function saveKnowledgeSourceFromForm({ asNew = false } = {}) {
+      const registry = knowledgeSourceRegistry || { sources: [] };
+      const sources = (registry.sources || []).slice();
+      const existingIndex = sources.findIndex((source) => source.id === knowledgeSourceIdField.value);
+      const existing = existingIndex >= 0 ? sources[existingIndex] : {};
+      const next = knowledgeSourceFromForm(existing);
+      if (asNew || existingIndex < 0) {
+        next.id = uniqueId(next.id, sources.map((source) => source.id));
+        next.active = false;
+        sources.push(next);
+        selectedKnowledgeSourceId = next.id;
+      } else {
+        sources[existingIndex] = {
+          ...next,
+          active: sources[existingIndex].active
+        };
+      }
+      const payload = await api("/api/platform/knowledge-sources", {
+        method: "POST",
+        body: JSON.stringify({
+          registry: {
+            ...registry,
+            sources
+          }
+        })
+      });
+      renderKnowledgeSourceRegistry(payload);
+      knowledgeSourceStatus.textContent = asNew ? "New knowledge source added." : "Knowledge source configuration saved.";
+      markPageLoaded("admin", asNew ? "Add Knowledge Source" : "Save Knowledge Source");
+      return payload;
+    }
+
+    async function toggleSelectedKnowledgeSource() {
+      const source = (knowledgeSourceRegistry?.sources || []).find((item) => item.id === selectedKnowledgeSourceId);
+      if (!source) return;
+      const sources = (knowledgeSourceRegistry.sources || []).map((item) => item.id === source.id
+        ? { ...item, active: !item.active }
+        : item);
+      const payload = await api("/api/platform/knowledge-sources", {
+        method: "POST",
+        body: JSON.stringify({ registry: { ...knowledgeSourceRegistry, sources } })
+      });
+      renderKnowledgeSourceRegistry(payload);
+      knowledgeSourceStatus.textContent = source.name + (source.active ? " disabled." : " enabled as contextual input.");
+      markPageLoaded("admin", "Toggle Knowledge Source");
+    }
+
+    async function testSelectedKnowledgeSource() {
+      const source = (knowledgeSourceRegistry?.sources || []).find((item) => item.id === selectedKnowledgeSourceId);
+      if (!source) return;
+      const test = await api("/api/platform/knowledge-sources/test", {
+        method: "POST",
+        body: JSON.stringify({ sourceId: source.id, registry: knowledgeSourceRegistry })
+      });
+      const result = (test.results || []).find((item) => item.sourceId === source.id) || {};
+      const sources = (knowledgeSourceRegistry.sources || []).map((item) => item.id === source.id
+        ? {
+            ...item,
+            validationStatus: result.validationStatus || "Not tested",
+            lastValidatedAt: result.lastValidatedAt || "",
+            authenticationStatus: result.authenticationStatus || ""
+          }
+        : item);
+      const payload = await api("/api/platform/knowledge-sources", {
+        method: "POST",
+        body: JSON.stringify({ registry: { ...knowledgeSourceRegistry, sources } })
+      });
+      renderKnowledgeSourceRegistry(payload);
+      knowledgeSourceStatus.textContent = (result.sourceName || source.name) + ": " + (result.validationStatus || "Not tested") + ". " + (result.detail || "") + " " + (result.advisory || "");
+      markPageLoaded("admin", "Test Knowledge Source");
+    }
+
+    function showSelectedKnowledgeSourceStatus() {
+      const source = (knowledgeSourceRegistry?.sources || []).find((item) => item.id === selectedKnowledgeSourceId);
+      if (!source) return;
+      knowledgeSourceStatus.textContent = [
+        source.name,
+        "Type: " + providerLabel(source.sourceType, knowledgeSourceTypeConfig),
+        "Status: " + (source.active ? "Enabled" : "Disabled"),
+        "Validation: " + (source.validationStatus || "Not tested"),
+        "Last test: " + formatPlatformDate(source.lastValidatedAt),
+        "Priority: " + (source.priorityWeight || 0) + "/100",
+        "Scope: " + (source.scope || "Not described")
+      ].join(" | ");
+    }
+
+    function uniqueId(base, existingIds = []) {
+      let id = slugifyClient(base);
+      const existing = new Set(existingIds);
+      if (!existing.has(id)) return id;
+      let index = 2;
+      while (existing.has(id + "-" + index)) index += 1;
+      return id + "-" + index;
     }
 
     function applyFeatureFlags(flags = {}) {
@@ -13362,12 +14186,12 @@ function html(response) {
 
     async function load(action = "Reload") {
       startCodexProgress("Loading NetSuite Demo Helper", "Loading the last saved workspace from this machine.", [
-        "Detect Codex on this machine",
+        "Detect Codex and active AI brain on this machine",
         "Read the saved SC guide and manifest",
         "Restore last generated Intelligence"
       ]);
       try {
-        await refreshCodexStatus();
+        await Promise.all([refreshCodexStatus(), refreshPlatformStatus()]);
         updateCodexProgress("Reading the last saved manifest, SC guide, and Intelligence from this machine.", 1);
         render(await api("/api/manifest"), action);
         finishCodexProgress("Workspace loaded from the last saved local state.");
@@ -13533,6 +14357,32 @@ function html(response) {
     });
 
     document.addEventListener("click", (event) => {
+      const providerCard = event.target.closest("[data-provider-card]");
+      if (providerCard && !event.target.closest("[data-provider-action]")) {
+        selectAiProvider(providerCard.dataset.providerCard);
+        return;
+      }
+      const providerAction = event.target.closest("[data-provider-action]");
+      if (providerAction) {
+        handleAiProviderAction(providerAction.dataset.providerAction, providerAction.dataset.providerId)
+          .catch((error) => {
+            aiProviderStatus.textContent = error.message;
+          });
+        return;
+      }
+      const sourceCard = event.target.closest("[data-source-card]");
+      if (sourceCard && !event.target.closest("[data-source-action]")) {
+        selectKnowledgeSource(sourceCard.dataset.sourceCard);
+        return;
+      }
+      const sourceAction = event.target.closest("[data-source-action]");
+      if (sourceAction) {
+        handleKnowledgeSourceAction(sourceAction.dataset.sourceAction, sourceAction.dataset.sourceId)
+          .catch((error) => {
+            knowledgeSourceStatus.textContent = error.message;
+          });
+        return;
+      }
       const intelligenceCard = event.target.closest("[data-intel-card]");
       if (intelligenceCard) {
         selectedIntelligenceCard = intelligenceCard.dataset.intelCard;
@@ -13704,49 +14554,91 @@ function html(response) {
         knowledgeSourceReadable.innerHTML = "<p class='hint'>The readable preview will update once the source JSON is valid.</p>";
       }
     };
-    document.getElementById("saveAiProvidersButton").onclick = async () => {
+    document.getElementById("saveAiProviderButton").onclick = async () => {
       try {
-        const payload = await api("/api/platform/ai-providers", {
-          method: "POST",
-          body: JSON.stringify({ registry: readJsonEditor(aiProviderEditor, "AI provider registry") })
-        });
-        renderAiProviderRegistry(payload);
-        markPageLoaded("admin", "Save AI Providers");
+        await saveAiProviderFromForm();
+      } catch (error) {
+        aiProviderStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("addAiProviderButton").onclick = async () => {
+      try {
+        await saveAiProviderFromForm({ asNew: true });
       } catch (error) {
         aiProviderStatus.textContent = error.message;
       }
     };
     document.getElementById("testAiProviderButton").onclick = async () => {
       try {
-        const payload = await api("/api/platform/ai-providers/test", {
-          method: "POST",
-          body: JSON.stringify({ registry: readJsonEditor(aiProviderEditor, "AI provider registry") })
-        });
-        aiProviderStatus.textContent = payload.providerName + ": " + payload.validationStatus + ". " + payload.detail + " " + payload.advisory;
+        await testSelectedAiProvider();
       } catch (error) {
         aiProviderStatus.textContent = error.message;
       }
     };
-    document.getElementById("saveKnowledgeSourcesButton").onclick = async () => {
+    document.getElementById("activateAiProviderButton").onclick = async () => {
+      try {
+        await activateSelectedAiProvider();
+      } catch (error) {
+        aiProviderStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("disableAiProviderButton").onclick = async () => {
+      try {
+        await disableSelectedAiProvider();
+      } catch (error) {
+        aiProviderStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("saveAiProvidersJsonButton").onclick = async () => {
+      try {
+        const payload = await api("/api/platform/ai-providers", {
+          method: "POST",
+          body: JSON.stringify({ registry: readJsonEditor(aiProviderEditor, "AI provider registry") })
+        });
+        renderAiProviderRegistry(payload);
+        aiProviderStatus.textContent = "AI brain registry JSON saved.";
+        markPageLoaded("admin", "Save AI Brain Registry JSON");
+      } catch (error) {
+        aiProviderStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("saveKnowledgeSourceButton").onclick = async () => {
+      try {
+        await saveKnowledgeSourceFromForm();
+      } catch (error) {
+        knowledgeSourceStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("addKnowledgeSourceButton").onclick = async () => {
+      try {
+        await saveKnowledgeSourceFromForm({ asNew: true });
+      } catch (error) {
+        knowledgeSourceStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("testKnowledgeSourceButton").onclick = async () => {
+      try {
+        await testSelectedKnowledgeSource();
+      } catch (error) {
+        knowledgeSourceStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("toggleKnowledgeSourceButton").onclick = async () => {
+      try {
+        await toggleSelectedKnowledgeSource();
+      } catch (error) {
+        knowledgeSourceStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("saveKnowledgeSourcesJsonButton").onclick = async () => {
       try {
         const payload = await api("/api/platform/knowledge-sources", {
           method: "POST",
           body: JSON.stringify({ registry: readJsonEditor(knowledgeSourceEditor, "Knowledge source registry") })
         });
         renderKnowledgeSourceRegistry(payload);
-        markPageLoaded("admin", "Save Knowledge Sources");
-      } catch (error) {
-        knowledgeSourceStatus.textContent = error.message;
-      }
-    };
-    document.getElementById("testKnowledgeSourcesButton").onclick = async () => {
-      try {
-        const payload = await api("/api/platform/knowledge-sources/test", {
-          method: "POST",
-          body: JSON.stringify({ registry: readJsonEditor(knowledgeSourceEditor, "Knowledge source registry") })
-        });
-        const summary = (payload.results || []).map((item) => item.sourceName + ": " + item.validationStatus).join(" | ");
-        knowledgeSourceStatus.textContent = (summary || "No sources configured.") + " " + (payload.trustPolicy || "");
+        knowledgeSourceStatus.textContent = "Knowledge source registry JSON saved.";
+        markPageLoaded("admin", "Save Knowledge Source Registry JSON");
       } catch (error) {
         knowledgeSourceStatus.textContent = error.message;
       }

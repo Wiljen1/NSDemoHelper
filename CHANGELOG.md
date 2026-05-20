@@ -19,11 +19,12 @@ Do not create future release notes before the release exists.
 - Admin-managed knowledge source registry for future contextual intelligence sources such as internal enablement content, CRMs, knowledge bases, competitive battlecards, retrieval APIs, and documentation portals.
 - Lightweight validation endpoints for provider/source configuration so future integrations can be introduced without changing the current demo-prep workflow.
 - Standardized local run profiles with `npm run mvp` and `npm run whitelabel`, plus example environment files for each profile.
+- Global active AI brain status in the app header, including runtime health and enabled knowledge source count.
 
 ### Changed
 
-- Admin now includes a Platform Foundation area with readable and JSON views for future AI provider and external knowledge-source configuration.
-- Button/API instruction exports now include the new provider and knowledge-source configuration endpoints.
+- Admin Platform Foundation now separates AI Brain Management from Knowledge Source Management, with provider/source cards, configure forms, active badges, connection test actions, and advanced JSON views.
+- Button/API instruction exports now include active platform status, AI brain configuration, provider health checks, and knowledge-source configuration endpoints.
 - App build metadata now includes the active local profile so MVP and white-label sessions are easy to distinguish.
 
 ## v0.1.0-alpha

@@ -120,6 +120,8 @@ The current codebase now includes a lightweight Platform Foundation area in Admi
 - It does not query external systems yet.
 - It does not implement multi-tenant routing yet.
 - It provides a safe place to evolve provider configuration and contextual source registration without disrupting the internal NetSuite MVP.
+- It separates AI Brain Management from Knowledge Source Management so future AI providers and external context sources can evolve independently.
+- It exposes the active AI brain and knowledge source count in the app header so the current runtime backbone is visible to users.
 
 ## Local Run Profiles
 

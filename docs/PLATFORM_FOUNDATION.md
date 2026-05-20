@@ -4,9 +4,9 @@ This document describes the first additive step toward a white-label, multi-tena
 
 The current MVP remains NetSuite-specific and Codex-backed. The foundation added here does not replace existing demo prep, SC guide, intelligence, dry-run, dataset, or admin behavior.
 
-## AI Provider Registry
+## AI Brain Management
 
-The app now has a local AI provider registry for future provider abstraction.
+The app now has a local AI brain/provider registry for future provider abstraction.
 
 Current active provider:
 
@@ -26,14 +26,20 @@ The registry is designed to support:
 
 - Active provider selection
 - Endpoint configuration
+- Authentication method and secret-reference configuration
 - Model configuration
-- Timeout and retry preferences
+- Temperature, timeout, retry, and token preferences
+- Connection status
+- Runtime status
+- Last health check
 - Future failover behavior
-- Connectivity testing
+- Connectivity testing and activation controls
 
 For now, only Codex is wired into runtime demo generation. Other providers are registration-only until a provider adapter is implemented.
 
-## Knowledge Source Registry
+The active AI brain is also visible globally in the app header so users can see which provider is running, whether the runtime is connected, and how many external knowledge sources are enabled.
+
+## Knowledge Source Management
 
 The app now has a local knowledge source registry for future contextual intelligence providers.
 
@@ -56,12 +62,14 @@ Each source can track:
 - Type
 - Endpoint URL
 - Authentication method
+- Authentication status
 - Active/inactive state
 - Scope or purpose
 - Categories
 - Priority weight
 - Confidence level
 - Validation status
+- Last sync/test
 
 Knowledge sources are contextual inputs only. They should not be presented as verified factual truth, especially for competitive intelligence or AI-generated responses.
 
@@ -69,12 +77,17 @@ Knowledge sources are contextual inputs only. They should not be presented as ve
 
 The Admin page includes a lightweight Platform Foundation area with:
 
-- AI Providers
-- Knowledge Sources
+- AI Brain Management
+- Knowledge Source Management
+- Provider/source cards
+- Active and enabled badges
+- Configure forms
+- Test Connection actions
+- Activate/disable controls where safe
+- Last health check/status visibility
 - Readable preview
 - Raw JSON editor
 - Save buttons
-- Test/validation buttons
 
 Configuration is stored locally under ignored `artifacts/platform/` files.
 

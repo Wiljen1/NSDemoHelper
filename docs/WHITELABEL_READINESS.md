@@ -73,6 +73,8 @@ The app now has a lightweight, additive Platform Foundation area in Admin for fu
 - AI provider registry with Codex as the active MVP provider and planned provider types for OpenAI, Azure OpenAI, Claude, Gemini, local LLMs, enterprise gateways, and custom providers.
 - Knowledge source registry for future contextual intelligence sources such as internal enablement repositories, competitive battlecards, CRM systems, retrieval APIs, knowledge bases, documentation portals, and public web intelligence.
 - Validation endpoints that check the local Codex provider today and treat other providers/sources as registered future adapters.
+- Separate Admin sections for AI Brain Management and Knowledge Source Management so future runtime providers and contextual sources do not become tightly coupled.
+- A global active brain indicator in the app header that shows the current backbone, runtime health, model context, and enabled knowledge-source count.
 - Local storage under ignored `artifacts/platform/` files, keeping experimental configuration out of committed source.
 
 This foundation does not yet implement full multi-tenant routing, secret storage, external retrieval, or provider swapping. It creates the safe extension points needed to evolve toward those capabilities without disrupting the NetSuite MVP.

@@ -58,15 +58,20 @@ export function defaultAiProviderRegistry(now = new Date().toISOString()) {
         providerType: "codex",
         active: true,
         apiEndpoint: "local-codex-runtime",
+        authMethod: "none",
         apiKeyReference: "",
         defaultModel: "Codex local runtime",
         timeoutMs: 120000,
         maxTokens: null,
         temperature: null,
+        retryCount: 0,
         retryPolicy: "Use current Codex background operator behavior",
         failoverProviderId: "",
         adapterStatus: "active",
+        connectionStatus: "Unknown",
+        runtimeStatus: "Standby",
         validationStatus: "Not tested in this session",
+        modelAccess: "",
         lastValidatedAt: "",
         description: "Default MVP reasoning backbone used for demo prep, SC guide generation, intelligence, and guide revisions."
       }
@@ -93,6 +98,7 @@ export function defaultKnowledgeSourceRegistry(now = new Date().toISOString()) {
         priorityWeight: 80,
         confidenceLevel: "approved-internal",
         validationStatus: "Not configured",
+        authenticationStatus: "Not checked",
         lastValidatedAt: "",
         notes: "Placeholder for future curated competitive guidance. Competitive output must remain advisory and validated before customer use."
       },
@@ -109,6 +115,7 @@ export function defaultKnowledgeSourceRegistry(now = new Date().toISOString()) {
         priorityWeight: 60,
         confidenceLevel: "internal-context",
         validationStatus: "Not configured",
+        authenticationStatus: "Not checked",
         lastValidatedAt: "",
         notes: "Placeholder for future enablement content retrieval."
       }
@@ -186,15 +193,20 @@ function normalizeAiProvider(provider, index) {
     providerType,
     active: provider.active === true,
     apiEndpoint: String(provider.apiEndpoint || provider.endpoint || ""),
+    authMethod: knownValue(provider.authMethod, authMethods, providerType === "codex" ? "none" : "api_key_env"),
     apiKeyReference: cleanSecretReference(provider.apiKeyReference || provider.apiKeyEnv || provider.secretRef || ""),
     defaultModel: String(provider.defaultModel || provider.model || ""),
     timeoutMs: numberOrDefault(provider.timeoutMs, 120000),
     maxTokens: numberOrNull(provider.maxTokens),
     temperature: numberOrNull(provider.temperature),
+    retryCount: Math.max(0, Math.min(10, numberOrDefault(provider.retryCount, 1))),
     retryPolicy: String(provider.retryPolicy || ""),
     failoverProviderId: String(provider.failoverProviderId || ""),
     adapterStatus: String(provider.adapterStatus || adapterStatusForProvider(providerType)),
+    connectionStatus: String(provider.connectionStatus || "Unknown"),
+    runtimeStatus: String(provider.runtimeStatus || "Standby"),
     validationStatus: String(provider.validationStatus || "Not tested"),
+    modelAccess: String(provider.modelAccess || ""),
     lastValidatedAt: String(provider.lastValidatedAt || ""),
     description: String(provider.description || "")
   };
@@ -224,6 +236,7 @@ function normalizeKnowledgeSource(source, index) {
     priorityWeight: Math.max(0, Math.min(100, numberOrDefault(source.priorityWeight, 50))),
     confidenceLevel: String(source.confidenceLevel || "contextual"),
     validationStatus: String(source.validationStatus || "Not tested"),
+    authenticationStatus: String(source.authenticationStatus || "Not checked"),
     lastValidatedAt: String(source.lastValidatedAt || ""),
     notes: String(source.notes || "")
   };

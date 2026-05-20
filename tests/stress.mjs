@@ -54,6 +54,10 @@ const scenarios = [
     }
   },
   {
+    name: "platform-status",
+    run: () => requestJson(server, "/api/platform/status")
+  },
+  {
     name: "sc-guide",
     run: () => requestJson(server, "/api/sc-guide")
   },

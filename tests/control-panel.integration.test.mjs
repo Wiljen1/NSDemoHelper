@@ -64,8 +64,8 @@ describe("NetSuite Demo Helper control panel", () => {
       "Last loaded: not yet",
       "Button/API JSON Instructions",
       "Platform Foundation",
-      "AI Providers",
-      "Knowledge Sources",
+      "AI Brain Management",
+      "Knowledge Source Management",
       "Dry-Run Prep",
       "Run Dataset Analysis",
       "Buffer Dry-Run",
@@ -209,6 +209,7 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.ok(catalog.buttons.some((button) => button.id === "export-discovery-followups"));
     assert.ok(catalog.buttons.some((button) => button.id === "run-dataset-analysis"));
     assert.ok(catalog.buttons.some((button) => button.id === "execute-dataset-prompt"));
+    assert.ok(catalog.buttons.some((button) => button.id === "platform-status"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-ai-providers-load"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-knowledge-sources-load"));
 
@@ -298,6 +299,14 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.equal(providerTest.ok, true);
     assert.equal(providerTest.providerType, "codex");
     assert.equal(providerTest.available, true);
+    assert.equal(providerTest.connectionStatus, "Connected");
+    assert.equal(providerTest.runtimeStatus, "Running");
+
+    const platformStatus = await requestJson(server, "/api/platform/status");
+    assert.equal(platformStatus.ok, true);
+    assert.equal(platformStatus.activeProviderId, "codex-local");
+    assert.equal(platformStatus.runtime.connectionStatus, "Connected");
+    assert.equal(platformStatus.runtime.runtimeStatus, "Running");
 
     const sources = await requestJson(server, "/api/platform/knowledge-sources", {
       headers: { cookie }
@@ -340,6 +349,7 @@ describe("NetSuite Demo Helper control panel", () => {
     });
     assert.equal(sourceTest.ok, true);
     assert.equal(sourceTest.results[0].validationStatus, "Registered only");
+    assert.equal(sourceTest.results[0].authenticationStatus, "Credential reference configured");
     assert.match(sourceTest.results[0].advisory, /contextual intelligence only/);
   });
 
