@@ -12,12 +12,14 @@ let cmsSessionsBackup;
 let cmsContentBackup;
 let aiProvidersBackup;
 let knowledgeSourcesBackup;
+let tenantConfigBackup;
 const mainManifestPath = path.join(projectRoot, "manifests/finance-pl-cash360.demo.json");
 const cmsAdminPath = path.join(projectRoot, ".auth/cms-admin.json");
 const cmsSessionsPath = path.join(projectRoot, ".auth/cms-sessions.json");
 const cmsContentPath = path.join(projectRoot, "artifacts/cms/content.json");
 const aiProvidersPath = path.join(projectRoot, "artifacts/platform/ai-providers.json");
 const knowledgeSourcesPath = path.join(projectRoot, "artifacts/platform/knowledge-sources.json");
+const tenantConfigPath = path.join(projectRoot, "artifacts/platform/tenant-config.json");
 
 before(async () => {
   manifestBackup = await readFile(mainManifestPath, "utf8");
@@ -26,11 +28,13 @@ before(async () => {
   cmsContentBackup = await readOptionalFile(cmsContentPath);
   aiProvidersBackup = await readOptionalFile(aiProvidersPath);
   knowledgeSourcesBackup = await readOptionalFile(knowledgeSourcesPath);
+  tenantConfigBackup = await readOptionalFile(tenantConfigPath);
   await rm(cmsAdminPath, { force: true });
   await rm(cmsSessionsPath, { force: true });
   await rm(cmsContentPath, { force: true });
   await rm(aiProvidersPath, { force: true });
   await rm(knowledgeSourcesPath, { force: true });
+  await rm(tenantConfigPath, { force: true });
   server = await startTestServer();
 });
 
@@ -42,6 +46,7 @@ after(async () => {
   await restoreOptionalFile(cmsContentPath, cmsContentBackup);
   await restoreOptionalFile(aiProvidersPath, aiProvidersBackup);
   await restoreOptionalFile(knowledgeSourcesPath, knowledgeSourcesBackup);
+  await restoreOptionalFile(tenantConfigPath, tenantConfigBackup);
 });
 
 describe("NetSuite Demo Helper control panel", () => {
@@ -210,6 +215,8 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.ok(catalog.buttons.some((button) => button.id === "run-dataset-analysis"));
     assert.ok(catalog.buttons.some((button) => button.id === "execute-dataset-prompt"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-status"));
+    assert.ok(catalog.buttons.some((button) => button.id === "platform-health"));
+    assert.ok(catalog.buttons.some((button) => button.id === "platform-tenant-load"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-ai-providers-load"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-knowledge-sources-load"));
 
@@ -308,6 +315,19 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.equal(platformStatus.runtime.connectionStatus, "Connected");
     assert.equal(platformStatus.runtime.runtimeStatus, "Running");
 
+    const health = await requestJson(server, "/api/platform/health");
+    assert.equal(health.ok, true);
+    assert.equal(health.environment.appProfile, "mvp");
+    assert.equal(health.ai.activeProviderType, "codex");
+    assert.equal(health.security.clientReceivesRawSecrets, false);
+
+    const tenant = await requestJson(server, "/api/platform/tenant-config", {
+      headers: { cookie }
+    });
+    assert.equal(tenant.ok, true);
+    assert.equal(tenant.editable, false);
+    assert.equal(tenant.config.productPack.id, "netsuite_erp_pack");
+
     const sources = await requestJson(server, "/api/platform/knowledge-sources", {
       headers: { cookie }
     });
@@ -351,6 +371,47 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.equal(sourceTest.results[0].validationStatus, "Registered only");
     assert.equal(sourceTest.results[0].authenticationStatus, "Credential reference configured");
     assert.match(sourceTest.results[0].advisory, /contextual intelligence only/);
+  });
+
+  it("allows tenant and branding configuration only in white-label mode", async () => {
+    const whiteLabelServer = await startTestServer({ APP_PROFILE: "whitelabel" });
+    try {
+      const cookie = await ensureCmsCookie(whiteLabelServer);
+      const loaded = await requestJson(whiteLabelServer, "/api/platform/tenant-config", {
+        headers: { cookie }
+      });
+      assert.equal(loaded.ok, true);
+      assert.equal(loaded.editable, true);
+      assert.equal(loaded.config.branding.appName, "Demo Intelligence Platform");
+
+      const saved = await requestJson(whiteLabelServer, "/api/platform/tenant-config", {
+        method: "POST",
+        headers: { cookie },
+        body: JSON.stringify({
+          config: {
+            ...loaded.config,
+            tenantName: "Acme Demo Team",
+            branding: {
+              ...loaded.config.branding,
+              appName: "Acme Demo Intelligence",
+              primaryColor: "#123456",
+              accentColor: "#14b8a6"
+            }
+          }
+        })
+      });
+      assert.equal(saved.ok, true);
+      assert.equal(saved.config.tenantName, "Acme Demo Team");
+      assert.equal(saved.config.branding.appName, "Acme Demo Intelligence");
+
+      const health = await requestJson(whiteLabelServer, "/api/platform/health");
+      assert.equal(health.environment.appProfile, "whitelabel");
+      assert.equal(health.tenant.tenantName, "Acme Demo Team");
+      assert.equal(health.capabilities.whiteLabelControlsVisible, true);
+    } finally {
+      await stopTestServer(whiteLabelServer);
+      await restoreOptionalFile(tenantConfigPath, tenantConfigBackup);
+    }
   });
 
   it("loads the manifest payload with guide, setup prompt, and Intelligence", async () => {
@@ -450,9 +511,9 @@ async function restoreOptionalFile(filePath, contents) {
   await writeFile(filePath, contents, "utf8");
 }
 
-async function ensureCmsCookie() {
-  const status = await requestJson(server, "/api/cms/status");
-  const response = await fetch(`${server.baseUrl}${status.setupRequired ? "/api/cms/setup" : "/api/cms/login"}`, {
+async function ensureCmsCookie(targetServer = server) {
+  const status = await requestJson(targetServer, "/api/cms/status");
+  const response = await fetch(`${targetServer.baseUrl}${status.setupRequired ? "/api/cms/setup" : "/api/cms/login"}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ password: "VeryStrongPassword123!" })

@@ -18,6 +18,14 @@ import {
   sanitizeKnowledgeRegistryForClient,
   sanitizeProviderRegistryForClient
 } from "./platform/provider-config.mjs";
+import { providerCanActivate } from "./platform/ai/orchestrator.mjs";
+import { buildPlatformHealthSnapshot } from "./platform/health.mjs";
+import { buildRuntimeMetadata } from "./platform/runtime-config.mjs";
+import {
+  defaultTenantConfig,
+  normalizeTenantConfig,
+  sanitizeTenantConfigForClient
+} from "./platform/tenant-config.mjs";
 
 const projectRoot = path.dirname(path.dirname(new URL(import.meta.url).pathname));
 const manifestPath = path.join(projectRoot, "manifests/finance-pl-cash360.demo.json");
@@ -32,6 +40,7 @@ const cmsVersionsDir = path.join(projectRoot, "artifacts/cms/versions");
 const platformConfigDir = path.join(projectRoot, "artifacts/platform");
 const aiProvidersPath = path.join(platformConfigDir, "ai-providers.json");
 const knowledgeSourcesPath = path.join(platformConfigDir, "knowledge-sources.json");
+const tenantConfigPath = path.join(platformConfigDir, "tenant-config.json");
 const buttonInstructionsDir = path.join(projectRoot, "artifacts/button-api-instructions");
 const cmsAdminPath = path.join(projectRoot, ".auth/cms-admin.json");
 const cmsSessionsPath = path.join(projectRoot, ".auth/cms-sessions.json");
@@ -80,26 +89,10 @@ const defaultOutputLanguage = "en";
 const defaultDemoStrategy = "standard_platform_demo";
 const defaultIndustry = "general_business";
 const appVersion = "v0.1.0-alpha";
-const appEnvironment = normalizeAppEnvironment(process.env.APP_ENV);
-const appProfile = normalizeAppProfile(process.env.APP_PROFILE || process.env.NSDH_APP_PROFILE);
-const buildMetadata = {
-  version: appVersion,
-  environment: appEnvironment,
-  profile: appProfile,
-  commit: process.env.APP_COMMIT || process.env.GIT_COMMIT || "",
-  buildDate: process.env.APP_BUILD_DATE || process.env.BUILD_DATE || ""
-};
+const buildMetadata = buildRuntimeMetadata(process.env, { version: appVersion });
+const appEnvironment = buildMetadata.environment;
+const appProfile = buildMetadata.profile;
 const cash360SegmentIds = new Set(["open-cash360-dashboard", "cash360-actions", "cash360-forecast", "cash360-preferences"]);
-
-function normalizeAppEnvironment(value) {
-  const env = String(value || "development").trim().toLowerCase();
-  return ["development", "staging", "production"].includes(env) ? env : "development";
-}
-
-function normalizeAppProfile(value) {
-  const profile = String(value || "mvp").trim().toLowerCase();
-  return ["mvp", "whitelabel"].includes(profile) ? profile : "mvp";
-}
 
 function defaultTestPrepData() {
   return {
@@ -911,6 +904,18 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/api/platform/status") {
       return json(response, await platformRuntimeStatus());
     }
+    if (request.method === "GET" && request.url === "/api/platform/health") {
+      return json(response, await platformHealthPayload());
+    }
+    if (request.method === "GET" && request.url === "/api/platform/tenant-config") {
+      await requireCmsAuth(request);
+      return json(response, await tenantConfigPayload());
+    }
+    if (request.method === "POST" && request.url === "/api/platform/tenant-config") {
+      await requireCmsAuth(request);
+      const body = await readBody(request);
+      return json(response, await saveTenantConfig(body));
+    }
     if (request.method === "GET" && request.url === "/api/platform/ai-providers") {
       await requireCmsAuth(request);
       return json(response, await aiProviderPayload());
@@ -1457,6 +1462,35 @@ async function knowledgeSourcePayload() {
   };
 }
 
+async function tenantConfigPayload() {
+  const config = await readTenantConfig();
+  return {
+    ok: true,
+    config: sanitizeTenantConfigForClient(config),
+    editable: appProfile === "whitelabel",
+    note: appProfile === "whitelabel"
+      ? "White-label tenant and branding settings are editable in this profile."
+      : "MVP profile is protected. Use npm run whitelabel for white-label tenant configuration."
+  };
+}
+
+async function platformHealthPayload() {
+  const [aiRegistry, knowledgeRegistry, tenantConfig, runtimeStatus] = await Promise.all([
+    readAiProviderRegistry(),
+    readKnowledgeSourceRegistry(),
+    readTenantConfig(),
+    platformRuntimeStatus()
+  ]);
+  return buildPlatformHealthSnapshot({
+    buildMetadata,
+    tenantConfig,
+    aiRegistry,
+    knowledgeRegistry,
+    runtimeStatus,
+    featureFlags: featureFlagsPayload()
+  });
+}
+
 async function platformRuntimeStatus() {
   const [aiRegistry, sourceRegistry] = await Promise.all([
     readAiProviderRegistry(),
@@ -1503,6 +1537,31 @@ async function platformRuntimeStatus() {
       validationStatus: source.validationStatus
     })),
     trustPolicy: sourceRegistry.trustPolicy
+  };
+}
+
+async function readTenantConfig() {
+  try {
+    return normalizeTenantConfig(JSON.parse(await readFile(tenantConfigPath, "utf8")), new Date().toISOString(), { profile: appProfile });
+  } catch {
+    return defaultTenantConfig(new Date().toISOString(), { profile: appProfile });
+  }
+}
+
+async function saveTenantConfig(body = {}) {
+  if (appProfile !== "whitelabel") {
+    throw httpError("Tenant and branding settings are editable only in white-label mode. Start the app with npm run whitelabel.", 403);
+  }
+  const config = normalizeTenantConfig({
+    ...(body.config || body),
+    updatedAt: new Date().toISOString()
+  }, new Date().toISOString(), { profile: appProfile });
+  await mkdir(platformConfigDir, { recursive: true });
+  await writeFile(tenantConfigPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  return {
+    ok: true,
+    config: sanitizeTenantConfigForClient(config),
+    message: "White-label tenant and branding settings saved."
   };
 }
 
@@ -1818,6 +1877,11 @@ function buttonInstructionCatalog() {
       file: "2026-05-19T00-00-00-000Z-before-cms-save.json"
     }, "Restores a previous CMS content snapshot.", false),
     buttonInstruction("platform-status", "Check Active AI Brain", "Admin", "GET", "/api/platform/status", null, "Shows the globally visible active AI brain, runtime status, model, and enabled knowledge source count.", false),
+    buttonInstruction("platform-health", "Refresh Platform Health", "Admin", "GET", "/api/platform/health", null, "Shows white-label environment, tenant, backend, AI brain, knowledge source, security, and cloud-readiness status without exposing secrets.", false),
+    buttonInstruction("platform-tenant-load", "Load Tenant Settings", "Admin", "GET", "/api/platform/tenant-config", null, "Loads local white-label tenant, branding, product pack, demo platform, security, and cloud-readiness configuration.", false),
+    buttonInstruction("platform-tenant-save", "Save Tenant Settings", "Admin", "POST", "/api/platform/tenant-config", {
+      config: defaultTenantConfig(new Date().toISOString(), { profile: "whitelabel" })
+    }, "Saves local white-label tenant and branding configuration. This is blocked in MVP profile to preserve the internal MVP.", false),
     buttonInstruction("platform-ai-providers-load", "Load AI Brain Management", "Admin", "GET", "/api/platform/ai-providers", null, "Loads the AI brain/provider registry. Codex remains the default active provider for the MVP.", false),
     buttonInstruction("platform-ai-providers-save", "Save AI Brain Registry", "Admin", "POST", "/api/platform/ai-providers", {
       registry: defaultAiProviderRegistry()
@@ -9819,8 +9883,48 @@ function html(response) {
       border-top: 1px solid var(--line);
       padding-top: 12px;
     }
+    .platform-status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .platform-status-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+      min-height: 92px;
+    }
+    body.night .platform-status-card { background: #0f1821; }
+    .platform-status-card strong,
+    .platform-status-card span {
+      display: block;
+    }
+    .platform-status-card strong {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+    .platform-status-card span {
+      color: var(--ink);
+      font-weight: 850;
+      line-height: 1.25;
+    }
+    .platform-status-card p {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      margin: 7px 0 0;
+    }
+    .profile-mvp [data-whitelabel-only] {
+      display: none !important;
+    }
     #aiProviderEditor,
-    #knowledgeSourceEditor {
+    #knowledgeSourceEditor,
+    #tenantConfigEditor {
       min-height: 260px;
       font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
@@ -10591,7 +10695,10 @@ function html(response) {
     }
   </style>
 </head>
-  <body class="${liveDemoFunctionalityEnabled ? "" : "live-demo-disabled"}">
+  <body class="${[
+    liveDemoFunctionalityEnabled ? "" : "live-demo-disabled",
+    appProfile === "whitelabel" ? "profile-whitelabel" : "profile-mvp"
+  ].filter(Boolean).join(" ")}">
     <header>
       <h1>NetSuite Demo Helper</h1>
       <div class="header-actions">
@@ -11197,6 +11304,79 @@ function html(response) {
             </div>
           </div>
 
+          <section class="platform-management-section" id="platformStatusManagement" data-whitelabel-only>
+            <div class="section-head">
+              <div>
+                <h2>Environment & System Status</h2>
+                <p>Cloud-readiness snapshot for the white-label platform: active backbone, tenant, backend mode, source status, and warnings.</p>
+              </div>
+              <button class="secondary" id="refreshPlatformHealthButton" data-help="Refreshes the white-label platform health snapshot without changing configuration.">Refresh Status</button>
+            </div>
+            <div class="platform-status-grid" id="platformHealthCards"></div>
+            <div class="advisory" id="platformWarnings" hidden></div>
+          </section>
+
+          <section class="platform-management-section" id="tenantConfigManagement" data-whitelabel-only>
+            <div class="section-head">
+              <div>
+                <h2>Tenant & Branding Settings</h2>
+                <p>Prepare the future SaaS/white-label layer. These settings are local today and become tenant-scoped configuration later.</p>
+              </div>
+              <span class="status-badge advisory" id="tenantConfigSummary">Tenant: Loading</span>
+            </div>
+            <div class="platform-config-card">
+              <div class="provider-form-grid">
+                <div>
+                  <label for="tenantId">Tenant id</label>
+                  <input id="tenantId" placeholder="local-default">
+                </div>
+                <div>
+                  <label for="tenantName">Tenant name</label>
+                  <input id="tenantName" placeholder="Customer or internal team name">
+                </div>
+                <div>
+                  <label for="tenantAppName">White-label app name</label>
+                  <input id="tenantAppName" placeholder="Demo Intelligence Platform">
+                </div>
+                <div>
+                  <label for="tenantShortName">Short name</label>
+                  <input id="tenantShortName" placeholder="Demo Helper">
+                </div>
+                <div>
+                  <label for="tenantPrimaryColor">Primary color</label>
+                  <input id="tenantPrimaryColor" placeholder="#2563eb">
+                </div>
+                <div>
+                  <label for="tenantAccentColor">Accent color</label>
+                  <input id="tenantAccentColor" placeholder="#14b8a6">
+                </div>
+                <div>
+                  <label for="tenantProductPack">Product pack</label>
+                  <input id="tenantProductPack" placeholder="NetSuite ERP Pack">
+                </div>
+                <div>
+                  <label for="tenantDemoPlatform">Demo platform</label>
+                  <input id="tenantDemoPlatform" placeholder="NetSuite ERP">
+                </div>
+              </div>
+              <label for="tenantProductNotes">Product/platform notes</label>
+              <textarea id="tenantProductNotes" spellcheck="false" placeholder="Describe what should eventually move into the tenant's product pack."></textarea>
+              <div class="row" style="margin-top:10px">
+                <button class="secondary" id="saveTenantConfigButton" data-help="Saves local white-label tenant, branding, product pack, and platform settings.">Save Tenant Settings</button>
+              </div>
+              <p class="hint" id="tenantConfigStatus">Tenant configuration status will appear here.</p>
+              <details class="advanced-json-details">
+                <summary>Advanced tenant/system JSON</summary>
+                <div class="cms-readable platform-config-preview" id="tenantConfigReadable"></div>
+                <label for="tenantConfigEditor">Tenant/system configuration JSON</label>
+                <textarea id="tenantConfigEditor" spellcheck="false"></textarea>
+                <div class="row" style="margin-top:10px">
+                  <button class="secondary" id="saveTenantConfigJsonButton" data-help="Saves the complete tenant/system configuration JSON.">Save Tenant JSON</button>
+                </div>
+              </details>
+            </div>
+          </section>
+
           <section class="platform-management-section" id="aiBrainManagement">
             <div class="section-head">
               <div>
@@ -11478,6 +11658,21 @@ function html(response) {
     const cmsHistory = document.getElementById("cmsHistory");
     const cmsSecuritySummary = document.getElementById("cmsSecuritySummary");
     const liveDemoFunctionalityToggle = document.getElementById("liveDemoFunctionalityToggle");
+    const platformHealthCards = document.getElementById("platformHealthCards");
+    const platformWarnings = document.getElementById("platformWarnings");
+    const tenantConfigSummary = document.getElementById("tenantConfigSummary");
+    const tenantConfigStatus = document.getElementById("tenantConfigStatus");
+    const tenantConfigReadable = document.getElementById("tenantConfigReadable");
+    const tenantConfigEditor = document.getElementById("tenantConfigEditor");
+    const tenantIdField = document.getElementById("tenantId");
+    const tenantNameField = document.getElementById("tenantName");
+    const tenantAppNameField = document.getElementById("tenantAppName");
+    const tenantShortNameField = document.getElementById("tenantShortName");
+    const tenantPrimaryColorField = document.getElementById("tenantPrimaryColor");
+    const tenantAccentColorField = document.getElementById("tenantAccentColor");
+    const tenantProductPackField = document.getElementById("tenantProductPack");
+    const tenantDemoPlatformField = document.getElementById("tenantDemoPlatform");
+    const tenantProductNotesField = document.getElementById("tenantProductNotes");
     const aiProviderReadable = document.getElementById("aiProviderReadable");
     const aiProviderEditor = document.getElementById("aiProviderEditor");
     const aiProviderStatus = document.getElementById("aiProviderStatus");
@@ -11535,6 +11730,7 @@ function html(response) {
     let intelligenceCardsCompact = false;
     let activeHeatmapTab = "discovery";
     let cmsBlocks = [];
+    let tenantConfig = null;
     let aiProviderRegistry = null;
     let knowledgeSourceRegistry = null;
     let selectedAiProviderId = "";
@@ -11630,15 +11826,20 @@ function html(response) {
     async function loadPlatformFoundation() {
       try {
         initPlatformSelectOptions();
-        const [aiPayload, sourcePayload] = await Promise.all([
+        const [aiPayload, sourcePayload, tenantPayload, healthPayload] = await Promise.all([
           api("/api/platform/ai-providers"),
-          api("/api/platform/knowledge-sources")
+          api("/api/platform/knowledge-sources"),
+          api("/api/platform/tenant-config"),
+          api("/api/platform/health")
         ]);
         renderAiProviderRegistry(aiPayload);
         renderKnowledgeSourceRegistry(sourcePayload);
+        renderTenantConfig(tenantPayload);
+        renderPlatformHealth(healthPayload);
       } catch (error) {
         aiProviderStatus.textContent = error.message;
         knowledgeSourceStatus.textContent = error.message;
+        if (tenantConfigStatus) tenantConfigStatus.textContent = error.message;
       }
     }
 
@@ -11656,6 +11857,107 @@ function html(response) {
 
     function optionHtml(item) {
       return "<option value='" + escapeClientHtml(item.value) + "'>" + escapeClientHtml(item.label || item.value) + "</option>";
+    }
+
+    function renderTenantConfig(payload = {}) {
+      tenantConfig = payload.config || null;
+      if (!tenantConfig) {
+        tenantConfigStatus.textContent = "Tenant configuration is not loaded.";
+        return;
+      }
+      fillTenantConfigForm(tenantConfig);
+      tenantConfigEditor.value = JSON.stringify(tenantConfig, null, 2);
+      tenantConfigReadable.innerHTML = tenantConfigReadableHtml(tenantConfig);
+      tenantConfigSummary.textContent = "Tenant: " + (tenantConfig.tenantName || tenantConfig.tenantId);
+      tenantConfigStatus.textContent = payload.note || "Tenant configuration loaded.";
+    }
+
+    function renderPlatformHealth(payload = {}) {
+      if (!platformHealthCards) return;
+      const env = payload.environment || {};
+      const tenant = payload.tenant || {};
+      const ai = payload.ai || {};
+      const knowledge = payload.knowledge || {};
+      const backend = payload.backend || {};
+      const security = payload.security || {};
+      platformHealthCards.innerHTML = [
+        platformHealthCard("Platform", env.appProfile || "-", (env.appEnvironment || "-") + (env.cloudMode ? " | cloud mode" : " | local mode"), payload.status || "unknown"),
+        platformHealthCard("Tenant", tenant.tenantName || tenant.tenantId || "-", tenant.productPack?.label || "No product pack", tenant.status || "active"),
+        platformHealthCard("AI Brain", ai.activeProviderName || "-", (ai.connectionStatus || "Unknown") + " | " + (ai.runtimeStatus || "Unknown"), ai.connectionStatus || "unknown"),
+        platformHealthCard("Knowledge Sources", String(knowledge.activeSourceCount || 0) + " active", String(knowledge.registeredSourceCount || 0) + " registered", knowledge.invalidActiveSourceCount ? "warning" : "healthy"),
+        platformHealthCard("Backend", backend.status || "unknown", backend.healthCheck || "local-node-http", backend.status || "unknown"),
+        platformHealthCard("Secrets", security.clientReceivesRawSecrets ? "Review needed" : "Not exposed", security.credentialStorage || "secret references", security.clientReceivesRawSecrets ? "critical" : "healthy")
+      ].join("");
+      const warnings = payload.warnings || [];
+      platformWarnings.hidden = !warnings.length;
+      platformWarnings.innerHTML = warnings.length
+        ? "<strong>Warnings</strong><ul>" + warnings.map((warning) => "<li>" + escapeClientHtml(warning) + "</li>").join("") + "</ul>"
+        : "";
+    }
+
+    function platformHealthCard(label, value, detail, status = "") {
+      const statusClass = providerStatusClass(status);
+      return "<div class='platform-status-card'>" +
+        "<strong>" + escapeClientHtml(label) + "</strong>" +
+        "<span>" + escapeClientHtml(value || "-") + "</span>" +
+        "<p>" + escapeClientHtml(detail || "") + "</p>" +
+        "<span class='status-badge " + escapeClientHtml(statusClass) + "'>" + escapeClientHtml(statusDisplayLabel(statusClass)) + "</span>" +
+      "</div>";
+    }
+
+    function fillTenantConfigForm(config = {}) {
+      tenantIdField.value = config.tenantId || "";
+      tenantNameField.value = config.tenantName || "";
+      tenantAppNameField.value = config.branding?.appName || "";
+      tenantShortNameField.value = config.branding?.shortName || "";
+      tenantPrimaryColorField.value = config.branding?.primaryColor || "";
+      tenantAccentColorField.value = config.branding?.accentColor || "";
+      tenantProductPackField.value = config.productPack?.label || "";
+      tenantDemoPlatformField.value = config.demoPlatform?.label || "";
+      tenantProductNotesField.value = config.productPack?.notes || "";
+    }
+
+    function tenantConfigFromForm(existing = {}) {
+      return {
+        ...existing,
+        tenantId: tenantIdField.value,
+        tenantName: tenantNameField.value,
+        branding: {
+          ...(existing.branding || {}),
+          appName: tenantAppNameField.value,
+          shortName: tenantShortNameField.value,
+          primaryColor: tenantPrimaryColorField.value,
+          accentColor: tenantAccentColorField.value
+        },
+        productPack: {
+          ...(existing.productPack || {}),
+          label: tenantProductPackField.value,
+          notes: tenantProductNotesField.value
+        },
+        demoPlatform: {
+          ...(existing.demoPlatform || {}),
+          label: tenantDemoPlatformField.value
+        }
+      };
+    }
+
+    function tenantConfigReadableHtml(config = {}) {
+      return [
+        "<div class='readable-card'><h3>Tenant</h3>",
+        "<p><strong>ID:</strong> " + escapeClientHtml(config.tenantId || "") + "</p>",
+        "<p><strong>Name:</strong> " + escapeClientHtml(config.tenantName || "") + "</p>",
+        "<p><strong>Status:</strong> " + escapeClientHtml(config.status || "") + "</p></div>",
+        "<div class='readable-card'><h3>Branding</h3>",
+        "<p><strong>App:</strong> " + escapeClientHtml(config.branding?.appName || "") + "</p>",
+        "<p><strong>Colors:</strong> " + escapeClientHtml([config.branding?.primaryColor, config.branding?.accentColor].filter(Boolean).join(" / ")) + "</p></div>",
+        "<div class='readable-card'><h3>Product Pack</h3>",
+        "<p><strong>Pack:</strong> " + escapeClientHtml(config.productPack?.label || "") + "</p>",
+        "<p><strong>Demo platform:</strong> " + escapeClientHtml(config.demoPlatform?.label || "") + "</p>",
+        "<p>" + escapeClientHtml(config.productPack?.notes || "") + "</p></div>",
+        "<div class='readable-card'><h3>Cloud Readiness</h3>",
+        "<p><strong>Tenant isolation:</strong> " + escapeClientHtml(config.tenancy?.isolationModel || "") + "</p>",
+        "<p><strong>Secrets:</strong> " + escapeClientHtml(config.security?.secretStorage || "") + "</p></div>"
+      ].join("");
     }
 
     function renderAiProviderRegistry(payload = {}) {
@@ -11795,7 +12097,7 @@ function html(response) {
 
     function providerStatusClass(status = "") {
       const text = String(status || "").toLowerCase();
-      if (/connected|running|success|registered|ready/.test(text)) return "strong";
+      if (/connected|running|success|registered|ready|healthy|active/.test(text)) return "strong";
       if (/invalid|missing|timeout|unreachable|disconnected|failure|not detected/.test(text)) return "critical";
       if (/planned|standby|unknown|not tested/.test(text)) return "advisory";
       return "warning";
@@ -12018,7 +12320,7 @@ function html(response) {
     async function activateSelectedAiProvider() {
       const provider = (aiProviderRegistry?.providers || []).find((item) => item.id === selectedAiProviderId);
       if (!provider) return;
-      if (provider.adapterStatus !== "active") {
+      if (!providerCanActivate(provider)) {
         aiProviderStatus.textContent = provider.name + " is registered, but cannot become the running brain yet because its runtime adapter is still planned. Codex remains the active MVP brain.";
         return;
       }
@@ -12132,6 +12434,21 @@ function html(response) {
       renderKnowledgeSourceRegistry(payload);
       knowledgeSourceStatus.textContent = asNew ? "New knowledge source added." : "Knowledge source configuration saved.";
       markPageLoaded("admin", asNew ? "Add Knowledge Source" : "Save Knowledge Source");
+      return payload;
+    }
+
+    async function saveTenantConfigFromForm({ fromJson = false } = {}) {
+      const nextConfig = fromJson
+        ? readJsonEditor(tenantConfigEditor, "Tenant configuration")
+        : tenantConfigFromForm(tenantConfig || {});
+      const payload = await api("/api/platform/tenant-config", {
+        method: "POST",
+        body: JSON.stringify({ config: nextConfig })
+      });
+      renderTenantConfig(payload);
+      renderPlatformHealth(await api("/api/platform/health"));
+      tenantConfigStatus.textContent = payload.message || "Tenant settings saved.";
+      markPageLoaded("admin", fromJson ? "Save Tenant JSON" : "Save Tenant Settings");
       return payload;
     }
 
@@ -14538,6 +14855,35 @@ function html(response) {
         reloadAfterCmsChange("CMS version restored.");
       } catch (error) {
         cmsStatus.textContent = error.message;
+      }
+    };
+    tenantConfigEditor.oninput = () => {
+      try {
+        tenantConfigReadable.innerHTML = tenantConfigReadableHtml(readJsonEditor(tenantConfigEditor, "Tenant configuration"));
+      } catch {
+        tenantConfigReadable.innerHTML = "<p class='hint'>The readable preview will update once the tenant JSON is valid.</p>";
+      }
+    };
+    document.getElementById("refreshPlatformHealthButton").onclick = async () => {
+      try {
+        renderPlatformHealth(await api("/api/platform/health"));
+      } catch (error) {
+        platformWarnings.hidden = false;
+        platformWarnings.textContent = error.message;
+      }
+    };
+    document.getElementById("saveTenantConfigButton").onclick = async () => {
+      try {
+        await saveTenantConfigFromForm();
+      } catch (error) {
+        tenantConfigStatus.textContent = error.message;
+      }
+    };
+    document.getElementById("saveTenantConfigJsonButton").onclick = async () => {
+      try {
+        await saveTenantConfigFromForm({ fromJson: true });
+      } catch (error) {
+        tenantConfigStatus.textContent = error.message;
       }
     };
     aiProviderEditor.oninput = () => {

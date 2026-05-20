@@ -152,7 +152,14 @@ Keep the lightweight split:
 src/
   control-panel.mjs              current local app and MVP UI
   platform/
+    runtime-config.mjs           app profile/environment metadata
     provider-config.mjs          AI provider and knowledge source registries
+    tenant-config.mjs            local tenant/branding/product pack model
+    health.mjs                   cloud-readiness and system health snapshots
+    ai/
+      orchestrator.mjs           provider adapter contracts and AI task envelope
+    knowledge/
+      source-service.mjs         source connector contracts and context envelope
 docs/
   PRODUCT_ARCHITECTURE.md        platform and pack direction
   WHITELABEL_READINESS.md        NetSuite-specific items to separate later
@@ -164,6 +171,7 @@ Near-term rule:
 
 - Shared local app logic stays in `src/control-panel.mjs` until a refactor is explicitly needed.
 - Provider/source configuration lives under `src/platform/`.
+- Tenant, branding, health, AI-provider, and knowledge-source contracts live under `src/platform/`.
 - NetSuite-specific prompts and behavior remain in the MVP for now.
 - Future white-label work should move domain-specific behavior gradually into content/vendor packs.
 

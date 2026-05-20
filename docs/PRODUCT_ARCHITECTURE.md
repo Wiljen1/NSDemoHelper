@@ -122,6 +122,19 @@ The current codebase now includes a lightweight Platform Foundation area in Admi
 - It provides a safe place to evolve provider configuration and contextual source registration without disrupting the internal NetSuite MVP.
 - It separates AI Brain Management from Knowledge Source Management so future AI providers and external context sources can evolve independently.
 - It exposes the active AI brain and knowledge source count in the app header so the current runtime backbone is visible to users.
+- It adds white-label-only tenant/branding configuration, platform health snapshots, and cloud-readiness warnings without changing the MVP profile.
+- It introduces service-layer contracts under `src/platform/` for runtime metadata, tenant configuration, AI provider orchestration, knowledge-source context, and health reporting.
+
+## Cloud-Ready Direction
+
+The current white-label foundation is still local-first, but it now models the boundaries needed for cloud deployment:
+
+- Hosted frontend/backend split: planned, with current local server acting as the backend/API boundary.
+- Tenant configuration: local JSON today, tenant-scoped database records later.
+- AI providers: Codex adapter is active; OpenAI, Azure OpenAI, Claude, Gemini, local LLM, and enterprise gateway adapters are planned.
+- Knowledge sources: registration-only today; retrieval/connectors later.
+- Secrets: only secret references are stored; raw keys should move to environment variables or a tenant-aware secret store.
+- Observability: `/api/platform/health` exposes a safe health snapshot for Admin and future monitoring.
 
 ## Local Run Profiles
 

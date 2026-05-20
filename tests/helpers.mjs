@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 export const projectRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const fakeCodexPath = path.join(projectRoot, "tests/fixtures/fake-codex.mjs");
 
-export async function startTestServer() {
+export async function startTestServer(extraEnv = {}) {
   await chmod(fakeCodexPath, 0o755);
   const port = await findFreePort();
   const child = spawn("node", ["src/control-panel.mjs"], {
@@ -16,7 +16,8 @@ export async function startTestServer() {
       ...process.env,
       PORT: String(port),
       CODEX_BIN: fakeCodexPath,
-      ELEVENLABS_API_KEY: ""
+      ELEVENLABS_API_KEY: "",
+      ...extraEnv
     },
     stdio: ["ignore", "pipe", "pipe"]
   });
