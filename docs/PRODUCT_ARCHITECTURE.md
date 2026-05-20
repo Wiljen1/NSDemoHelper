@@ -120,3 +120,12 @@ The current codebase now includes a lightweight Platform Foundation area in Admi
 - It does not query external systems yet.
 - It does not implement multi-tenant routing yet.
 - It provides a safe place to evolve provider configuration and contextual source registration without disrupting the internal NetSuite MVP.
+
+## Local Run Profiles
+
+Local development now supports two command-line profiles:
+
+- `npm run mvp`: stable internal NetSuite MVP profile on `http://localhost:4173`.
+- `npm run whitelabel`: future white-label development profile on `http://localhost:4182`.
+
+Both profiles run the same local helper today. The split is intentionally lightweight and gives future platform work a separate environment without duplicating the app or changing the existing MVP startup path.

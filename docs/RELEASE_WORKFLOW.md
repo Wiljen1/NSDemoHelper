@@ -74,6 +74,18 @@ APP_ENV=staging npm run control
 APP_ENV=production npm run control
 ```
 
+Use `APP_PROFILE` to identify the local product profile:
+
+```bash
+npm run mvp
+npm run whitelabel
+```
+
+Default local profiles:
+
+- `mvp`: stable NetSuite MVP profile on port `4173`.
+- `whitelabel`: future white-label development profile on port `4182`.
+
 The app may also receive optional build metadata:
 
 - `APP_COMMIT` or `GIT_COMMIT`

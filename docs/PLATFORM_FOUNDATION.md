@@ -78,6 +78,24 @@ The Admin page includes a lightweight Platform Foundation area with:
 
 Configuration is stored locally under ignored `artifacts/platform/` files.
 
+## Local Development Profile
+
+White-label platform work can be started separately with:
+
+```bash
+npm run whitelabel
+```
+
+This sets `APP_PROFILE=whitelabel` and uses port `4182` by default.
+
+The MVP remains available with:
+
+```bash
+npm run mvp
+```
+
+This sets `APP_PROFILE=mvp` and uses port `4173` by default.
+
 ## Security Boundary
 
 Raw API keys should not be stored in local JSON. Use:

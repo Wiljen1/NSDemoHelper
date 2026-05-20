@@ -46,6 +46,19 @@ npm run control
 
 Then open `http://localhost:4173`.
 
+For the standardized local profiles, use:
+
+```bash
+npm run mvp
+npm run whitelabel
+```
+
+`npm run mvp` runs the stable internal NetSuite MVP on `http://localhost:4173`.
+
+`npm run whitelabel` runs the future white-label development profile on `http://localhost:4182`.
+
+The existing `npm run control` command is preserved and still starts the current MVP-style control panel directly.
+
 From the control panel you can:
 
 - describe the demo you want
@@ -77,7 +90,7 @@ From the control panel you can:
 To demo NetSuite Demo Helper itself for SC leadership, start the local control panel first:
 
 ```bash
-npm run control
+npm run mvp
 ```
 
 Then run the narrated browser showcase with the Samantha voice:
@@ -156,6 +169,8 @@ ELEVENLABS_API_KEY=your_key_here npm run control
 ```
 
 The local Mac voice remains available without any API key.
+
+For cross-platform local environment files, copy `.env.mvp.example` to `.env.mvp` or `.env.whitelabel.example` to `.env.whitelabel`, then start the matching profile with `npm run mvp` or `npm run whitelabel`.
 
 To force a one-off browser instead of the reusable browser:
 

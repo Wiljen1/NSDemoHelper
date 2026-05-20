@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+!.env.mvp.example
+!.env.whitelabel.example
 
 node_modules/
 .auth/

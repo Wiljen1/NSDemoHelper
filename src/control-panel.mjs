@@ -81,9 +81,11 @@ const defaultDemoStrategy = "standard_platform_demo";
 const defaultIndustry = "general_business";
 const appVersion = "v0.1.0-alpha";
 const appEnvironment = normalizeAppEnvironment(process.env.APP_ENV);
+const appProfile = normalizeAppProfile(process.env.APP_PROFILE || process.env.NSDH_APP_PROFILE);
 const buildMetadata = {
   version: appVersion,
   environment: appEnvironment,
+  profile: appProfile,
   commit: process.env.APP_COMMIT || process.env.GIT_COMMIT || "",
   buildDate: process.env.APP_BUILD_DATE || process.env.BUILD_DATE || ""
 };
@@ -92,6 +94,11 @@ const cash360SegmentIds = new Set(["open-cash360-dashboard", "cash360-actions", 
 function normalizeAppEnvironment(value) {
   const env = String(value || "development").trim().toLowerCase();
   return ["development", "staging", "production"].includes(env) ? env : "development";
+}
+
+function normalizeAppProfile(value) {
+  const profile = String(value || "mvp").trim().toLowerCase();
+  return ["mvp", "whitelabel"].includes(profile) ? profile : "mvp";
 }
 
 function defaultTestPrepData() {
@@ -10417,11 +10424,12 @@ function html(response) {
         <span class="codex-runtime-badge" title="${escapeHtml([
           "First internal MVP baseline.",
           `Environment: ${buildMetadata.environment}`,
+          `Profile: ${buildMetadata.profile}`,
           buildMetadata.commit ? `Commit: ${buildMetadata.commit}` : "",
           buildMetadata.buildDate ? `Build date: ${buildMetadata.buildDate}` : ""
         ].filter(Boolean).join("\n"))}">
           <span class="dot" aria-hidden="true"></span>
-          <span>${escapeHtml(`${buildMetadata.version} | ${buildMetadata.environment}`)}</span>
+          <span>${escapeHtml(`${buildMetadata.version} | ${buildMetadata.environment} | ${buildMetadata.profile}`)}</span>
         </span>
         <button class="codex-info-button" id="codexInfoButton" data-help="Shows which parts of the helper are using Codex and where the latest Codex output was saved.">Backbone</button>
         <label class="theme-toggle" for="nightMode">
