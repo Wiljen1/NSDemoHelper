@@ -25,6 +25,7 @@ Do not create future release notes before the release exists.
 - Founder Readiness snapshot and Admin section for white-label SaaS readiness, pilot readiness, commercial tiering, usage/audit posture, risks, and defensible product IP.
 - Tenant commercial metadata for future subscription tiers, usage limits, roles, and audit/event tracking.
 - Founder readiness roadmap documenting market-readiness phases, defensible core, quick wins, risks, and implementation order.
+- White-label product category configuration so future tenants can target ERP, CRM, HCM, SaaS, analytics, workflow, customer-service, industry-specific, or custom enterprise products without making NetSuite the default assumption.
 
 ### Changed
 
@@ -32,6 +33,7 @@ Do not create future release notes before the release exists.
 - Button/API instruction exports now include active platform status, AI brain configuration, provider health checks, and knowledge-source configuration endpoints.
 - App build metadata now includes the active local profile so MVP and white-label sessions are easy to distinguish.
 - MVP profile keeps white-label tenant/cloud controls hidden while white-label mode exposes the new platform control-center sections.
+- White-label mode now defaults to a generic enterprise demo pack and configurable demo platform, while MVP mode keeps the NetSuite ERP pack.
 
 ## v0.1.0-alpha
 

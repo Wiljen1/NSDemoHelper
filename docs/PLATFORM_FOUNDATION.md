@@ -23,13 +23,31 @@ It prepares for future tenant-scoped configuration:
 - Brand/app name
 - Primary and accent colors
 - Product/vendor pack
+- Product category
 - Demo platform label
+- Generic workflow vocabulary
 - Tenant isolation strategy
 - Feature flags
 - Security and secret-storage policy
 - Cloud-readiness metadata
 
 This is still local-only. It is not a production tenant database and does not implement external user management yet.
+
+White-label mode now defaults to a generic enterprise demo pack rather than the NetSuite ERP pack. MVP mode still keeps the NetSuite defaults.
+
+Supported future product categories include:
+
+- ERP
+- CRM
+- HCM / HR platform
+- Analytics / BI platform
+- Workflow automation
+- Customer service platform
+- Industry-specific software
+- Horizontal SaaS platform
+- Custom enterprise application
+
+The goal is to let future tenants define their own product category, demo platform, business workflows, personas, stakeholder outcomes, modules, proof moments, and setup/data requirements without hardcoding the platform around NetSuite.
 
 ## Platform Health
 

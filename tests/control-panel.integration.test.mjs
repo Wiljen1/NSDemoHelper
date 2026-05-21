@@ -393,6 +393,9 @@ describe("NetSuite Demo Helper control panel", () => {
       assert.equal(loaded.ok, true);
       assert.equal(loaded.editable, true);
       assert.equal(loaded.config.branding.appName, "Demo Intelligence Platform");
+      assert.equal(loaded.config.productPack.id, "generic_enterprise_demo_pack");
+      assert.equal(loaded.config.productPack.category, "enterprise_application");
+      assert.equal(loaded.config.demoPlatform.id, "configurable_demo_platform");
 
       const saved = await requestJson(whiteLabelServer, "/api/platform/tenant-config", {
         method: "POST",
@@ -406,6 +409,11 @@ describe("NetSuite Demo Helper control panel", () => {
               appName: "Acme Demo Intelligence",
               primaryColor: "#123456",
               accentColor: "#14b8a6"
+            },
+            productPack: {
+              ...loaded.config.productPack,
+              label: "Acme Workflow Platform Pack",
+              category: "workflow_automation"
             }
           }
         })
@@ -413,10 +421,12 @@ describe("NetSuite Demo Helper control panel", () => {
       assert.equal(saved.ok, true);
       assert.equal(saved.config.tenantName, "Acme Demo Team");
       assert.equal(saved.config.branding.appName, "Acme Demo Intelligence");
+      assert.equal(saved.config.productPack.category, "workflow_automation");
 
       const health = await requestJson(whiteLabelServer, "/api/platform/health");
       assert.equal(health.environment.appProfile, "whitelabel");
       assert.equal(health.tenant.tenantName, "Acme Demo Team");
+      assert.equal(health.tenant.productPack.category, "workflow_automation");
       assert.equal(health.capabilities.whiteLabelControlsVisible, true);
 
       const founder = await requestJson(whiteLabelServer, "/api/platform/founder-readiness", {

@@ -87,7 +87,14 @@ export function createAiTaskEnvelope({ tenantConfig = {}, provider = {}, taskTyp
     taskType,
     tenantId: tenantConfig.tenantId || "local-default",
     productPackId: tenantConfig.productPack?.id || "netsuite_erp_pack",
+    productCategory: tenantConfig.productPack?.category || "enterprise_application",
     demoPlatformId: tenantConfig.demoPlatform?.id || "netsuite",
+    productContext: {
+      productPackLabel: tenantConfig.productPack?.label || "Product pack",
+      demoPlatformLabel: tenantConfig.demoPlatform?.label || "Demo platform",
+      workflowVocabulary: tenantConfig.productPack?.workflowVocabulary || [],
+      navigationModel: tenantConfig.demoPlatform?.navigationModel || "configured-by-product-pack"
+    },
     providerId: provider.id || "codex-local",
     providerType: provider.providerType || "codex",
     outputContract,

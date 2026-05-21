@@ -77,9 +77,12 @@ The app now has a lightweight, additive Platform Foundation area in Admin for fu
 - A global active brain indicator in the app header that shows the current backbone, runtime health, model context, and enabled knowledge-source count.
 - White-label-only Admin controls for tenant/branding settings and environment/system health.
 - White-label-only Founder Readiness view for pilot readiness, subscription-tier posture, usage/audit foundations, defensible product IP, risks, and implementation priorities.
+- Product-category configuration so the white-label tenant can target ERP, CRM, HCM, analytics, workflow automation, customer service, industry-specific software, horizontal SaaS, or a custom enterprise product.
 - Platform service-layer files for runtime metadata, tenant configuration, AI orchestration contracts, knowledge-source contracts, and cloud-readiness health reporting.
 - Local storage under ignored `artifacts/platform/` files, keeping experimental configuration out of committed source.
 
 This foundation does not yet implement full multi-tenant routing, secret storage, external retrieval, or provider swapping. It creates the safe extension points needed to evolve toward those capabilities without disrupting the NetSuite MVP.
 
 Founder-readiness scoring is advisory. It should support product planning and pilot readiness, not replace security review, customer validation, or founder judgment.
+
+White-label mode now defaults to a generic enterprise demo pack. The main NetSuite-specific prompt, scoring, setup, dry-run, and export behavior still needs to be moved into a NetSuite pack before the product is truly vendor-agnostic.

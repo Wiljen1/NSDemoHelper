@@ -25,6 +25,7 @@ import { buildRuntimeMetadata } from "./platform/runtime-config.mjs";
 import {
   defaultTenantConfig,
   normalizeTenantConfig,
+  productCategories,
   sanitizeTenantConfigForClient
 } from "./platform/tenant-config.mjs";
 
@@ -1900,10 +1901,10 @@ function buttonInstructionCatalog() {
     buttonInstruction("platform-status", "Check Active AI Brain", "Admin", "GET", "/api/platform/status", null, "Shows the globally visible active AI brain, runtime status, model, and enabled knowledge source count.", false),
     buttonInstruction("platform-health", "Refresh Platform Health", "Admin", "GET", "/api/platform/health", null, "Shows white-label environment, tenant, backend, AI brain, knowledge source, security, and cloud-readiness status without exposing secrets.", false),
     buttonInstruction("platform-founder-readiness", "Refresh Founder Readiness", "Admin", "GET", "/api/platform/founder-readiness", null, "Shows white-label SaaS readiness, pilot readiness, commercial tiering, risks, and defensible-core priorities.", false),
-    buttonInstruction("platform-tenant-load", "Load Tenant Settings", "Admin", "GET", "/api/platform/tenant-config", null, "Loads local white-label tenant, branding, product pack, demo platform, security, and cloud-readiness configuration.", false),
+    buttonInstruction("platform-tenant-load", "Load Tenant Settings", "Admin", "GET", "/api/platform/tenant-config", null, "Loads local white-label tenant, branding, product category, product pack, demo platform, security, and cloud-readiness configuration.", false),
     buttonInstruction("platform-tenant-save", "Save Tenant Settings", "Admin", "POST", "/api/platform/tenant-config", {
       config: defaultTenantConfig(new Date().toISOString(), { profile: "whitelabel" })
-    }, "Saves local white-label tenant and branding configuration. This is blocked in MVP profile to preserve the internal MVP.", false),
+    }, "Saves local white-label tenant, branding, product category, product pack, and demo platform configuration. This is blocked in MVP profile to preserve the internal MVP.", false),
     buttonInstruction("platform-ai-providers-load", "Load AI Brain Management", "Admin", "GET", "/api/platform/ai-providers", null, "Loads the AI brain/provider registry. Codex remains the default active provider for the MVP.", false),
     buttonInstruction("platform-ai-providers-save", "Save AI Brain Registry", "Admin", "POST", "/api/platform/ai-providers", {
       registry: defaultAiProviderRegistry()
@@ -8573,13 +8574,15 @@ function escapeHtml(text) {
 
 function html(response) {
   const defaultPrepData = defaultTestPrepData();
+  const appDisplayName = appProfile === "whitelabel" ? "Demo Intelligence Platform" : "NetSuite Demo Helper";
+  const productCategoryOptions = productCategories.map((category) => ({ id: category.value, label: category.label }));
   response.writeHead(200, { "content-type": "text/html" });
   response.end(`<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NetSuite Demo Helper</title>
+  <title>${escapeHtml(appDisplayName)}</title>
   <style>
     :root {
       color-scheme: light;
@@ -10722,7 +10725,7 @@ function html(response) {
     appProfile === "whitelabel" ? "profile-whitelabel" : "profile-mvp"
   ].filter(Boolean).join(" ")}">
     <header>
-      <h1>NetSuite Demo Helper</h1>
+      <h1 id="appTitleText">${escapeHtml(appDisplayName)}</h1>
       <div class="header-actions">
         <div id="codexRuntimeBadge" class="codex-runtime-badge checking" title="Checking whether the local Codex app can be used as the reasoning backbone.">
           <span class="dot" aria-hidden="true"></span>
@@ -11392,11 +11395,17 @@ function html(response) {
                 </div>
                 <div>
                   <label for="tenantProductPack">Product pack</label>
-                  <input id="tenantProductPack" placeholder="NetSuite ERP Pack">
+                  <input id="tenantProductPack" placeholder="Generic Enterprise Demo Pack">
+                </div>
+                <div>
+                  <label for="tenantProductCategory">Product category</label>
+                  <select id="tenantProductCategory">
+                    ${selectOptionsHtml(productCategoryOptions, appProfile === "whitelabel" ? "enterprise_application" : "erp")}
+                  </select>
                 </div>
                 <div>
                   <label for="tenantDemoPlatform">Demo platform</label>
-                  <input id="tenantDemoPlatform" placeholder="NetSuite ERP">
+                  <input id="tenantDemoPlatform" placeholder="Configurable Demo Platform">
                 </div>
               </div>
               <label for="tenantProductNotes">Product/platform notes</label>
@@ -11716,6 +11725,7 @@ function html(response) {
     const tenantProductPackField = document.getElementById("tenantProductPack");
     const tenantDemoPlatformField = document.getElementById("tenantDemoPlatform");
     const tenantProductNotesField = document.getElementById("tenantProductNotes");
+    const tenantProductCategoryField = document.getElementById("tenantProductCategory");
     const aiProviderReadable = document.getElementById("aiProviderReadable");
     const aiProviderEditor = document.getElementById("aiProviderEditor");
     const aiProviderStatus = document.getElementById("aiProviderStatus");
@@ -11758,6 +11768,8 @@ function html(response) {
     const aiProviderTypeConfig = ${JSON.stringify(aiProviderTypes)};
     const knowledgeSourceTypeConfig = ${JSON.stringify(knowledgeSourceTypes)};
     const platformAuthMethodConfig = ${JSON.stringify(authMethods)};
+    const productCategoryConfig = ${JSON.stringify(productCategories)};
+    const activeAppProfile = ${JSON.stringify(appProfile)};
     const defaultPrepData = ${JSON.stringify(defaultPrepData)};
     const defaultAudienceType = ${JSON.stringify(defaultAudienceType)};
     const defaultTargetAudience = ${JSON.stringify(defaultTargetAudience)};
@@ -12000,8 +12012,14 @@ function html(response) {
       tenantPrimaryColorField.value = config.branding?.primaryColor || "";
       tenantAccentColorField.value = config.branding?.accentColor || "";
       tenantProductPackField.value = config.productPack?.label || "";
+      tenantProductCategoryField.value = config.productPack?.category || "enterprise_application";
       tenantDemoPlatformField.value = config.demoPlatform?.label || "";
       tenantProductNotesField.value = config.productPack?.notes || "";
+      if (activeAppProfile === "whitelabel" && config.branding?.appName) {
+        const appTitleText = document.getElementById("appTitleText");
+        if (appTitleText) appTitleText.textContent = config.branding.appName;
+        document.title = config.branding.appName;
+      }
     }
 
     function tenantConfigFromForm(existing = {}) {
@@ -12019,6 +12037,7 @@ function html(response) {
         productPack: {
           ...(existing.productPack || {}),
           label: tenantProductPackField.value,
+          category: tenantProductCategoryField.value,
           notes: tenantProductNotesField.value
         },
         demoPlatform: {
@@ -12039,12 +12058,18 @@ function html(response) {
         "<p><strong>Colors:</strong> " + escapeClientHtml([config.branding?.primaryColor, config.branding?.accentColor].filter(Boolean).join(" / ")) + "</p></div>",
         "<div class='readable-card'><h3>Product Pack</h3>",
         "<p><strong>Pack:</strong> " + escapeClientHtml(config.productPack?.label || "") + "</p>",
+        "<p><strong>Category:</strong> " + escapeClientHtml(productCategoryLabel(config.productPack?.category)) + "</p>",
         "<p><strong>Demo platform:</strong> " + escapeClientHtml(config.demoPlatform?.label || "") + "</p>",
+        "<p><strong>Generic workflow terms:</strong> " + escapeClientHtml((config.productPack?.workflowVocabulary || []).slice(0, 8).join(", ")) + "</p>",
         "<p>" + escapeClientHtml(config.productPack?.notes || "") + "</p></div>",
         "<div class='readable-card'><h3>Cloud Readiness</h3>",
         "<p><strong>Tenant isolation:</strong> " + escapeClientHtml(config.tenancy?.isolationModel || "") + "</p>",
         "<p><strong>Secrets:</strong> " + escapeClientHtml(config.security?.secretStorage || "") + "</p></div>"
       ].join("");
+    }
+
+    function productCategoryLabel(value) {
+      return (productCategoryConfig.find((category) => category.value === value) || {}).label || value || "";
     }
 
     function renderAiProviderRegistry(payload = {}) {

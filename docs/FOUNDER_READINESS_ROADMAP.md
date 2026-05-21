@@ -12,6 +12,7 @@ Current strengths:
 - Codex remains the default working AI brain.
 - Admin now separates AI Brain Management from Knowledge Source Management.
 - Tenant and branding configuration exists as a local white-label foundation.
+- Product category is modeled in white-label tenant configuration so future packs can target ERP, CRM, HCM, SaaS, analytics, workflow, customer-service, industry-specific, or custom enterprise products.
 - Platform health and active AI brain status are visible.
 - Workspace, intelligence, guide, dry-run, and export concepts are already proven in the MVP.
 
@@ -23,6 +24,7 @@ Current gaps:
 - Knowledge sources are registration-ready but not connected to retrieval or enrichment pipelines.
 - Usage tracking, audit history, and subscription limits are modeled but not enforced.
 - NetSuite content pack separation is incomplete.
+- Product-category configuration exists, but prompt and scoring behavior still need to consume product packs more deeply.
 - Secrets are handled as references, but there is no cloud secret store yet.
 - Cloud deployment boundaries are documented but not split into hosted frontend, backend, database, workers, and storage.
 

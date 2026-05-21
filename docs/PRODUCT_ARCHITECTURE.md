@@ -149,9 +149,29 @@ The white-label foundation now models early SaaS concepts without enforcing them
 - User role blueprint
 - Audit/event tracking blueprint
 - Tenant/product pack configuration
+- Product category configuration
+- Product workflow vocabulary
 - Provider and knowledge-source registries
 
 These are not production billing, authorization, or audit systems yet. They define the contracts needed before adding real tenant persistence, identity, billing, secret storage, and cloud deployment.
+
+## Product-Agnostic Demo Model
+
+The white-label profile should use generic product concepts by default:
+
+- Product category
+- Demo platform
+- Business workflows
+- Personas
+- Stakeholder outcomes
+- Product modules
+- Demo objectives
+- Proof moments
+- Setup and data requirements
+
+NetSuite and ERP concepts should live in the NetSuite ERP pack. Other future packs can target CRM, HCM, SaaS platforms, analytics platforms, workflow tools, customer service platforms, industry-specific software, or other enterprise applications.
+
+The current white-label tenant config models this with `productPack.category`, `productPack.modules`, `productPack.workflowVocabulary`, and `demoPlatform.navigationModel`. This is still configuration-only; the deeper prompt/scoring extraction into product packs remains future work.
 
 ## Local Run Profiles
 

@@ -1,3 +1,16 @@
+export const productCategories = [
+  { value: "enterprise_application", label: "Enterprise application" },
+  { value: "erp", label: "ERP" },
+  { value: "crm", label: "CRM" },
+  { value: "hcm", label: "HCM / HR platform" },
+  { value: "analytics", label: "Analytics / BI platform" },
+  { value: "workflow_automation", label: "Workflow automation" },
+  { value: "customer_service", label: "Customer service platform" },
+  { value: "industry_software", label: "Industry-specific software" },
+  { value: "horizontal_saas", label: "Horizontal SaaS platform" },
+  { value: "custom", label: "Custom product category" }
+];
+
 export function defaultTenantConfig(now = new Date().toISOString(), options = {}) {
   const profile = options.profile === "whitelabel" ? "whitelabel" : "mvp";
   const whiteLabel = profile === "whitelabel";
@@ -16,17 +29,27 @@ export function defaultTenantConfig(now = new Date().toISOString(), options = {}
       supportEmail: ""
     },
     productPack: {
-      id: "netsuite_erp_pack",
-      label: "NetSuite ERP Pack",
-      vendor: "NetSuite",
+      id: whiteLabel ? "generic_enterprise_demo_pack" : "netsuite_erp_pack",
+      label: whiteLabel ? "Generic Enterprise Demo Pack" : "NetSuite ERP Pack",
+      vendor: whiteLabel ? "" : "NetSuite",
+      category: whiteLabel ? "enterprise_application" : "erp",
       enabled: true,
-      notes: "The current MVP remains NetSuite-focused. Future packs should move product-specific terminology, scoring, navigation, and setup guidance out of core platform logic."
+      modules: whiteLabel
+        ? ["Business workflows", "Stakeholder outcomes", "Product modules", "Proof moments", "Setup and data requirements"]
+        : ["Financials", "OneWorld", "SuiteProjects", "Reporting", "Saved searches"],
+      workflowVocabulary: whiteLabel
+        ? ["product category", "demo platform", "business workflow", "persona", "stakeholder outcome", "product module", "proof moment", "setup/data requirement"]
+        : ["ERP", "NetSuite", "subsidiary", "saved search", "standard report", "SuiteProjects", "OneWorld"],
+      notes: whiteLabel
+        ? "Configure this product pack for the tenant's product category, demo platform, modules, proof moments, and setup/data requirements. Keep product-specific logic out of core platform UI."
+        : "The current MVP remains NetSuite-focused. Future packs should move product-specific terminology, scoring, navigation, and setup guidance out of core platform logic."
     },
     demoPlatform: {
-      id: "netsuite",
-      label: "NetSuite ERP",
-      objectModel: "erp-demo-workspace",
-      automationManifestLabel: "dry-run manifest"
+      id: whiteLabel ? "configurable_demo_platform" : "netsuite",
+      label: whiteLabel ? "Configurable Demo Platform" : "NetSuite ERP",
+      objectModel: whiteLabel ? "product-demo-workspace" : "erp-demo-workspace",
+      automationManifestLabel: whiteLabel ? "automation manifest" : "dry-run manifest",
+      navigationModel: whiteLabel ? "configured-by-product-pack" : "netsuite-navigation-and-search"
     },
     tenancy: {
       isolationModel: "local-file-development",
@@ -113,14 +136,22 @@ export function normalizeTenantConfig(input, now = new Date().toISOString(), opt
       id: cleanId(productPack.id || fallback.productPack.id),
       label: String(productPack.label || fallback.productPack.label).slice(0, 120),
       vendor: String(productPack.vendor || fallback.productPack.vendor).slice(0, 80),
+      category: knownProductCategory(productPack.category || inferProductCategory(productPack) || fallback.productPack.category),
       enabled: productPack.enabled !== false,
+      modules: Array.isArray(productPack.modules)
+        ? productPack.modules.map((item) => String(item).trim()).filter(Boolean).slice(0, 30)
+        : fallback.productPack.modules,
+      workflowVocabulary: Array.isArray(productPack.workflowVocabulary)
+        ? productPack.workflowVocabulary.map((item) => String(item).trim()).filter(Boolean).slice(0, 40)
+        : fallback.productPack.workflowVocabulary,
       notes: String(productPack.notes || fallback.productPack.notes).slice(0, 1200)
     },
     demoPlatform: {
       id: cleanId(demoPlatform.id || fallback.demoPlatform.id),
       label: String(demoPlatform.label || fallback.demoPlatform.label).slice(0, 120),
       objectModel: String(demoPlatform.objectModel || fallback.demoPlatform.objectModel).slice(0, 120),
-      automationManifestLabel: String(demoPlatform.automationManifestLabel || fallback.demoPlatform.automationManifestLabel).slice(0, 120)
+      automationManifestLabel: String(demoPlatform.automationManifestLabel || fallback.demoPlatform.automationManifestLabel).slice(0, 120),
+      navigationModel: String(demoPlatform.navigationModel || fallback.demoPlatform.navigationModel).slice(0, 120)
     },
     tenancy: {
       ...fallback.tenancy,
@@ -212,6 +243,22 @@ function booleanMap(value = {}) {
     Object.entries(value)
       .filter(([, entry]) => typeof entry === "boolean")
   );
+}
+
+function knownProductCategory(value) {
+  const clean = String(value || "").trim();
+  return productCategories.some((category) => category.value === clean) ? clean : "enterprise_application";
+}
+
+function inferProductCategory(productPack = {}) {
+  const text = `${productPack.id || ""} ${productPack.label || ""} ${productPack.vendor || ""}`.toLowerCase();
+  if (/(netsuite|erp|s4hana|dynamics|sap)/.test(text)) return "erp";
+  if (/(crm|salesforce|hubspot)/.test(text)) return "crm";
+  if (/(hcm|hr|workday|people|payroll)/.test(text)) return "hcm";
+  if (/(analytics|bi|reporting|dashboard)/.test(text)) return "analytics";
+  if (/(service|support|case|ticket)/.test(text)) return "customer_service";
+  if (/(workflow|automation|process)/.test(text)) return "workflow_automation";
+  return "";
 }
 
 function numberMap(value = {}) {
