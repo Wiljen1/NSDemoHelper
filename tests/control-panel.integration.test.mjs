@@ -69,6 +69,7 @@ describe("NetSuite Demo Helper control panel", () => {
       "Last loaded: not yet",
       "Button/API JSON Instructions",
       "Platform Foundation",
+      "Founder Readiness",
       "AI Brain Management",
       "Knowledge Source Management",
       "Dry-Run Prep",
@@ -216,6 +217,7 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.ok(catalog.buttons.some((button) => button.id === "execute-dataset-prompt"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-status"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-health"));
+    assert.ok(catalog.buttons.some((button) => button.id === "platform-founder-readiness"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-tenant-load"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-ai-providers-load"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-knowledge-sources-load"));
@@ -321,6 +323,14 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.equal(health.ai.activeProviderType, "codex");
     assert.equal(health.security.clientReceivesRawSecrets, false);
 
+    const founder = await requestJson(server, "/api/platform/founder-readiness", {
+      headers: { cookie }
+    });
+    assert.equal(founder.ok, true);
+    assert.ok(Number.isFinite(founder.readinessScore));
+    assert.ok(founder.capabilities.some((capability) => capability.id === "demo_readiness"));
+    assert.ok(founder.defensibleCore.length > 0);
+
     const tenant = await requestJson(server, "/api/platform/tenant-config", {
       headers: { cookie }
     });
@@ -408,6 +418,13 @@ describe("NetSuite Demo Helper control panel", () => {
       assert.equal(health.environment.appProfile, "whitelabel");
       assert.equal(health.tenant.tenantName, "Acme Demo Team");
       assert.equal(health.capabilities.whiteLabelControlsVisible, true);
+
+      const founder = await requestJson(whiteLabelServer, "/api/platform/founder-readiness", {
+        headers: { cookie }
+      });
+      assert.equal(founder.ok, true);
+      assert.equal(founder.commercialModel.currentTier, saved.config.commercial.subscriptionTier);
+      assert.ok(founder.checks.some((check) => check.area === "SaaS Commercial Model"));
     } finally {
       await stopTestServer(whiteLabelServer);
       await restoreOptionalFile(tenantConfigPath, tenantConfigBackup);

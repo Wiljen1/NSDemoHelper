@@ -76,7 +76,10 @@ The app now has a lightweight, additive Platform Foundation area in Admin for fu
 - Separate Admin sections for AI Brain Management and Knowledge Source Management so future runtime providers and contextual sources do not become tightly coupled.
 - A global active brain indicator in the app header that shows the current backbone, runtime health, model context, and enabled knowledge-source count.
 - White-label-only Admin controls for tenant/branding settings and environment/system health.
+- White-label-only Founder Readiness view for pilot readiness, subscription-tier posture, usage/audit foundations, defensible product IP, risks, and implementation priorities.
 - Platform service-layer files for runtime metadata, tenant configuration, AI orchestration contracts, knowledge-source contracts, and cloud-readiness health reporting.
 - Local storage under ignored `artifacts/platform/` files, keeping experimental configuration out of committed source.
 
 This foundation does not yet implement full multi-tenant routing, secret storage, external retrieval, or provider swapping. It creates the safe extension points needed to evolve toward those capabilities without disrupting the NetSuite MVP.
+
+Founder-readiness scoring is advisory. It should support product planning and pilot readiness, not replace security review, customer validation, or founder judgment.

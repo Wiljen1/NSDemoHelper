@@ -18,6 +18,8 @@ The Core Platform should eventually contain the vendor-neutral application capab
 - Admin and configuration management
 - AI provider registry and orchestration boundary
 - External knowledge source registry
+- Founder readiness and commercial-readiness reporting
+- Usage, role, and audit contracts for future SaaS packaging
 
 The Core Platform should not assume NetSuite terminology, NetSuite navigation, ERP-specific modules, or a specific demo methodology beyond generic demo preparation, discovery analysis, storytelling, risk detection, and rehearsal support.
 
@@ -124,6 +126,7 @@ The current codebase now includes a lightweight Platform Foundation area in Admi
 - It exposes the active AI brain and knowledge source count in the app header so the current runtime backbone is visible to users.
 - It adds white-label-only tenant/branding configuration, platform health snapshots, and cloud-readiness warnings without changing the MVP profile.
 - It introduces service-layer contracts under `src/platform/` for runtime metadata, tenant configuration, AI provider orchestration, knowledge-source context, and health reporting.
+- It introduces a Founder Readiness snapshot for white-label mode so product, commercial, tenant, AI-provider, knowledge-source, usage/audit, and cloud-readiness gaps can be tracked without changing MVP behavior.
 
 ## Cloud-Ready Direction
 
@@ -135,6 +138,20 @@ The current white-label foundation is still local-first, but it now models the b
 - Knowledge sources: registration-only today; retrieval/connectors later.
 - Secrets: only secret references are stored; raw keys should move to environment variables or a tenant-aware secret store.
 - Observability: `/api/platform/health` exposes a safe health snapshot for Admin and future monitoring.
+- Founder readiness: `/api/platform/founder-readiness` exposes a safe advisory snapshot for pilot readiness, subscription tier readiness, defensible core, and next implementation priorities.
+
+## SaaS And Commercial Readiness
+
+The white-label foundation now models early SaaS concepts without enforcing them yet:
+
+- Subscription tier blueprint
+- Usage-limit placeholders
+- User role blueprint
+- Audit/event tracking blueprint
+- Tenant/product pack configuration
+- Provider and knowledge-source registries
+
+These are not production billing, authorization, or audit systems yet. They define the contracts needed before adding real tenant persistence, identity, billing, secret storage, and cloud deployment.
 
 ## Local Run Profiles
 

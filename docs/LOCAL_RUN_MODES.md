@@ -156,6 +156,7 @@ src/
     provider-config.mjs          AI provider and knowledge source registries
     tenant-config.mjs            local tenant/branding/product pack model
     health.mjs                   cloud-readiness and system health snapshots
+    founder-readiness.mjs        founder/SaaS readiness snapshot logic
     ai/
       orchestrator.mjs           provider adapter contracts and AI task envelope
     knowledge/
@@ -172,6 +173,7 @@ Near-term rule:
 - Shared local app logic stays in `src/control-panel.mjs` until a refactor is explicitly needed.
 - Provider/source configuration lives under `src/platform/`.
 - Tenant, branding, health, AI-provider, and knowledge-source contracts live under `src/platform/`.
+- Founder-readiness scoring and SaaS roadmap contracts live under `src/platform/` and docs, not inside product-specific UI flows.
 - NetSuite-specific prompts and behavior remain in the MVP for now.
 - Future white-label work should move domain-specific behavior gradually into content/vendor packs.
 

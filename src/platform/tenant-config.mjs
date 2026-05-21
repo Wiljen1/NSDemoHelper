@@ -41,6 +41,28 @@ export function defaultTenantConfig(now = new Date().toISOString(), options = {}
       tenantWorkspaces: false,
       cloudDeploymentMode: false
     },
+    commercial: {
+      subscriptionTier: whiteLabel ? "pilot" : "internal_mvp",
+      planStatus: whiteLabel ? "pilot-ready-foundation" : "internal-demo",
+      billingReadiness: "planned",
+      usageLimits: {
+        monthlyAiRuns: 250,
+        monthlyWorkspaces: 50,
+        monthlyExports: 100,
+        activeKnowledgeSources: 5
+      }
+    },
+    roles: {
+      owner: ["manage_tenant", "manage_billing", "manage_providers", "manage_sources", "manage_users", "view_usage"],
+      admin: ["manage_providers", "manage_sources", "manage_branding", "manage_playbooks", "view_usage"],
+      solution_consultant: ["create_workspace", "run_intelligence", "export_outputs", "run_rehearsal"],
+      viewer: ["view_workspace", "view_outputs"]
+    },
+    audit: {
+      mode: "local-event-log-planned",
+      trackedEvents: ["ai_run", "provider_change", "source_change", "tenant_config_change", "export_created", "workspace_created"],
+      retentionPolicy: "planned"
+    },
     security: {
       secretStorage: "environment-variable-or-secret-reference-only",
       exposeSecretsToClient: false,
@@ -67,6 +89,9 @@ export function normalizeTenantConfig(input, now = new Date().toISOString(), opt
   const demoPlatform = source.demoPlatform && typeof source.demoPlatform === "object" && !Array.isArray(source.demoPlatform) ? source.demoPlatform : {};
   const tenancy = source.tenancy && typeof source.tenancy === "object" && !Array.isArray(source.tenancy) ? source.tenancy : {};
   const featureFlags = source.featureFlags && typeof source.featureFlags === "object" && !Array.isArray(source.featureFlags) ? source.featureFlags : {};
+  const commercial = source.commercial && typeof source.commercial === "object" && !Array.isArray(source.commercial) ? source.commercial : {};
+  const roles = source.roles && typeof source.roles === "object" && !Array.isArray(source.roles) ? source.roles : {};
+  const audit = source.audit && typeof source.audit === "object" && !Array.isArray(source.audit) ? source.audit : {};
   const security = source.security && typeof source.security === "object" && !Array.isArray(source.security) ? source.security : {};
   const cloudReadiness = source.cloudReadiness && typeof source.cloudReadiness === "object" && !Array.isArray(source.cloudReadiness) ? source.cloudReadiness : {};
 
@@ -104,6 +129,23 @@ export function normalizeTenantConfig(input, now = new Date().toISOString(), opt
     featureFlags: {
       ...fallback.featureFlags,
       ...booleanMap(featureFlags)
+    },
+    commercial: {
+      subscriptionTier: cleanId(commercial.subscriptionTier || fallback.commercial.subscriptionTier),
+      planStatus: String(commercial.planStatus || fallback.commercial.planStatus).slice(0, 120),
+      billingReadiness: String(commercial.billingReadiness || fallback.commercial.billingReadiness).slice(0, 120),
+      usageLimits: {
+        ...fallback.commercial.usageLimits,
+        ...numberMap(commercial.usageLimits)
+      }
+    },
+    roles: normalizeRoles(roles, fallback.roles),
+    audit: {
+      mode: String(audit.mode || fallback.audit.mode).slice(0, 120),
+      trackedEvents: Array.isArray(audit.trackedEvents)
+        ? audit.trackedEvents.map((item) => cleanId(item)).filter(Boolean).slice(0, 40)
+        : fallback.audit.trackedEvents,
+      retentionPolicy: String(audit.retentionPolicy || fallback.audit.retentionPolicy).slice(0, 160)
     },
     security: {
       ...fallback.security,
@@ -170,4 +212,24 @@ function booleanMap(value = {}) {
     Object.entries(value)
       .filter(([, entry]) => typeof entry === "boolean")
   );
+}
+
+function numberMap(value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, entry]) => Number.isFinite(Number(entry)))
+      .map(([key, entry]) => [key, Math.max(0, Math.round(Number(entry)))])
+  );
+}
+
+function normalizeRoles(input = {}, fallback = {}) {
+  const source = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const roles = { ...fallback };
+  for (const [role, permissions] of Object.entries(source)) {
+    const cleanRole = cleanId(role);
+    if (!cleanRole || !Array.isArray(permissions)) continue;
+    roles[cleanRole] = permissions.map((permission) => cleanId(permission)).filter(Boolean).slice(0, 40);
+  }
+  return roles;
 }

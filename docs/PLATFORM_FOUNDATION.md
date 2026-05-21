@@ -138,10 +138,28 @@ Configuration is stored locally under ignored `artifacts/platform/` files.
 White-label mode also adds:
 
 - Environment & System Status
+- Founder Readiness
 - Tenant & Branding Settings
 - Cloud-readiness warnings
 
 These are profile-gated so they do not alter the MVP flow.
+
+## Founder Readiness
+
+White-label Admin includes a Founder Readiness section backed by `/api/platform/founder-readiness`.
+
+This snapshot is designed for founder-level product and pilot planning. It combines tenant configuration, platform health, AI provider state, knowledge-source state, commercial metadata, and known architecture gaps into:
+
+- Overall readiness score
+- Pilot readiness status
+- Commercial tier and usage-limit posture
+- Top platform priorities
+- Quick wins
+- Defensible product-core areas
+- Risks before external customer pilots
+- Suggested implementation order
+
+This is an advisory product-planning view. It does not alter demo generation and it does not affect the stable MVP profile.
 
 ## Local Development Profile
 
@@ -173,6 +191,7 @@ Raw API keys should not be stored in local JSON. Use:
 
 This foundation enables later work on:
 
+- Founder/customer pilot readiness tracking
 - Provider adapters
 - Generic AI orchestration
 - External retrieval/connectors

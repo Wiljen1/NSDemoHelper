@@ -22,6 +22,9 @@ Do not create future release notes before the release exists.
 - Global active AI brain status in the app header, including runtime health and enabled knowledge source count.
 - White-label-only tenant/branding configuration and platform health snapshot for cloud-readiness visibility.
 - Platform service-layer contracts for runtime metadata, tenant config, AI provider orchestration, knowledge-source context, and health reporting.
+- Founder Readiness snapshot and Admin section for white-label SaaS readiness, pilot readiness, commercial tiering, usage/audit posture, risks, and defensible product IP.
+- Tenant commercial metadata for future subscription tiers, usage limits, roles, and audit/event tracking.
+- Founder readiness roadmap documenting market-readiness phases, defensible core, quick wins, risks, and implementation order.
 
 ### Changed
 

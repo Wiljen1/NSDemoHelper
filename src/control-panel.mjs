@@ -19,6 +19,7 @@ import {
   sanitizeProviderRegistryForClient
 } from "./platform/provider-config.mjs";
 import { providerCanActivate } from "./platform/ai/orchestrator.mjs";
+import { buildFounderReadinessSnapshot } from "./platform/founder-readiness.mjs";
 import { buildPlatformHealthSnapshot } from "./platform/health.mjs";
 import { buildRuntimeMetadata } from "./platform/runtime-config.mjs";
 import {
@@ -907,6 +908,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/api/platform/health") {
       return json(response, await platformHealthPayload());
     }
+    if (request.method === "GET" && request.url === "/api/platform/founder-readiness") {
+      await requireCmsAuth(request);
+      return json(response, await founderReadinessPayload());
+    }
     if (request.method === "GET" && request.url === "/api/platform/tenant-config") {
       await requireCmsAuth(request);
       return json(response, await tenantConfigPayload());
@@ -1491,6 +1496,22 @@ async function platformHealthPayload() {
   });
 }
 
+async function founderReadinessPayload() {
+  const [aiRegistry, knowledgeRegistry, tenantConfig, health] = await Promise.all([
+    readAiProviderRegistry(),
+    readKnowledgeSourceRegistry(),
+    readTenantConfig(),
+    platformHealthPayload()
+  ]);
+  return buildFounderReadinessSnapshot({
+    buildMetadata,
+    tenantConfig,
+    health,
+    aiRegistry,
+    knowledgeRegistry
+  });
+}
+
 async function platformRuntimeStatus() {
   const [aiRegistry, sourceRegistry] = await Promise.all([
     readAiProviderRegistry(),
@@ -1878,6 +1899,7 @@ function buttonInstructionCatalog() {
     }, "Restores a previous CMS content snapshot.", false),
     buttonInstruction("platform-status", "Check Active AI Brain", "Admin", "GET", "/api/platform/status", null, "Shows the globally visible active AI brain, runtime status, model, and enabled knowledge source count.", false),
     buttonInstruction("platform-health", "Refresh Platform Health", "Admin", "GET", "/api/platform/health", null, "Shows white-label environment, tenant, backend, AI brain, knowledge source, security, and cloud-readiness status without exposing secrets.", false),
+    buttonInstruction("platform-founder-readiness", "Refresh Founder Readiness", "Admin", "GET", "/api/platform/founder-readiness", null, "Shows white-label SaaS readiness, pilot readiness, commercial tiering, risks, and defensible-core priorities.", false),
     buttonInstruction("platform-tenant-load", "Load Tenant Settings", "Admin", "GET", "/api/platform/tenant-config", null, "Loads local white-label tenant, branding, product pack, demo platform, security, and cloud-readiness configuration.", false),
     buttonInstruction("platform-tenant-save", "Save Tenant Settings", "Admin", "POST", "/api/platform/tenant-config", {
       config: defaultTenantConfig(new Date().toISOString(), { profile: "whitelabel" })
@@ -11316,6 +11338,24 @@ function html(response) {
             <div class="advisory" id="platformWarnings" hidden></div>
           </section>
 
+          <section class="platform-management-section" id="founderReadinessManagement" data-whitelabel-only>
+            <div class="section-head">
+              <div>
+                <h2>Founder Readiness</h2>
+                <p>Commercial-readiness view for pilots, packaging, tenant controls, usage/audit foundations, and defensible product IP.</p>
+              </div>
+              <div class="row">
+                <span class="status-badge advisory" id="founderReadinessSummary">Readiness: Loading</span>
+                <button class="secondary" id="refreshFounderReadinessButton" data-help="Refreshes the founder-readiness snapshot from current tenant, AI provider, knowledge source, and platform health configuration.">Refresh Readiness</button>
+              </div>
+            </div>
+            <div class="platform-status-grid" id="founderReadinessCards"></div>
+            <div class="platform-config-card">
+              <h3>Next Best Moves</h3>
+              <div id="founderReadinessPriorities"></div>
+            </div>
+          </section>
+
           <section class="platform-management-section" id="tenantConfigManagement" data-whitelabel-only>
             <div class="section-head">
               <div>
@@ -11660,6 +11700,9 @@ function html(response) {
     const liveDemoFunctionalityToggle = document.getElementById("liveDemoFunctionalityToggle");
     const platformHealthCards = document.getElementById("platformHealthCards");
     const platformWarnings = document.getElementById("platformWarnings");
+    const founderReadinessSummary = document.getElementById("founderReadinessSummary");
+    const founderReadinessCards = document.getElementById("founderReadinessCards");
+    const founderReadinessPriorities = document.getElementById("founderReadinessPriorities");
     const tenantConfigSummary = document.getElementById("tenantConfigSummary");
     const tenantConfigStatus = document.getElementById("tenantConfigStatus");
     const tenantConfigReadable = document.getElementById("tenantConfigReadable");
@@ -11826,20 +11869,23 @@ function html(response) {
     async function loadPlatformFoundation() {
       try {
         initPlatformSelectOptions();
-        const [aiPayload, sourcePayload, tenantPayload, healthPayload] = await Promise.all([
+        const [aiPayload, sourcePayload, tenantPayload, healthPayload, founderPayload] = await Promise.all([
           api("/api/platform/ai-providers"),
           api("/api/platform/knowledge-sources"),
           api("/api/platform/tenant-config"),
-          api("/api/platform/health")
+          api("/api/platform/health"),
+          api("/api/platform/founder-readiness")
         ]);
         renderAiProviderRegistry(aiPayload);
         renderKnowledgeSourceRegistry(sourcePayload);
         renderTenantConfig(tenantPayload);
         renderPlatformHealth(healthPayload);
+        renderFounderReadiness(founderPayload);
       } catch (error) {
         aiProviderStatus.textContent = error.message;
         knowledgeSourceStatus.textContent = error.message;
         if (tenantConfigStatus) tenantConfigStatus.textContent = error.message;
+        if (founderReadinessPriorities) founderReadinessPriorities.textContent = error.message;
       }
     }
 
@@ -11893,6 +11939,47 @@ function html(response) {
       platformWarnings.innerHTML = warnings.length
         ? "<strong>Warnings</strong><ul>" + warnings.map((warning) => "<li>" + escapeClientHtml(warning) + "</li>").join("") + "</ul>"
         : "";
+    }
+
+    function renderFounderReadiness(payload = {}) {
+      if (!founderReadinessCards) return;
+      const readinessScore = Number(payload.readinessScore) || 0;
+      const commercial = payload.commercialModel || {};
+      const capabilities = payload.capabilities || [];
+      const risks = payload.risks || [];
+      const priorities = payload.topPriorities || [];
+      const quickWins = payload.quickWins || [];
+      founderReadinessSummary.textContent = "Readiness: " + readinessScore + "/100 | " + (payload.readinessLabel || "Unknown");
+      founderReadinessCards.innerHTML = [
+        platformHealthCard("Readiness", readinessScore + "/100", payload.founderPhase || "Not assessed", readinessScore >= 70 ? "strong" : readinessScore >= 55 ? "warning" : "critical"),
+        platformHealthCard("Pilot Status", payload.pilotReadiness || "-", "Tier: " + (commercial.currentTier || "-"), payload.pilotReadiness === "pilot-ready-with-controls" ? "strong" : "warning"),
+        platformHealthCard("Commercial Model", commercial.planStatus || "-", "Usage limits and role model prepared", commercial.currentTier ? "warning" : "critical"),
+        platformHealthCard("Capabilities", String(capabilities.length || 0) + " mapped", capabilitySummary(capabilities), "advisory"),
+        platformHealthCard("Defensible Core", String((payload.defensibleCore || []).length || 0) + " assets", "Scoring, story, playbooks, sources", "advisory"),
+        platformHealthCard("Open Risks", String(risks.length || 0), risks[0] || "No critical risks reported", risks.length ? "warning" : "strong")
+      ].join("");
+      founderReadinessPriorities.innerHTML = [
+        priorities.length
+          ? "<div class='cms-readable-grid'>" + priorities.map((priority) =>
+              "<div class='readable-card'><h3>" + escapeClientHtml(priority.area || "Priority") + "</h3>" +
+              "<p><strong>Next move:</strong> " + escapeClientHtml(priority.recommendation || "") + "</p>" +
+              "<p>" + escapeClientHtml(priority.whyItMatters || "") + "</p></div>"
+            ).join("") + "</div>"
+          : "<p class='hint'>No major readiness priorities returned.</p>",
+        quickWins.length
+          ? "<div class='band'><strong>Quick wins</strong><ul>" + quickWins.map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("") + "</ul></div>"
+          : "",
+        payload.suggestedImplementationOrder?.length
+          ? "<details class='inline-disclosure'><summary>Suggested implementation order</summary><ol>" + payload.suggestedImplementationOrder.map((item) => "<li>" + escapeClientHtml(item) + "</li>").join("") + "</ol></details>"
+          : ""
+      ].join("");
+    }
+
+    function capabilitySummary(capabilities = []) {
+      const active = capabilities.filter((capability) => capability.status === "mvp-active").length;
+      const foundation = capabilities.filter((capability) => capability.status === "foundation").length;
+      const planned = capabilities.filter((capability) => capability.status === "planned").length;
+      return active + " active | " + foundation + " foundation | " + planned + " planned";
     }
 
     function platformHealthCard(label, value, detail, status = "") {
@@ -14870,6 +14957,13 @@ function html(response) {
       } catch (error) {
         platformWarnings.hidden = false;
         platformWarnings.textContent = error.message;
+      }
+    };
+    document.getElementById("refreshFounderReadinessButton").onclick = async () => {
+      try {
+        renderFounderReadiness(await api("/api/platform/founder-readiness"));
+      } catch (error) {
+        founderReadinessPriorities.textContent = error.message;
       }
     };
     document.getElementById("saveTenantConfigButton").onclick = async () => {
