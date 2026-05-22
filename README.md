@@ -29,6 +29,7 @@ All AI-assisted development should follow the MVP protection rules, release work
 - `skills/netsuite-demo-builder/SKILL.md` is the Codex skill guidance for creating future demo manifests.
 - `docs/STANDALONE_APP_PLAN.md` captures the path toward the `NSDemoHelper` standalone Mac/Windows app.
 - `docs/LOCAL_BROWSER_APP_ARCHITECTURE.md` explains the future browser UI plus local helper service model.
+- `docs/APEX_MVP_DEPLOYMENT_PLAN.md` defines the MVP-only local-first APEX deployment and validation plan.
 
 ## First Run
 

@@ -26,6 +26,7 @@ Do not create future release notes before the release exists.
 - Tenant commercial metadata for future subscription tiers, usage limits, roles, and audit/event tracking.
 - Founder readiness roadmap documenting market-readiness phases, defensible core, quick wins, risks, and implementation order.
 - White-label product category configuration so future tenants can target ERP, CRM, HCM, SaaS, analytics, workflow, customer-service, industry-specific, or custom enterprise products without making NetSuite the default assumption.
+- MVP-only APEX deployment plan covering local `NS DemoHelper` validation, cloud app `56174`, Codex bridge requirements, and rollback gates.
 
 ### Changed
 
