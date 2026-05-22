@@ -13,6 +13,7 @@ let cmsContentBackup;
 let aiProvidersBackup;
 let knowledgeSourcesBackup;
 let tenantConfigBackup;
+let sessionDatabaseBackup;
 const mainManifestPath = path.join(projectRoot, "manifests/finance-pl-cash360.demo.json");
 const cmsAdminPath = path.join(projectRoot, ".auth/cms-admin.json");
 const cmsSessionsPath = path.join(projectRoot, ".auth/cms-sessions.json");
@@ -20,6 +21,7 @@ const cmsContentPath = path.join(projectRoot, "artifacts/cms/content.json");
 const aiProvidersPath = path.join(projectRoot, "artifacts/platform/ai-providers.json");
 const knowledgeSourcesPath = path.join(projectRoot, "artifacts/platform/knowledge-sources.json");
 const tenantConfigPath = path.join(projectRoot, "artifacts/platform/tenant-config.json");
+const sessionDatabasePath = path.join(projectRoot, "artifacts/session-db/sessions.json");
 
 before(async () => {
   manifestBackup = await readFile(mainManifestPath, "utf8");
@@ -29,12 +31,14 @@ before(async () => {
   aiProvidersBackup = await readOptionalFile(aiProvidersPath);
   knowledgeSourcesBackup = await readOptionalFile(knowledgeSourcesPath);
   tenantConfigBackup = await readOptionalFile(tenantConfigPath);
+  sessionDatabaseBackup = await readOptionalFile(sessionDatabasePath);
   await rm(cmsAdminPath, { force: true });
   await rm(cmsSessionsPath, { force: true });
   await rm(cmsContentPath, { force: true });
   await rm(aiProvidersPath, { force: true });
   await rm(knowledgeSourcesPath, { force: true });
   await rm(tenantConfigPath, { force: true });
+  await rm(sessionDatabasePath, { force: true });
   server = await startTestServer();
 });
 
@@ -47,6 +51,7 @@ after(async () => {
   await restoreOptionalFile(aiProvidersPath, aiProvidersBackup);
   await restoreOptionalFile(knowledgeSourcesPath, knowledgeSourcesBackup);
   await restoreOptionalFile(tenantConfigPath, tenantConfigBackup);
+  await restoreOptionalFile(sessionDatabasePath, sessionDatabaseBackup);
 });
 
 describe("NetSuite Demo Helper control panel", () => {
@@ -57,8 +62,8 @@ describe("NetSuite Demo Helper control panel", () => {
 
     for (const expected of [
       "NetSuite Demo Helper",
-      ">Prep<",
-      ">SC Guide<",
+      ">Discovery & Prep<",
+      ">Playbook<",
       ">Demo Intelligence<",
       ">Pre-Demo Intelligence<",
       ">Dry-Run<",
@@ -72,6 +77,7 @@ describe("NetSuite Demo Helper control panel", () => {
       "Founder Readiness",
       "AI Brain Management",
       "Knowledge Source Management",
+      "Demo Prep Database",
       "Dry-Run Prep",
       "Run Dataset Analysis",
       "Buffer Dry-Run",
@@ -149,6 +155,30 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.ok(Array.isArray(payload.preDemoIntelligence.recommended_follow_up_questions));
   });
 
+  it("protects and exposes the admin session database viewer", async () => {
+    const blocked = await fetch(`${server.baseUrl}/api/session-logs`);
+    assert.equal(blocked.status, 401);
+
+    const cookie = await ensureCmsCookie();
+    const payload = await requestJson(server, "/api/session-logs", {
+      headers: { cookie }
+    });
+
+    assert.equal(payload.ok, true);
+    assert.ok(payload.total >= 1);
+    assert.ok(payload.sessions.some((session) => session.company_name));
+    assert.ok(Number.isFinite(payload.metrics.average_discovery_score) || payload.metrics.average_discovery_score === null);
+
+    const first = payload.sessions[0];
+    const detail = await requestJson(server, `/api/session-logs/${first.session_id}`, {
+      headers: { cookie }
+    });
+    assert.equal(detail.ok, true);
+    assert.equal(detail.session.session_id, first.session_id);
+    assert.ok(detail.session.generated_outputs);
+    assert.ok(detail.session.actions.length >= 1);
+  });
+
   it("reuses the saved Pre-Demo website context when generating Demo Intelligence", async () => {
     const companyUrl = `${server.baseUrl}/synthetic-company-page`;
     const preDemo = await requestJson(server, "/api/pre-demo-intelligence", {
@@ -210,11 +240,11 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.equal(catalog.ok, true);
     assert.ok(catalog.buttons.length > 20);
     assert.ok(catalog.buttons.some((button) => button.id === "learn-create-demo"));
-    assert.ok(catalog.buttons.some((button) => button.id === "refresh-dry-run-creation-prompt"));
     assert.ok(catalog.buttons.some((button) => button.id === "refresh-pre-demo-scoring"));
     assert.ok(catalog.buttons.some((button) => button.id === "export-discovery-followups"));
-    assert.ok(catalog.buttons.some((button) => button.id === "run-dataset-analysis"));
-    assert.ok(catalog.buttons.some((button) => button.id === "execute-dataset-prompt"));
+    assert.ok(!catalog.buttons.some((button) => button.id === "refresh-dry-run-creation-prompt"));
+    assert.ok(!catalog.buttons.some((button) => button.id === "run-dataset-analysis"));
+    assert.ok(!catalog.buttons.some((button) => button.id === "execute-dataset-prompt"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-status"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-health"));
     assert.ok(catalog.buttons.some((button) => button.id === "platform-founder-readiness"));
@@ -238,23 +268,7 @@ describe("NetSuite Demo Helper control panel", () => {
   });
 
   it("hides and blocks live demo functionality when the admin feature flag is off", async () => {
-    const status = await requestJson(server, "/api/cms/status");
-    let cookie = "";
-    if (status.setupRequired) {
-      const setupResponse = await fetch(`${server.baseUrl}/api/cms/setup`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ password: "VeryStrongPassword123!" })
-      });
-      assert.equal(setupResponse.status, 200);
-      cookie = setupResponse.headers.get("set-cookie") || "";
-    }
-
-    const disabled = await requestJson(server, "/api/cms/feature-flags", {
-      method: "POST",
-      headers: cookie ? { cookie } : {},
-      body: JSON.stringify({ liveDemoFunctionality: false })
-    });
+    const disabled = await setLiveDemoFeatureFlag(false);
     assert.equal(disabled.featureFlags.liveDemoFunctionality, false);
 
     const html = await (await fetch(server.baseUrl)).text();
@@ -281,11 +295,7 @@ describe("NetSuite Demo Helper control panel", () => {
     });
     assert.equal(learnResponse.status, 403);
 
-    const enabled = await requestJson(server, "/api/cms/feature-flags", {
-      method: "POST",
-      headers: cookie ? { cookie } : {},
-      body: JSON.stringify({ liveDemoFunctionality: true })
-    });
+    const enabled = await setLiveDemoFeatureFlag(true);
     assert.equal(enabled.featureFlags.liveDemoFunctionality, true);
   });
 
@@ -442,6 +452,7 @@ describe("NetSuite Demo Helper control panel", () => {
   });
 
   it("loads the manifest payload with guide, setup prompt, and Intelligence", async () => {
+    await setLiveDemoFeatureFlag(true);
     const payload = await requestJson(server, "/api/manifest");
 
     assert.ok(payload.manifest);
@@ -460,6 +471,7 @@ describe("NetSuite Demo Helper control panel", () => {
   });
 
   it("refreshes the dry-run creation prompt metadata used by Run page actions", async () => {
+    await setLiveDemoFeatureFlag(true);
     const payload = await requestJson(server, "/api/dry-run-prompt/refresh", {
       method: "POST",
       body: "{}"
@@ -474,6 +486,7 @@ describe("NetSuite Demo Helper control panel", () => {
   });
 
   it("validates dry-run mode without launching a browser or narration", async () => {
+    await setLiveDemoFeatureFlag(true);
     const payload = await requestJson(server, "/api/run", {
       method: "POST",
       body: JSON.stringify({ mode: "dry", valueIntensity: "balanced", voiceProvider: "say", voice: "Samantha" })
@@ -547,4 +560,13 @@ async function ensureCmsCookie(targetServer = server) {
   });
   assert.equal(response.status, 200);
   return response.headers.get("set-cookie") || "";
+}
+
+async function setLiveDemoFeatureFlag(enabled, targetServer = server) {
+  const cookie = await ensureCmsCookie(targetServer);
+  return requestJson(targetServer, "/api/cms/feature-flags", {
+    method: "POST",
+    headers: { cookie },
+    body: JSON.stringify({ liveDemoFunctionality: Boolean(enabled) })
+  });
 }

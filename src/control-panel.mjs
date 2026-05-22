@@ -37,6 +37,7 @@ const scGuidePath = path.join(projectRoot, "artifacts/sc-demo-guide.md");
 const narratorStatePath = path.join(projectRoot, "artifacts/runtime/narrator-state.json");
 const latestIntelligencePath = path.join(projectRoot, "artifacts/runtime/latest-intelligence.json");
 const latestPreDemoIntelligencePath = path.join(projectRoot, "artifacts/runtime/latest-pre-demo-intelligence.json");
+const sessionDatabasePath = path.join(projectRoot, "artifacts/session-db/sessions.json");
 const cmsContentPath = path.join(projectRoot, "artifacts/cms/content.json");
 const cmsVersionsDir = path.join(projectRoot, "artifacts/cms/versions");
 const platformConfigDir = path.join(projectRoot, "artifacts/platform");
@@ -59,7 +60,7 @@ let preDemoIntelligenceGuidanceOverride = "";
 let scStoryRunbookGuidanceOverride = "";
 let demoAssetPromptGuidanceOverride = "";
 let codexAccountSetupGuidanceOverride = "";
-let liveDemoFunctionalityEnabled = true;
+let liveDemoFunctionalityEnabled = false;
 
 const voiceProviders = {
   say: {
@@ -908,6 +909,26 @@ const server = http.createServer(async (request, response) => {
       const body = await readBody(request);
       return json(response, await restoreCmsVersion(body.file));
     }
+    if (request.method === "GET" && request.url?.startsWith("/api/session-logs/download/")) {
+      await requireCmsAuth(request);
+      const sessionId = decodeURIComponent(path.basename(request.url.replace("/api/session-logs/download/", "")));
+      const record = await sessionLogDetailPayload(sessionId);
+      return downloadJson(response, `${sessionId || "demo-session"}.json`, record.session);
+    }
+    if (request.method === "GET" && request.url?.startsWith("/api/session-logs/")) {
+      await requireCmsAuth(request);
+      const sessionId = decodeURIComponent(path.basename(request.url.replace("/api/session-logs/", "")));
+      return json(response, await sessionLogDetailPayload(sessionId));
+    }
+    if (request.method === "GET" && request.url?.startsWith("/api/session-logs")) {
+      await requireCmsAuth(request);
+      return json(response, await sessionLogListPayload(request.url));
+    }
+    if (request.method === "DELETE" && request.url?.startsWith("/api/session-logs/")) {
+      await requireCmsAuth(request);
+      const sessionId = decodeURIComponent(path.basename(request.url.replace("/api/session-logs/", "")));
+      return json(response, await deleteSessionLog(sessionId));
+    }
     if (request.method === "GET" && request.url === "/api/platform/status") {
       return json(response, await platformRuntimeStatus());
     }
@@ -974,6 +995,7 @@ const server = http.createServer(async (request, response) => {
       return json(response, { ok: true, intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
     }
     if (request.method === "POST" && request.url === "/api/intelligence") {
+      request.demoHelperAction = "Re-analyze Updated Playbook";
       const body = await readBody(request);
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
@@ -982,9 +1004,17 @@ const server = http.createServer(async (request, response) => {
         allowWebsiteScan: false
       });
       const intelligence = await demoIntelligencePayloadWithCodex(draftManifest, guide);
-      return json(response, { ok: true, draft: true, intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
+      const payload = { ok: true, draft: true, intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) };
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: "success",
+        input: body,
+        output: payload
+      });
+      return json(response, payload);
     }
     if (request.method === "POST" && request.url === "/api/pre-demo-intelligence") {
+      request.demoHelperAction = "Pre-demo scoring";
       const body = await readBody(request);
       const manifest = await readManifest();
       const draftManifest = await manifestWithCurrentPrepInputsAndWebsite(manifest, body, {
@@ -992,7 +1022,14 @@ const server = http.createServer(async (request, response) => {
         allowWebsiteScan: true
       });
       const preDemoIntelligence = await preDemoIntelligencePayloadWithCodex(draftManifest);
-      return json(response, { ok: true, draft: true, preDemoIntelligence });
+      const payload = { ok: true, draft: true, preDemoIntelligence };
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: "success",
+        input: body,
+        output: payload
+      });
+      return json(response, payload);
     }
     if (request.method === "GET" && request.url === "/api/versions") return json(response, { versions: await listVersions() });
     if (request.method === "GET" && request.url === "/api/run-state") return json(response, runState());
@@ -1033,6 +1070,7 @@ const server = http.createServer(async (request, response) => {
       return json(response, { ok: true, setupPrompt: setupPromptPayload(manifest, guide) });
     }
     if (request.method === "POST" && request.url === "/api/intelligence/follow-up-questions") {
+      request.demoHelperAction = "Generate Discovery Follow-Up Questions";
       const body = await readBody(request);
       const savedManifest = await readManifest();
       const manifest = hasPrepPayload(body)
@@ -1046,42 +1084,65 @@ const server = http.createServer(async (request, response) => {
       const questionsPayload = await codexDiscoveryFollowUpQuestions(manifest, guide, intelligence, {
         additionalComments: body.additionalComments
       });
-      return json(response, {
+      const payload = {
         ok: true,
         ...questionsPayload,
         intelligence,
         preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence)
+      };
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: "success",
+        input: body,
+        output: payload
       });
+      return json(response, payload);
     }
     if (request.method === "POST" && request.url === "/api/intelligence/improve-guide") {
+      request.demoHelperAction = "Apply All Recommendations To Playbook";
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
       const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
       const improvedGuide = await writeImprovedScGuide(manifest, guide, intelligence);
       const updatedIntelligence = await demoIntelligencePayloadWithCodex(manifest, improvedGuide);
-      return json(response, {
+      const payload = {
         ok: true,
         guide: improvedGuide,
         guideOutputs: guideOutputsPayload(manifest, improvedGuide),
         intelligence: updatedIntelligence,
         preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(updatedIntelligence)
+      };
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: "success",
+        input: {},
+        output: payload
       });
+      return json(response, payload);
     }
     if (request.method === "POST" && request.url === "/api/intelligence/apply-action") {
+      request.demoHelperAction = "Apply Edited Output To Playbook";
       const body = await readBody(request);
       const manifest = await readManifest();
       const guide = await readOrGenerateScGuide(manifest);
       const intelligence = await demoIntelligencePayloadWithCodex(manifest, guide);
       const updatedGuide = await writeActionScGuide(manifest, guide, intelligence, body);
       const updatedIntelligence = await demoIntelligencePayloadWithCodex(manifest, updatedGuide);
-      return json(response, {
+      const payload = {
         ok: true,
         guide: updatedGuide,
         guideOutputs: guideOutputsPayload(manifest, updatedGuide),
         intelligence: updatedIntelligence,
         preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(updatedIntelligence),
-        message: "Applied action to SC guide."
+        message: "Applied action to playbook."
+      };
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: "success",
+        input: body,
+        output: payload
       });
+      return json(response, payload);
     }
     if (request.method === "GET" && request.url === "/api/narrator-state") return json(response, await readNarratorState());
     if (request.method === "GET" && request.url?.startsWith("/api/download/")) {
@@ -1092,6 +1153,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && request.url === "/api/manifest") {
+      request.demoHelperAction = "Save Dry-Run";
       const body = await readBody(request);
       const parsedManifest = JSON.parse(body.manifest);
       const nextManifest = JSON.stringify(parsedManifest, null, 2);
@@ -1100,10 +1162,18 @@ const server = http.createServer(async (request, response) => {
       const namedManifestPath = await writeNamedManifestCopy(parsedManifest);
       const guide = await readOrGenerateScGuide(parsedManifest);
       const intelligence = await demoIntelligencePayloadWithCodex(parsedManifest, guide);
-      return json(response, { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
+      const payload = { ok: true, manifest: JSON.parse(nextManifest), versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(parsedManifest, guide), setupPrompt: setupPromptPayload(parsedManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) };
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: "success",
+        input: body,
+        output: payload
+      });
+      return json(response, payload);
     }
 
     if (request.method === "POST" && request.url === "/api/manifest/from-guide") {
+      request.demoHelperAction = "Create Dry-Run From Prompt";
       ensureLiveDemoFunctionalityEnabled();
       await saveVersion("before-manifest-from-guide");
       const manifest = await readManifest();
@@ -1112,11 +1182,20 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(nextManifest);
       const intelligence = await demoIntelligencePayloadWithCodex(nextManifest, guide);
-      return json(response, { ok: true, manifest: nextManifest, versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(nextManifest, guide), setupPrompt: setupPromptPayload(nextManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) });
+      const payload = { ok: true, manifest: nextManifest, versions: await listVersions(), namedManifestPath, guideOutputs: guideOutputsPayload(nextManifest, guide), setupPrompt: setupPromptPayload(nextManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence) };
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: "success",
+        input: {},
+        output: payload
+      });
+      return json(response, payload);
     }
 
     if (request.method === "POST" && request.url === "/api/learn") {
+      request.demoHelperAction = "Learn / Create Demo";
       const body = await readBody(request);
+      if (body.createRunnableManifest) request.demoHelperAction = "Learn / Create Demo & Dry-Run";
       await saveVersion("before-learn");
       const manifest = await readManifest();
       const company = await analyseCompany(body.companyUrl, notesForCompanyAnalysis(body));
@@ -1133,7 +1212,14 @@ const server = http.createServer(async (request, response) => {
       await writeFile(manifestPath, `${JSON.stringify(finalManifest, null, 2)}\n`, "utf8");
       const namedManifestPath = await writeNamedManifestCopy(finalManifest);
       const intelligence = await demoIntelligencePayloadWithCodex(finalManifest, guide);
-      return json(response, { ok: true, manifest: finalManifest, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(finalManifest, guide), namedManifestPath, setupPrompt: setupPromptPayload(finalManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence), runnableManifestCreated: Boolean(body.createRunnableManifest) });
+      const payload = { ok: true, manifest: finalManifest, versions: await listVersions(), company, guide, guideOutputs: guideOutputsPayload(finalManifest, guide), namedManifestPath, setupPrompt: setupPromptPayload(finalManifest, guide), intelligence, preDemoIntelligence: preDemoIntelligenceFromDemoIntelligencePayload(intelligence), runnableManifestCreated: Boolean(body.createRunnableManifest) };
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: "success",
+        input: body,
+        output: payload
+      });
+      return json(response, payload);
     }
 
     if (request.method === "POST" && request.url === "/api/restore") {
@@ -1148,15 +1234,32 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && request.url === "/api/run") {
+      request.demoHelperAction = "Run Demo";
       ensureLiveDemoFunctionalityEnabled();
       const body = await readBody(request);
-      return json(response, await runCommand(body));
+      request.demoHelperAction = `Run ${body.mode || "demo"}`;
+      const payload = await runCommand(body);
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: payload.ok === false ? "failed" : "success",
+        input: body,
+        output: payload
+      });
+      return json(response, payload);
     }
 
     if (request.method === "POST" && request.url === "/api/dataset-analysis") {
+      request.demoHelperAction = "Dataset Analysis";
       ensureLiveDemoFunctionalityEnabled();
       const body = await readBody(request);
-      return json(response, await runDatasetAnalysis(body));
+      const payload = await runDatasetAnalysis(body);
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: payload.ok === false ? "failed" : "success",
+        input: body,
+        output: payload
+      });
+      return json(response, payload);
     }
 
     if (request.method === "POST" && request.url === "/api/dataset-analysis/execute-prompt") {
@@ -1191,6 +1294,9 @@ const server = http.createServer(async (request, response) => {
     response.writeHead(404);
     response.end("Not found");
   } catch (error) {
+    try {
+      await recordFailedDemoSession(request, error);
+    } catch {}
     const status = error.statusCode || error.status || 500;
     json(response, { ok: false, error: error.message }, status);
   }
@@ -1567,6 +1673,383 @@ async function platformRuntimeStatus() {
   };
 }
 
+async function sessionLogListPayload(requestUrl = "/api/session-logs") {
+  const database = await readSessionDatabase();
+  const params = new URL(requestUrl, "http://localhost").searchParams;
+  const search = String(params.get("search") || "").trim().toLowerCase();
+  const audience = String(params.get("audience") || "").trim().toLowerCase();
+  const status = String(params.get("status") || "").trim().toLowerCase();
+  const strategy = String(params.get("strategy") || "").trim().toLowerCase();
+  const sort = String(params.get("sort") || "updated_desc");
+  let sessions = (database.sessions || []).map(sessionSummary);
+
+  if (search) {
+    sessions = sessions.filter((session) => [
+      session.company_name,
+      session.website,
+      session.demo_strategy,
+      session.industry,
+      session.audience_type,
+      session.target_segment,
+      session.session_status
+    ].join(" ").toLowerCase().includes(search));
+  }
+  if (audience) sessions = sessions.filter((session) => String(session.audience_type || "").toLowerCase() === audience);
+  if (status) sessions = sessions.filter((session) => String(session.session_status || "").toLowerCase() === status);
+  if (strategy) sessions = sessions.filter((session) => String(session.demo_strategy || "").toLowerCase() === strategy);
+
+  const byTime = (key) => (left, right) => Date.parse(right[key] || "") - Date.parse(left[key] || "");
+  const byNumber = (key) => (left, right) => Number(right[key] ?? -1) - Number(left[key] ?? -1);
+  sessions.sort(sort === "created_desc"
+    ? byTime("created_at")
+    : sort === "readiness_desc"
+      ? byNumber("demo_readiness_score")
+      : sort === "discovery_desc"
+        ? byNumber("discovery_score")
+        : byTime("updated_at"));
+
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    total: database.sessions.length,
+    filteredTotal: sessions.length,
+    metrics: sessionDatabaseMetrics(database.sessions || []),
+    sessions
+  };
+}
+
+async function sessionLogDetailPayload(sessionId) {
+  const cleanId = cleanSessionId(sessionId);
+  if (!cleanId) throw httpError("Choose a valid session id.", 400);
+  const database = await readSessionDatabase();
+  const session = (database.sessions || []).find((item) => item.session_id === cleanId);
+  if (!session) throw httpError("Session was not found.", 404);
+  return { ok: true, session: sanitizeSessionForAdmin(session) };
+}
+
+async function deleteSessionLog(sessionId) {
+  const cleanId = cleanSessionId(sessionId);
+  if (!cleanId) throw httpError("Choose a valid session id.", 400);
+  const database = await readSessionDatabase();
+  const before = database.sessions.length;
+  database.sessions = database.sessions.filter((session) => session.session_id !== cleanId);
+  if (database.sessions.length === before) throw httpError("Session was not found.", 404);
+  database.updatedAt = new Date().toISOString();
+  await writeSessionDatabase(database);
+  return { ok: true, deleted: cleanId, metrics: sessionDatabaseMetrics(database.sessions) };
+}
+
+async function recordDemoSession(request, details = {}) {
+  if (request.method === "GET" || !isSessionLoggableRequest(request)) return null;
+  const now = new Date().toISOString();
+  const database = await readSessionDatabase();
+  const sessionId = clientSessionIdFromRequest(request) || randomSessionId();
+  const existingIndex = (database.sessions || []).findIndex((session) => session.session_id === sessionId);
+  const existing = existingIndex >= 0 ? database.sessions[existingIndex] : null;
+  const action = String(details.action || request.demoHelperAction || sessionActionLabelForRequest(request)).trim() || "Tool action";
+  const snapshot = await sessionSnapshotFromPayload(request, details);
+  const actionRecord = sanitizeForSessionLog({
+    id: randomBytes(8).toString("hex"),
+    action,
+    status: details.status || "success",
+    created_at: now,
+    duration_ms: details.durationMs ?? null,
+    provider_backbone: snapshot.provider_backbone,
+    input: details.input || request.demoHelperBody || {},
+    output_summary: outputSummary(details.output || {}),
+    error_message: details.error || "",
+    scores: {
+      discovery_score: snapshot.discovery_score,
+      demo_readiness_score: snapshot.demo_readiness_score,
+      risk_score: snapshot.risk_score
+    }
+  });
+  const next = sanitizeForSessionLog({
+    schemaVersion: 1,
+    session_id: sessionId,
+    anonymous_user_id: anonymousUserIdFromRequest(request),
+    created_at: existing?.created_at || now,
+    updated_at: now,
+    environment: buildMetadata.environment,
+    mode: buildMetadata.profile,
+    app_version: buildMetadata.version,
+    browser_user_agent: request.headers["user-agent"] || "",
+    company_name: snapshot.company_name || existing?.company_name || "",
+    website: snapshot.website || existing?.website || "",
+    audience_type: snapshot.audience_type || existing?.audience_type || "",
+    target_segment: snapshot.target_segment || existing?.target_segment || "",
+    industry: snapshot.industry || existing?.industry || "",
+    demo_strategy: snapshot.demo_strategy || existing?.demo_strategy || "",
+    output_language: snapshot.output_language || existing?.output_language || "",
+    narration_voice: snapshot.narration_voice || existing?.narration_voice || "",
+    demo_mode: snapshot.demo_mode || existing?.demo_mode || "",
+    discovery_score: snapshot.discovery_score ?? existing?.discovery_score ?? null,
+    demo_readiness_score: snapshot.demo_readiness_score ?? existing?.demo_readiness_score ?? null,
+    risk_score: snapshot.risk_score ?? existing?.risk_score ?? null,
+    stakeholder_coverage: snapshot.stakeholder_coverage || existing?.stakeholder_coverage || [],
+    identified_gaps: snapshot.identified_gaps || existing?.identified_gaps || [],
+    warnings: snapshot.warnings || existing?.warnings || [],
+    recommendations: snapshot.recommendations || existing?.recommendations || [],
+    winning_moments: snapshot.winning_moments || existing?.winning_moments || [],
+    what_not_to_demo: snapshot.what_not_to_demo || existing?.what_not_to_demo || [],
+    timing_pacing_insights: snapshot.timing_pacing_insights || existing?.timing_pacing_insights || {},
+    generation_status: details.status || existing?.generation_status || "success",
+    error_message: details.error || existing?.error_message || "",
+    provider_backbone: snapshot.provider_backbone || existing?.provider_backbone || {},
+    input_context: {
+      ...(existing?.input_context || {}),
+      ...(snapshot.input_context || {})
+    },
+    generated_outputs: {
+      ...(existing?.generated_outputs || {}),
+      ...(snapshot.generated_outputs || {})
+    },
+    actions: [actionRecord, ...(existing?.actions || [])].slice(0, 60)
+  });
+  if (existingIndex >= 0) database.sessions[existingIndex] = next;
+  else database.sessions.unshift(next);
+  database.sessions = database.sessions.slice(0, 250);
+  database.updatedAt = now;
+  await writeSessionDatabase(database);
+  return next;
+}
+
+async function recordFailedDemoSession(request, error) {
+  if (!isSessionLoggableRequest(request)) return null;
+  return recordDemoSession(request, {
+    action: request.demoHelperAction || sessionActionLabelForRequest(request),
+    status: "failed",
+    input: request.demoHelperBody || {},
+    output: {},
+    error: error.message
+  });
+}
+
+async function sessionSnapshotFromPayload(request, details = {}) {
+  const output = details.output || {};
+  const input = details.input || request.demoHelperBody || {};
+  const manifest = output.manifest || input.manifest || {};
+  const context = manifest.context || {};
+  const company = output.company || context.company || {};
+  const intelligence = output.intelligence || input.intelligence || {};
+  const preDemo = output.preDemoIntelligence || input.preDemoIntelligence || {};
+  const setupPrompt = output.setupPrompt || {};
+  const guideOutputs = output.guideOutputs || {};
+  const provider = await safeProviderBackboneSnapshot();
+  const risk = intelligence.demo_risk_analyzer || {};
+  const discovery = intelligence.discovery_gap_analyzer || {};
+  const stakeholder = intelligence.stakeholder_coverage_analyzer || {};
+  const winning = intelligence.winning_moment_detection || {};
+  const avoid = intelligence.what_not_to_demo_engine || {};
+  const timing = intelligence.demo_timing_pacing_analyzer || {};
+  return {
+    company_name: company.companyName || company.title || context.company?.companyName || input.companyName || websiteNameSlug(input.companyUrl) || "",
+    website: company.url || context.company?.url || input.companyUrl || "",
+    audience_type: context.audience?.label || context.demoRequest?.audience || input.audience || preDemo.metadata?.audience_type || "",
+    target_segment: context.targetAudience?.label || context.marketSegment?.label || context.demoRequest?.targetAudience || input.marketSegment || preDemo.metadata?.target_segment || "",
+    industry: context.industry?.label || context.demoRequest?.industryLabel || input.industry || preDemo.metadata?.industry || "",
+    demo_strategy: context.demoStrategy?.label || context.demoRequest?.demoStrategyLabel || input.demoStrategy || preDemo.metadata?.demo_strategy || "",
+    output_language: context.outputLanguage?.label || context.demoRequest?.outputLanguage || input.outputLanguage || "",
+    narration_voice: manifest.defaults?.audio?.voice || input.voice || "",
+    demo_mode: context.manifestDemoMode?.label || context.demoRequest?.manifestDemoModeLabel || input.manifestDemoMode || "",
+    discovery_score: numericScore(preDemo.overall_score ?? intelligence.pre_demo_notes_analyzer?.overall_score),
+    demo_readiness_score: numericScore(intelligence.demo_readiness_score),
+    risk_score: numericScore(risk.demo_risk_score),
+    stakeholder_coverage: stakeholder.stakeholder_coverage || [],
+    identified_gaps: discovery.missing_discovery_items || preDemo.missing_discovery_items || [],
+    warnings: risk.warnings || [],
+    recommendations: uniqueItems([...(risk.recommendations || []), ...(preDemo.recommendations || [])]).slice(0, 12),
+    winning_moments: winning.winning_moments || [],
+    what_not_to_demo: avoid.avoid_showing || [],
+    timing_pacing_insights: timing,
+    provider_backbone: provider,
+    input_context: sanitizeForSessionLog({
+      companyUrl: input.companyUrl,
+      demoScope: input.demoScope || context.demoScope,
+      competition: input.competition || context.competition,
+      demoRequest: input.topic || context.demoRequest?.topic,
+      preDemoNotes: input.preDemoNotes || context.preDemoNotes,
+      audience: input.audience || context.audience,
+      targetSegment: input.marketSegment || context.targetAudience,
+      industry: input.industry || context.industry,
+      demoStrategy: input.demoStrategy || context.demoStrategy,
+      outputLanguage: input.outputLanguage || context.outputLanguage,
+      inputMode: input.inputMode || context.demoRequest?.inputMode
+    }),
+    generated_outputs: sanitizeForSessionLog({
+      guide: output.guide,
+      scRunbook: guideOutputs.scRunbook,
+      talkTrack: guideOutputs.scRunbook,
+      assetGenerationPrompt: guideOutputs.assetGenerationPrompt,
+      setupPrompt: setupPrompt.prompt,
+      setupPlan: setupPrompt.setupPlan,
+      dryRunCreationPrompt: guideOutputs.dryRunCreationPrompt,
+      manifest: output.manifest,
+      dryRunManifest: output.manifest,
+      intelligence,
+      preDemoIntelligence: preDemo,
+      followUpQuestions: output.questions || preDemo.recommended_follow_up_questions,
+      datasetAnalysis: output.datasetAnalysis || output.analysis || {}
+    })
+  };
+}
+
+function sessionSummary(session = {}) {
+  return {
+    session_id: session.session_id,
+    company_name: session.company_name || "Unknown company",
+    website: session.website || "",
+    audience_type: session.audience_type || "",
+    target_segment: session.target_segment || "",
+    industry: session.industry || "",
+    demo_strategy: session.demo_strategy || "",
+    discovery_score: session.discovery_score,
+    demo_readiness_score: session.demo_readiness_score,
+    risk_score: session.risk_score,
+    generation_timestamp: session.updated_at || session.created_at,
+    created_at: session.created_at,
+    updated_at: session.updated_at,
+    active_ai_provider: session.provider_backbone?.activeProvider?.name || session.provider_backbone?.providerName || "Codex",
+    backbone_status: session.provider_backbone?.runtime?.runtimeStatus || session.provider_backbone?.runtimeStatus || "",
+    session_status: session.generation_status || "unknown",
+    latest_action: session.actions?.[0]?.action || "",
+    action_count: session.actions?.length || 0
+  };
+}
+
+function sessionDatabaseMetrics(sessions = []) {
+  const summaries = sessions.map(sessionSummary);
+  const average = (values) => {
+    const numbers = values.map(Number).filter(Number.isFinite);
+    return numbers.length ? Math.round(numbers.reduce((sum, value) => sum + value, 0) / numbers.length) : null;
+  };
+  return {
+    total_sessions: summaries.length,
+    successful_sessions: summaries.filter((session) => session.session_status === "success").length,
+    failed_sessions: summaries.filter((session) => session.session_status === "failed").length,
+    average_discovery_score: average(summaries.map((session) => session.discovery_score)),
+    average_demo_readiness_score: average(summaries.map((session) => session.demo_readiness_score)),
+    most_recent_at: summaries[0]?.updated_at || ""
+  };
+}
+
+function sanitizeSessionForAdmin(session) {
+  return sanitizeForSessionLog(session);
+}
+
+async function readSessionDatabase() {
+  try {
+    const database = JSON.parse(await readFile(sessionDatabasePath, "utf8"));
+    return {
+      schemaVersion: 1,
+      createdAt: database.createdAt || new Date().toISOString(),
+      updatedAt: database.updatedAt || "",
+      sessions: Array.isArray(database.sessions) ? database.sessions : []
+    };
+  } catch {
+    return { schemaVersion: 1, createdAt: new Date().toISOString(), updatedAt: "", sessions: [] };
+  }
+}
+
+async function writeSessionDatabase(database) {
+  await mkdir(path.dirname(sessionDatabasePath), { recursive: true });
+  await writeFile(sessionDatabasePath, `${JSON.stringify(database, null, 2)}\n`, "utf8");
+}
+
+function isSessionLoggableRequest(request) {
+  const method = request.method || "";
+  const url = String(request.url || "");
+  if (!["POST", "PUT", "PATCH"].includes(method)) return false;
+  return [
+    "/api/learn",
+    "/api/pre-demo-intelligence",
+    "/api/intelligence",
+    "/api/intelligence/follow-up-questions",
+    "/api/intelligence/improve-guide",
+    "/api/intelligence/apply-action",
+    "/api/manifest",
+    "/api/manifest/from-guide",
+    "/api/run",
+    "/api/dataset-analysis"
+  ].some((pathName) => url === pathName);
+}
+
+function sessionActionLabelForRequest(request) {
+  const url = String(request.url || "");
+  const body = request.demoHelperBody || {};
+  if (url === "/api/learn") return body.createRunnableManifest ? "Learn / Create Demo & Dry-Run" : "Learn / Create Demo";
+  if (url === "/api/pre-demo-intelligence") return "Pre-demo scoring";
+  if (url === "/api/intelligence/follow-up-questions") return "Generate Discovery Follow-Up Questions";
+  if (url === "/api/intelligence/improve-guide") return "Apply All Recommendations To Playbook";
+  if (url === "/api/intelligence/apply-action") return "Apply Edited Output To Playbook";
+  if (url === "/api/intelligence") return "Re-analyze Updated Playbook";
+  if (url === "/api/manifest/from-guide") return "Create Dry-Run From Prompt";
+  if (url === "/api/manifest") return "Save Dry-Run";
+  if (url === "/api/run") return `Run ${body.mode || "demo"}`;
+  if (url === "/api/dataset-analysis") return "Dataset Analysis";
+  return "Tool action";
+}
+
+function clientSessionIdFromRequest(request) {
+  return cleanSessionId(request.headers["x-demo-helper-session-id"] || request.demoHelperBody?.clientSessionId);
+}
+
+function anonymousUserIdFromRequest(request) {
+  return cleanSessionId(request.headers["x-demo-helper-anonymous-user-id"] || request.demoHelperBody?.anonymousUserId);
+}
+
+function cleanSessionId(value) {
+  return String(value || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 96);
+}
+
+function randomSessionId() {
+  return `session_${randomBytes(10).toString("hex")}`;
+}
+
+async function safeProviderBackboneSnapshot() {
+  try {
+    const status = await platformRuntimeStatus();
+    return sanitizeForSessionLog({
+      activeProvider: status.activeProvider,
+      runtime: status.runtime,
+      activeKnowledgeSourceCount: status.activeKnowledgeSourceCount
+    });
+  } catch (error) {
+    return { providerName: "Unknown", runtimeStatus: "Unknown", error: error.message };
+  }
+}
+
+function outputSummary(output = {}) {
+  const intelligence = output.intelligence || {};
+  const preDemo = output.preDemoIntelligence || {};
+  return sanitizeForSessionLog({
+    hasGuide: Boolean(output.guide || output.guideOutputs?.scRunbook),
+    hasPptPrompt: Boolean(output.guideOutputs?.assetGenerationPrompt),
+    hasSetupPrompt: Boolean(output.setupPrompt?.prompt),
+    hasDryRunManifest: Boolean(output.manifest?.segments?.length),
+    hasIntelligence: Boolean(intelligence.demo_readiness_score || intelligence.demo_risk_analyzer),
+    hasPreDemoIntelligence: Boolean(preDemo.overall_score || preDemo.missing_discovery_items),
+    demoReadinessScore: intelligence.demo_readiness_score,
+    discoveryScore: preDemo.overall_score,
+    riskScore: intelligence.demo_risk_analyzer?.demo_risk_score
+  });
+}
+
+function numericScore(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : null;
+}
+
+function sanitizeForSessionLog(value) {
+  if (Array.isArray(value)) return value.map(sanitizeForSessionLog);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value)
+      .filter(([key]) => !/(password|api.?key|secret|token|credential|authorization|cookie)/i.test(key))
+      .map(([key, item]) => [key, sanitizeForSessionLog(item)]));
+  }
+  return value;
+}
+
 async function readTenantConfig() {
   try {
     return normalizeTenantConfig(JSON.parse(await readFile(tenantConfigPath, "utf8")), new Date().toISOString(), { profile: appProfile });
@@ -1824,40 +2307,40 @@ function buttonInstructionCatalog() {
   };
   const guideActionPayload = {
     mode: "executive",
-    instruction: "Editable output from the AI action preview. This text is applied to the SC guide only when the user clicks Apply Edited Output To SC Guide."
+    instruction: "Editable output from the AI action preview. This text is applied to the playbook only when the user clicks Apply Edited Output To Playbook."
   };
   const buttons = [
-    buttonInstruction("pre-demo-scoring", "Pre-demo scoring", "Prep", "POST", "/api/pre-demo-intelligence", prepPayload, "Runs a Codex pre-demo operator to score only the pre-demo input quality. This is where the company website is scanned once and stored for reuse.", true),
-    buttonInstruction("learn-create-demo", "Learn / Create Demo", "Prep", "POST", "/api/learn", { ...prepPayload, createRunnableManifest: false }, "Runs the Codex prep operator, generates the SC guide, generates Demo Intelligence once, then derives Pre-Demo Intelligence from that result.", true),
-    buttonInstruction("learn-create-demo-dry-run", "Learn / Create Demo & Dry-Run", "Prep", "POST", "/api/learn", { ...prepPayload, createRunnableManifest: true }, "Same as Learn / Create Demo, plus creates the dry-run creation prompt and builds the runnable manifest from that prompt. The browser dry-run is then started through /api/run.", true, [
+    buttonInstruction("pre-demo-scoring", "Pre-demo scoring", "Discovery & Prep", "POST", "/api/pre-demo-intelligence", prepPayload, "Runs a Codex pre-demo operator to score only the pre-demo input quality. This is where the company website is scanned once and stored for reuse.", true),
+    buttonInstruction("learn-create-demo", "Learn / Create Demo", "Discovery & Prep", "POST", "/api/learn", { ...prepPayload, createRunnableManifest: false }, "Runs the Codex prep operator, generates the playbook, generates Demo Intelligence once, then derives Pre-Demo Intelligence from that result.", true),
+    buttonInstruction("learn-create-demo-dry-run", "Learn / Create Demo & Dry-Run", "Discovery & Prep", "POST", "/api/learn", { ...prepPayload, createRunnableManifest: true }, "Same as Learn / Create Demo, plus creates the dry-run creation prompt and builds the runnable manifest from that prompt. The browser dry-run is then started through /api/run.", true, [
       { method: "POST", endpoint: "/api/run", body: { ...runPayload, mode: "browser-dry-run" } }
     ]),
-    buttonInstruction("reload-workspace", "Reload", "Prep", "GET", "/api/manifest", null, "Reloads the saved manifest, SC guide, setup prompt, Demo Intelligence, and derived Pre-Demo Intelligence.", true, [
+    buttonInstruction("reload-workspace", "Reload", "Discovery & Prep", "GET", "/api/manifest", null, "Reloads the saved manifest, playbook, setup prompt, Demo Intelligence, and derived Pre-Demo Intelligence.", true, [
       { method: "GET", endpoint: "/api/sc-guide", body: null },
       { method: "GET", endpoint: "/api/setup-prompt", body: null }
     ]),
-    buttonInstruction("play-sample-voice", "Play Sample", "Prep", "POST", "/api/voice-sample", {
+    buttonInstruction("play-sample-voice", "Play Sample", "Discovery & Prep", "POST", "/api/voice-sample", {
       voice: "Samantha",
       voiceProvider: "say",
       voiceApiKey: "",
       line: "Let's show how NetSuite gives finance teams a clearer view of performance and the decisions behind it."
     }, "Plays a short sample through the selected narration provider.", false),
-    buttonInstruction("voice-provider-change", "Narration engine / Voice refresh", "Prep", "POST", "/api/voices", {
+    buttonInstruction("voice-provider-change", "Narration engine / Voice refresh", "Discovery & Prep", "POST", "/api/voices", {
       provider: "elevenlabs",
       apiKey: "session-only-api-key-if-cloud-provider-is-selected"
     }, "Loads available voices for the selected narration provider. API keys are session-only and are not saved in the manifest.", false),
     buttonInstruction("codex-backbone-status", "Codex active / Backbone check", "Header", "GET", "/api/codex/status", null, "Checks whether the local Codex runtime is available.", false),
     buttonInstruction("stop-codex-action", "Stop Codex Action", "Header", "POST", "/api/codex/stop", {}, "Requests cancellation of the currently running Codex background action.", false),
-    buttonInstruction("export-guide-word", "Export To Word", "SC Guide", "POST", "/api/export-guide-docx", {}, "Exports the current SC guide as a Word document.", false),
-    buttonInstruction("execute-setup-prompt", "Execute Now", "SC Guide", "POST", "/api/execute-setup-prompt", {
+    buttonInstruction("export-guide-word", "Export To Word", "Playbook", "POST", "/api/export-guide-docx", {}, "Exports the current playbook as a Word document.", false),
+    buttonInstruction("execute-setup-prompt", "Execute Now", "Playbook", "POST", "/api/execute-setup-prompt", {
       confirmed: true,
       account: "td2963620"
     }, "After user confirmation, prepares the Codex handoff for NetSuite account setup.", true),
     buttonInstruction("save-dry-run-manifest", "Save Manifest", "Dry-Run", "POST", "/api/manifest", {
       manifest: "{\\n  \"name\": \"Edited manifest JSON from the editor\"\\n}"
     }, "Saves the edited manifest JSON and refreshes the guide/setup/intelligence payloads.", true),
-    buttonInstruction("create-dry-run-from-prompt", "Create Dry-Run From Prompt", "Dry-Run", "POST", "/api/manifest/from-guide", {}, "Builds the runnable dry-run manifest from the SC Guide tab's Dry-run creation prompt, then refreshes Demo Intelligence once and derives Pre-Demo Intelligence.", true),
-    buttonInstruction("refresh-dry-run-creation-prompt", "Recreate Dry-Run Creation Prompt", "SC Guide / Run", "POST", "/api/dry-run-prompt/refresh", {}, "Refreshes the Dry-run creation prompt timestamp and hash from the latest SC guide without running full Codex Intelligence.", false),
+    buttonInstruction("create-dry-run-from-prompt", "Create Dry-Run From Prompt", "Dry-Run", "POST", "/api/manifest/from-guide", {}, "Builds the runnable dry-run manifest from the Playbook tab's Dry-run creation prompt, then refreshes Demo Intelligence once and derives Pre-Demo Intelligence.", true),
+    buttonInstruction("refresh-dry-run-creation-prompt", "Recreate Dry-Run Creation Prompt", "Playbook / Run", "POST", "/api/dry-run-prompt/refresh", {}, "Refreshes the Dry-run creation prompt timestamp and hash from the latest playbook without running full Codex Intelligence.", false),
     buttonInstruction("reload-manifest", "Reload Manifest", "Dry-Run", "GET", "/api/manifest", null, "Reloads the saved dry-run manifest and associated generated outputs.", true),
     buttonInstruction("restore-version", "Restore Selected", "Dry-Run", "POST", "/api/restore", {
       file: "2026-05-19T00-00-00-000Z-aircharterservice-before-learn.json"
@@ -1869,14 +2352,14 @@ function buttonInstructionCatalog() {
       confirmed: true,
       account: "td2963620"
     }, "After user confirmation, copies the dataset setup prompt, opens NetSuite and Codex, and prepares the Codex handoff. Codex must verify front-end and back-end NetSuite access before write actions.", true),
-    buttonInstruction("reanalyze-updated-guide", "Re-analyze Updated Guide", "Demo Intelligence", "POST", "/api/intelligence", prepPayload, "Runs full Codex-backed Demo Intelligence from the current Prep fields, reusing the saved Pre-Demo website context instead of scanning the website again.", true),
+    buttonInstruction("reanalyze-updated-guide", "Re-analyze Updated Playbook", "Demo Intelligence", "POST", "/api/intelligence", prepPayload, "Runs full Codex-backed Demo Intelligence from the current Discovery & Prep fields, reusing the saved Pre-Demo website context instead of scanning the website again.", true),
     buttonInstruction("generate-discovery-followups", "Generate Discovery Follow-Up Questions", "Demo Intelligence / Pre-Demo Intelligence", "POST", "/api/intelligence/follow-up-questions", {
       ...prepPayload,
       additionalComments: "Optional SC comments to steer the discovery questions."
-    }, "Runs a Codex discovery operator. Output is for discovery only and is not applied to the SC guide.", true),
-    buttonInstruction("apply-all-recommendations", "Apply All Recommendations To SC Guide", "Demo Intelligence", "POST", "/api/intelligence/improve-guide", {}, "Runs Codex to rewrite the SC guide using visible intelligence recommendations, then refreshes Demo Intelligence and derived Pre-Demo Intelligence.", true),
-    buttonInstruction("apply-edited-ai-output", "Apply Edited Output To SC Guide", "Demo Intelligence", "POST", "/api/intelligence/apply-action", guideActionPayload, "Applies the editable AI action output to the SC guide. Shorten, executive, technical, and custom preview buttons are local until this button is clicked.", true),
-    buttonInstruction("refresh-pre-demo-scoring", "Refresh Pre-Demo Scoring", "Pre-Demo Intelligence", "POST", "/api/pre-demo-intelligence", prepPayload, "Runs the Codex pre-demo operator again for the current Prep inputs. If the same website was already scanned, it reuses that website context and refreshes the notes comparison.", true),
+    }, "Runs a Codex discovery operator. Output is for discovery only and is not applied to the playbook.", true),
+    buttonInstruction("apply-all-recommendations", "Apply All Recommendations To Playbook", "Demo Intelligence", "POST", "/api/intelligence/improve-guide", {}, "Runs Codex to rewrite the playbook using visible intelligence recommendations, then refreshes Demo Intelligence and derived Pre-Demo Intelligence.", true),
+    buttonInstruction("apply-edited-ai-output", "Apply Edited Output To Playbook", "Demo Intelligence", "POST", "/api/intelligence/apply-action", guideActionPayload, "Applies the editable AI action output to the playbook. Shorten, executive, technical, and custom preview buttons are local until this button is clicked.", true),
+    buttonInstruction("refresh-pre-demo-scoring", "Refresh Pre-Demo Scoring", "Pre-Demo Intelligence", "POST", "/api/pre-demo-intelligence", prepPayload, "Runs the Codex pre-demo operator again for the current Discovery & Prep inputs. If the same website was already scanned, it reuses that website context and refreshes the notes comparison.", true),
     buttonInstruction("export-discovery-followups", "Export Follow-Up Questions To Word", "Pre-Demo Intelligence", "POST", "/api/export-follow-up-questions-docx", {
       ...prepPayload,
       additionalComments: "Optional SC comments included in the export.",
@@ -1895,6 +2378,7 @@ function buttonInstructionCatalog() {
     }, "Starts a local Admin session with an http-only same-site cookie.", false),
     buttonInstruction("cms-logout", "Logout", "Admin", "POST", "/api/cms/logout", {}, "Clears the Admin session cookie.", false),
     buttonInstruction("cms-reload", "Reload CMS", "Admin", "GET", "/api/cms", null, "Reloads editable CMS content blocks and version history.", false),
+    buttonInstruction("session-database", "Reload Sessions", "Admin", "GET", "/api/session-logs", null, "Loads the protected Demo Prep Database for admin review of saved sessions, scores, selected options, and generated outputs.", false),
     buttonInstruction("cms-save-content-block", "Save Content Block", "Admin", "POST", "/api/cms/save", {
       blockId: "preDemoIntelligenceGuidance",
       rawValue: "Updated text or JSON string for the selected content block.",
@@ -2121,7 +2605,7 @@ function defaultCmsContent() {
     blocks: {
       defaultScInstructions: cmsTextBlock("Default SC Instructions", "The baseline guidance pre-filled into the Prep screen.", defaultScInstructions(), now),
       helperIntro: cmsTextBlock("How The Helper Works Intro", "The short explanation shown on the Prep page.", helperIntroText(), now),
-      featureFlags: cmsJsonBlock("Feature Flags", "Admin-controlled app capabilities. Switch live demo functionality off to focus the app on prep, SC guide, and intelligence only.", { liveDemoFunctionality: true }, now),
+      featureFlags: cmsJsonBlock("Feature Flags", "Admin-controlled app capabilities. Live demo functionality starts off so users focus on planning, playbooks, and intelligence before enabling browser automation.", { liveDemoFunctionality: false }, now),
       helperSteps: cmsJsonBlock("How The Helper Works Steps", "The explanation steps shown on the Prep page.", helperSteps(), now),
       additionalDemoSources: cmsJsonBlock("Additional Sources / Demo Logic", "Add internal playbooks, source notes, reusable rules, and generation logic the helper should consider when creating demos.", defaultAdditionalDemoSources(), now),
       preDemoIntelligenceGuidance: cmsTextBlock("Pre-Demo Intelligence Guidance", "Editable rules sent to Codex for scoring pre-demo notes and discovery quality.", defaultPreDemoIntelligenceGuidance(), now),
@@ -2231,7 +2715,7 @@ function applyCmsContentToRuntime(content) {
   const blocks = content.blocks || {};
   defaultScInstructionsOverride = String(blocks.defaultScInstructions?.value || "").trim();
   helperIntroOverride = String(blocks.helperIntro?.value || "").trim();
-  liveDemoFunctionalityEnabled = blocks.featureFlags?.value?.liveDemoFunctionality !== false;
+  liveDemoFunctionalityEnabled = blocks.featureFlags?.value?.liveDemoFunctionality === true;
   helperStepsOverride = Array.isArray(blocks.helperSteps?.value) ? structuredClone(blocks.helperSteps.value) : null;
   additionalDemoSources = Array.isArray(blocks.additionalDemoSources?.value) ? structuredClone(blocks.additionalDemoSources.value) : [];
   preDemoIntelligenceGuidanceOverride = String(blocks.preDemoIntelligenceGuidance?.value || "").trim();
@@ -2411,7 +2895,9 @@ async function readManifest() {
 async function readBody(request) {
   let raw = "";
   for await (const chunk of request) raw += chunk;
-  return raw ? JSON.parse(raw) : {};
+  const parsed = raw ? JSON.parse(raw) : {};
+  request.demoHelperBody = parsed;
+  return parsed;
 }
 
 async function saveVersion(label) {
@@ -2516,9 +3002,9 @@ function helperSteps() {
     { title: "1. Brief", body: "Add the company site, demo request, discovery notes, and SC instructions." },
     { title: "2. Shape", body: "Choose audience type, target segment, strategy, industry, language, and story mode." },
     { title: "3. Learn", body: "Codex reviews the context and infers likely ERP priorities and demo pressure points." },
-    { title: "4. Generate", body: "Codex authors the SC guide; the helper turns it into an editable manifest with navigation, narration, proof points, and safe actions." },
+    { title: "4. Generate", body: "Codex authors the demo playbook; the helper turns it into an editable manifest with navigation, narration, proof points, and safe actions." },
     { title: "5. Check", body: "Codex reviews the guide and manifest; the Intelligence tab structures the risks, gaps, pacing, stakeholders, and winning moments." },
-    { title: "6. Coach", body: "The SC guide gives the demo story, talk track, setup prompt, and asset prompt." },
+    { title: "6. Coach", body: "The playbook gives the demo story, talk track, setup prompt, and asset prompt." },
     { title: "7. Rehearse", body: "Rehearsal checks routes, buffers account prep, captures timing, and warms the flow." },
     { title: "8. Run", body: "The live demo drives NetSuite and narrates with the selected voice engine." }
   ];
@@ -2714,7 +3200,7 @@ function guideBodyFromManifest(manifest) {
 async function exportScGuideDocx() {
   const manifest = await readManifest();
   const guide = await readOrGenerateScGuide(manifest);
-  if (!guide.trim()) throw new Error("Create an SC guide before exporting to Word.");
+  if (!guide.trim()) throw new Error("Create a playbook before exporting to Word.");
   const fileName = `${companyFileSlug(manifest)}-sc-demo-guide.docx`;
   const result = await writeMarkdownDocx(guide, fileName);
   return {
@@ -4134,7 +4620,7 @@ async function writeScGuide(manifest, body, company) {
   const localDraft = generateScGuide(manifest, body, company);
   const codexGuide = await codexScGuideOperator(manifest, body, company, localDraft);
   if (!codexGuide.ok) {
-    throw new Error(`Codex SC guide operator failed: ${codexGuide.error || "No output returned"}`);
+    throw new Error(`Codex playbook operator failed: ${codexGuide.error || "No output returned"}`);
   }
   const guide = normalizeCodexScGuide(codexGuide.output, localDraft, codexGuide);
   await mkdir(path.dirname(scGuidePath), { recursive: true });
@@ -4151,11 +4637,11 @@ async function writeImprovedScGuide(manifest, guide, intelligence) {
   const codexGuide = await codexScGuideRevisionOperator(manifest, guide, intelligence, {
     mode: "apply_all_recommendations",
     label: "Apply All Intelligence Recommendations",
-    instruction: "Rewrite the SC guide by applying the dashboard's recommendations in one pass. Preserve useful story detail, sharpen the highest-risk areas, and keep the result practical for an SC.",
+    instruction: "Rewrite the playbook by applying the dashboard's recommendations in one pass. Preserve useful story detail, sharpen the highest-risk areas, and keep the result practical for an SC.",
     localDraft
   });
   if (!codexGuide.ok) {
-    throw new Error(`Codex SC guide improvement failed: ${codexGuide.error || "No output returned"}`);
+    throw new Error(`Codex playbook improvement failed: ${codexGuide.error || "No output returned"}`);
   }
   const improved = normalizeCodexScGuide(codexGuide.output, localDraft, codexGuide);
   await mkdir(path.dirname(scGuidePath), { recursive: true });
@@ -4176,7 +4662,7 @@ async function writeActionScGuide(manifest, guide, intelligence, body = {}) {
     localDraft
   });
   if (!codexGuide.ok) {
-    throw new Error(`Codex SC guide action failed: ${codexGuide.error || "No output returned"}`);
+    throw new Error(`Codex playbook action failed: ${codexGuide.error || "No output returned"}`);
   }
   const updated = normalizeCodexScGuide(codexGuide.output, localDraft, codexGuide);
   await mkdir(path.dirname(scGuidePath), { recursive: true });
@@ -4195,8 +4681,8 @@ function aiActionLabel(mode) {
     compress: "Shorten Demo",
     executive: "Generate Executive Demo",
     technical: "Generate Tech-Audience Demo",
-    custom: "Custom Additional SC Guide Instruction"
-  }[mode] || "Custom Additional SC Guide Instruction";
+    custom: "Custom Additional Playbook Instruction"
+  }[mode] || "Custom Additional Playbook Instruction";
 }
 
 function applyIntelligenceActionToGuide(guide, intelligence, body = {}) {
@@ -4320,7 +4806,7 @@ function improveScGuideWithIntelligence(guide, intelligence) {
 
 ${questions}
 
-### SC Guide Improvements
+### Playbook Improvements
 
 ${[
   ...(risk.recommendations || []).slice(0, 5),
@@ -4985,7 +5471,7 @@ function refreshDryRunPromptMetadata(manifest, guide = "", options = {}) {
     source: info.source,
     promptHash: info.promptHash,
     status: "ready",
-    instruction: "This timestamp confirms when the SC Guide tab's dry-run creation prompt was last prepared for manifest generation."
+    instruction: "This timestamp confirms when the Playbook tab's dry-run creation prompt was last prepared for manifest generation."
   };
   return next;
 }
@@ -4999,8 +5485,8 @@ function markManifestGuideOnly(manifest, guide = "") {
     createdFromGuide: false,
     updatedAt: new Date().toISOString(),
     instruction: liveDemoFunctionalityEnabled
-      ? "The SC guide and dry-run creation prompt have been generated. Create the runnable manifest from that prompt before relying on the Dry-Run tab or browser rehearsal."
-      : "Live demo functionality is switched off. The SC guide and intelligence outputs are ready; no dry-run creation prompt or runnable manifest is generated."
+      ? "The playbook and dry-run creation prompt have been generated. Create the runnable manifest from that prompt before relying on the Dry-Run tab or browser rehearsal."
+      : "Live demo functionality is switched off. The playbook and intelligence outputs are ready; no dry-run creation prompt or runnable manifest is generated."
   };
   return next;
 }
@@ -5039,7 +5525,7 @@ function applyDryRunCreationPromptToRunnableManifest(manifest, guide, options = 
     dryRunPromptCreatedAt: next.context.dryRunCreationPrompt?.createdAt || "",
     runSource: options.runSource || "manual",
     updatedAt: new Date().toISOString(),
-    instruction: "This manifest was refreshed from the SC Guide tab's dry-run creation prompt and is ready for browser dry-run or rehearsal."
+    instruction: "This manifest was refreshed from the Playbook tab's dry-run creation prompt and is ready for browser dry-run or rehearsal."
   };
   return next;
 }
@@ -7803,7 +8289,7 @@ async function codexRuntimeStatus() {
       command,
       version: version.trim() || "Codex detected",
       mode: "background-operator",
-      message: "Codex is detected and available for prep, SC guide, Intelligence, and AI actions."
+      message: "Codex is detected and available for Discovery & Prep, Playbook, Intelligence, and AI actions."
     };
   } catch (error) {
     return {
@@ -8549,8 +9035,16 @@ async function sendFile(response, filePath, contentType) {
     });
     response.end(data);
   } catch {
-    json(response, { ok: false, error: "Export the SC guide to Word first." }, 404);
+    json(response, { ok: false, error: "Export the playbook to Word first." }, 404);
   }
+}
+
+function downloadJson(response, fileName, payload) {
+  response.writeHead(200, {
+    "content-type": "application/json",
+    "content-disposition": `attachment; filename="${String(fileName || "session.json").replace(/"/g, "")}"`
+  });
+  response.end(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
 async function sendStaticAsset(response, filePath, contentType) {
@@ -10038,6 +10532,9 @@ function html(response) {
     .profile-mvp [data-whitelabel-only] {
       display: none !important;
     }
+    .profile-whitelabel [data-mvp-only] {
+      display: none !important;
+    }
     #aiProviderEditor,
     #knowledgeSourceEditor,
     #tenantConfigEditor {
@@ -10088,6 +10585,115 @@ function html(response) {
       color: var(--muted);
       font-size: 12px;
     }
+    .session-controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(150px, .7fr)) auto;
+      gap: 10px;
+      align-items: end;
+      margin: 12px 0;
+    }
+    .session-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .session-metric-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfd;
+      padding: 10px;
+    }
+    body.night .session-metric-card { background: #0b1218; }
+    .session-metric-card strong,
+    .session-metric-card span {
+      display: block;
+    }
+    .session-metric-card strong {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .session-metric-card span {
+      font-size: 22px;
+      font-weight: 850;
+      color: var(--accent-dark);
+    }
+    .session-table {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: auto;
+      background: #fff;
+      max-height: 380px;
+    }
+    body.night .session-table { background: #0f1821; }
+    .session-row {
+      display: grid;
+      grid-template-columns: minmax(190px, 1.4fr) minmax(120px, .65fr) minmax(120px, .65fr) minmax(130px, .7fr) minmax(150px, .9fr) repeat(2, 72px) minmax(120px, .75fr) minmax(86px, .55fr) minmax(120px, .7fr);
+      gap: 10px;
+      align-items: center;
+      min-width: 1180px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+    }
+    .session-row:last-child { border-bottom: 0; }
+    .session-row.header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f4f7fa;
+      color: var(--muted);
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+    body.night .session-row.header { background: #101820; }
+    .session-row button {
+      padding: 6px 9px;
+      font-size: 12px;
+      width: fit-content;
+    }
+    .session-detail {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 14px;
+      background: #fbfcfd;
+    }
+    body.night .session-detail { background: #0b1218; }
+    .session-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+      gap: 10px;
+      margin: 10px 0;
+    }
+    .session-detail-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 10px;
+    }
+    body.night .session-detail-card { background: #0f1821; }
+    .session-detail-card strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--accent-dark);
+    }
+    .session-json {
+      min-height: 260px;
+      max-height: 520px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 12px;
+    }
+    body.night .session-json { background: #0f1821; }
     .tabs {
       display: flex;
       gap: 8px;
@@ -10924,6 +11530,7 @@ function html(response) {
       }
       .field-grid { grid-template-columns: 1fr; }
       .scope-grid { grid-template-columns: 1fr; }
+      .session-controls { grid-template-columns: 1fr; }
       .intelligence-overview-grid,
       .intel-summary,
       .priority-intelligence-grid,
@@ -10977,11 +11584,11 @@ function html(response) {
       </div>
     </header>
   <nav class="tabs" aria-label="Workspace screens">
-    <button class="tab active" data-tab="prep" data-help="Enter the customer website, audience, scope, demo request, pre-demo notes, narration voice, and generator instructions before creating anything.">Prep</button>
-    <button class="tab" data-tab="guide" data-help="Review the Codex-created SC story, setup prompt, asset prompt, and Dry-run creation prompt. Export the SC guide to Word from here.">SC Guide</button>
+    <button class="tab active" data-tab="prep" data-help="Enter customer context, discovery notes, scope, audience, and planning inputs before creating anything.">Discovery & Prep</button>
+    <button class="tab" data-tab="guide" data-help="Review the Codex-created demo story, talk track, setup prompt, asset prompt, and Dry-run creation prompt. Export the playbook to Word from here.">Playbook</button>
     <button class="tab" data-tab="pre-demo-intelligence" data-help="Check whether the pre-demo notes are strong enough. This page scores discovery quality, shows missing context, generates follow-up questions, and exports them to Word.">Pre-Demo Intelligence</button>
-    <button class="tab" data-tab="intelligence" data-help="Review the generated demo and SC guide for risks, pacing, stakeholder coverage, winning moments, and suggested improvements.">Demo Intelligence</button>
-    <button class="tab" data-tab="manifest" data-live-demo-only data-help="Review or edit the runnable dry-run manifest created from the SC Guide tab's Dry-run creation prompt.">Dry-Run</button>
+    <button class="tab" data-tab="intelligence" data-help="Review the generated demo and playbook for risks, pacing, stakeholder coverage, winning moments, and suggested improvements.">Demo Intelligence</button>
+    <button class="tab" data-tab="manifest" data-live-demo-only data-help="Review or edit the runnable dry-run manifest created from the Playbook tab's Dry-run creation prompt.">Dry-Run</button>
     <button class="tab" data-tab="dataset" data-live-demo-only data-help="Run the dry-run through the browser and score whether the NetSuite dataset, permissions, and demo setup are ready.">Dataset Analysis</button>
     <button class="tab" data-tab="run" data-live-demo-only data-help="Prepare NetSuite, buffer the dry-run, run the narrated live demo, or stop an active browser automation.">Run</button>
     <button class="tab" data-tab="admin" data-help="Edit shared helper guidance, demo logic sources, labels, playbooks, and versioned CMS content.">Admin</button>
@@ -10990,7 +11597,7 @@ function html(response) {
     <section class="screen active" id="screen-prep">
       ${appProfile === "whitelabel" ? "" : `<div class="mvp-heads-up">
         <strong>Prepare the story before the screen share starts.</strong>
-        <p>Use the customer notes, website context, scope, and audience selections to create the SC guide, score discovery quality, and surface the demo risks before moving into runbook or dry-run work.</p>
+        <p>Use the customer notes, website context, scope, and audience selections to create the playbook, score discovery quality, and surface the demo risks before moving into runbook or dry-run work.</p>
         <div class="heads-up-meta" aria-label="Current preparation checkpoints">
           <span>Codex-backed generation</span>
           <span>Session saved locally</span>
@@ -11138,12 +11745,12 @@ function html(response) {
 
         <div class="panel prep-actions">
           <div class="row">
-            <button class="secondary" id="preDemoScoring" data-help="Scores only the current pre-demo inputs so the SC can see discovery gaps before creating the SC guide or demo.">Pre-demo scoring</button>
-            <button id="learn" data-help="Uses Codex to analyze the Prep inputs, create the SC guide, and populate both intelligence pages. It does not start a browser dry-run.">Learn / Create Demo</button>
-            <button id="learnDryRun" data-live-demo-only data-help="Uses Codex to create the SC guide, creates the Dry-run creation prompt, builds the runnable dry-run manifest from that prompt, and starts the browser dry-run.">Learn / Create Demo & Dry-Run</button>
-            <button class="secondary" id="reload" data-help="Reloads the latest saved manifest, SC guide, setup prompt, and intelligence outputs without generating anything new.">Reload</button>
+              <button class="secondary" id="preDemoScoring" data-help="Scores only the current pre-demo inputs so the SC can see discovery gaps before creating the playbook or demo.">Pre-demo scoring</button>
+            <button id="learn" data-help="Uses Codex to analyze the Discovery & Prep inputs, create the playbook, and populate both intelligence pages. It does not start a browser dry-run.">Learn / Create Demo</button>
+            <button id="learnDryRun" data-live-demo-only data-help="Uses Codex to create the playbook, creates the Dry-run creation prompt, builds the runnable dry-run manifest from that prompt, and starts the browser dry-run.">Learn / Create Demo & Dry-Run</button>
+            <button class="secondary" id="reload" data-help="Reloads the latest saved manifest, playbook, setup prompt, and intelligence outputs without generating anything new.">Reload</button>
           </div>
-          <p class="hint">Pre-demo scoring checks the notes first. Learn / Create Demo uses Codex to create the SC guide and both intelligence views. <span data-live-demo-only>Learn / Create Demo & Dry-Run also builds the runnable manifest from the Dry-run creation prompt and opens the browser dry-run, so it is more time consuming.</span></p>
+          <p class="hint">Pre-demo scoring checks the notes first. Learn / Create Demo uses Codex to create the playbook and both intelligence views. <span data-live-demo-only>Learn / Create Demo & Dry-Run also builds the runnable manifest from the Dry-run creation prompt and opens the browser dry-run, so it is more time consuming.</span></p>
         </div>
 
         <div class="panel full prep-how">
@@ -11161,7 +11768,7 @@ function html(response) {
       <div class="page-load-bar"><span class="page-load-info" data-page-loaded="manifest">Last loaded: not yet</span></div>
       <div class="row">
         <button id="save" data-help="Saves the JSON currently shown in the dry-run manifest editor.">Save Manifest</button>
-        <button class="secondary" id="createManifestFromGuide" data-help="Creates or refreshes the runnable dry-run manifest from the Dry-run creation prompt on the SC Guide page.">Create Dry-Run From Prompt</button>
+        <button class="secondary" id="createManifestFromGuide" data-help="Creates or refreshes the runnable dry-run manifest from the Dry-run creation prompt on the Playbook page.">Create Dry-Run From Prompt</button>
         <button class="secondary" id="reloadManifest" data-help="Reloads the saved dry-run manifest from disk and discards unsaved editor changes.">Reload Manifest</button>
       </div>
       <label for="manifestEditor">Editable manifest</label>
@@ -11178,11 +11785,11 @@ function html(response) {
     <section class="screen" id="screen-guide">
       <div class="page-load-bar"><span class="page-load-info" data-page-loaded="guide">Last loaded: not yet</span></div>
       <div class="row">
-        <button id="exportGuide" data-help="Creates a Word document version of the SC guide and downloads it.">Export To Word</button>
+        <button id="exportGuide" data-help="Creates a Word document version of the playbook and downloads it.">Export To Word</button>
       </div>
       <div class="guide-outputs">
         <div>
-          <label for="scRunbook">Personalized SC story and runbook</label>
+          <label for="scRunbook">Personalized demo story and runbook</label>
           <p class="hint" id="scRunbookSource">Source will appear after the guide loads.</p>
           <textarea id="scRunbook" spellcheck="false" readonly></textarea>
         </div>
@@ -11195,7 +11802,7 @@ function html(response) {
       <textarea id="scGuide" spellcheck="false" readonly hidden></textarea>
       <div class="band">
         <h2>NetSuite Customization / Setup Prompt</h2>
-        <p class="hint">Generated after the Personalized SC story and runbook is available, so account setup follows the finished demo story instead of driving it.</p>
+        <p class="hint">Generated after the personalized demo story and runbook is available, so account setup follows the finished demo story instead of driving it.</p>
         <p class="hint" id="setupAccountSummary">Target account will appear after a demo is generated.</p>
         <p class="hint" id="setupItemSummary">Setup items will appear here when the helper detects data or configuration that may need to be created.</p>
         <p class="hint" id="setupPromptSource">Source will appear after the setup prompt loads.</p>
@@ -11279,17 +11886,17 @@ function html(response) {
               <p class="hint">Use these after reviewing the Intelligence Areas. Guide actions can be edited before they are applied.</p>
             </div>
             <div class="ai-actions-buttons">
-              <button class="secondary" id="createFollowUps" data-ai-action-button data-help="Uses Codex to create discovery follow-up questions from the website context, Prep notes, scope, SC guide, and current Intelligence. The questions also appear on Pre-Demo Intelligence.">Generate Discovery Follow-Up Questions</button>
+              <button class="secondary" id="createFollowUps" data-ai-action-button data-help="Uses Codex to create discovery follow-up questions from the website context, Discovery & Prep notes, scope, playbook, and current Intelligence. The questions also appear on Pre-Demo Intelligence.">Generate Discovery Follow-Up Questions</button>
               <button class="secondary" id="compressDemo" data-ai-action-button data-help="Creates an editable shorter version of the demo based on timing risk, weak sections, and the strongest proof moments.">Shorten Demo</button>
               <button class="secondary" id="generateExecutiveVersion" data-ai-action-button data-help="Creates an editable executive-facing demo version with fewer clicks, clearer business outcomes, and stronger leadership framing.">Generate Executive Demo</button>
               <button class="secondary" id="rebuildTechnicalAudience" data-ai-action-button data-help="Creates an editable technical-audience demo version focused on security, integrations, permissions, data flow, and admin validation points.">Generate Tech-Audience Demo</button>
-              <button class="secondary" id="improveGuideFromIntel" data-ai-action-button data-help="Uses Codex to apply all visible Intelligence recommendations to the SC guide in one pass.">Apply All Recommendations To SC Guide</button>
-              <button class="secondary" id="refreshIntelligence" data-ai-action-button data-help="Re-runs Demo Intelligence against the latest saved SC guide and dry-run manifest after you apply edits.">Re-analyze Updated Guide</button>
+              <button class="secondary" id="improveGuideFromIntel" data-ai-action-button data-help="Uses Codex to apply all visible Intelligence recommendations to the playbook in one pass.">Apply All Recommendations To Playbook</button>
+              <button class="secondary" id="refreshIntelligence" data-ai-action-button data-help="Re-runs Demo Intelligence against the latest saved playbook and dry-run manifest after you apply edits.">Re-analyze Updated Playbook</button>
             </div>
           </div>
-          <p class="ai-action-explainer">Follow-up questions run a Codex background operator and are for discovery only. Shorten, executive, technical, and custom actions create editable text below; the SC guide changes only when you apply that edited output. Re-analyze Updated Guide refreshes the insights after the guide has changed.</p>
+          <p class="ai-action-explainer">Follow-up questions run a Codex background operator and are for discovery only. Shorten, executive, technical, and custom actions create editable text below; the playbook changes only when you apply that edited output. Re-analyze Updated Playbook refreshes the insights after the playbook has changed.</p>
           <details class="custom-ai">
-            <summary>Custom additional SC Guide Instruction</summary>
+            <summary>Custom additional Playbook Instruction</summary>
             <p class="hint">Use this when the built-in actions are not specific enough. Write what should change, preview it, edit the output if needed, then apply it to the guide.</p>
             <textarea id="customAiInstruction" spellcheck="false" placeholder="Example: make this sharper for a CFO, keep the finance story focused, and reduce implementation detail." style="min-height:95px;margin-top:10px"></textarea>
             <div class="row" style="margin-top:10px">
@@ -11301,7 +11908,7 @@ function html(response) {
           </div>
           <textarea id="intelligenceActionOutput" spellcheck="false" placeholder="AI output will appear here. Guide-action previews can be edited before applying them." style="min-height:120px;margin-top:12px"></textarea>
           <div class="row" style="margin-top:10px">
-            <button class="secondary" id="applyAiActionToGuide" disabled data-help="Applies the editable output above to the SC guide, then refreshes Demo Intelligence and Pre-Demo Intelligence.">Apply Edited Output To SC Guide</button>
+            <button class="secondary" id="applyAiActionToGuide" disabled data-help="Applies the editable output above to the playbook, then refreshes Demo Intelligence and Pre-Demo Intelligence.">Apply Edited Output To Playbook</button>
           </div>
         </section>
 
@@ -11341,7 +11948,7 @@ function html(response) {
           <div>
             <p class="hero-eyebrow">Pre-Demo Intelligence</p>
             <h2 id="preDemoReadinessTitle">Pre-demo notes readiness</h2>
-            <p class="hero-subline" id="preDemoReadinessSubtitle">Use Codex to score the current pre-demo notes before generating a full SC guide.</p>
+            <p class="hero-subline" id="preDemoReadinessSubtitle">Use Codex to score the current pre-demo notes before generating a full playbook.</p>
             <div class="insight-badges" id="preDemoReadinessBadges"></div>
           </div>
           <div class="readiness-score">
@@ -11366,7 +11973,7 @@ function html(response) {
               <h2>Pre-Demo Scoring</h2>
               <p>This Codex-backed view ignores the generated demo and focuses only on discovery quality, gaps, and readiness.</p>
             </div>
-            <button class="secondary" id="refreshPreDemoScoring" data-help="Uses Codex to re-score the current Prep inputs only, without regenerating the SC guide or full Demo Intelligence.">Refresh Pre-Demo Scoring</button>
+            <button class="secondary" id="refreshPreDemoScoring" data-help="Uses Codex to re-score the current Discovery & Prep inputs only, without regenerating the playbook or full Demo Intelligence.">Refresh Pre-Demo Scoring</button>
           </div>
           <div class="pre-demo-intel-grid" id="preDemoIntelGrid"></div>
         </section>
@@ -11385,10 +11992,10 @@ function html(response) {
           <div class="section-head">
             <div>
               <h2>Recommended Follow-Up Questions</h2>
-              <p>Use these to strengthen discovery before asking Codex to create the SC guide. Add SC context when you want Codex to tailor the question set more tightly.</p>
+              <p>Use these to strengthen discovery before asking Codex to create the playbook. Add SC context when you want Codex to tailor the question set more tightly.</p>
             </div>
             <div class="follow-up-toolbar">
-              <button class="secondary" id="generatePreDemoFollowUps" data-help="Uses Codex to turn the current Prep inputs and additional comments into targeted discovery follow-up questions.">Generate With Codex</button>
+              <button class="secondary" id="generatePreDemoFollowUps" data-help="Uses Codex to turn the current Discovery & Prep inputs and additional comments into targeted discovery follow-up questions.">Generate With Codex</button>
               <button class="secondary" id="exportPreDemoFollowUps" data-help="Exports the visible follow-up questions, missing discovery items, covered topics, and additional comments to a Word document.">Export To Word</button>
             </div>
           </div>
@@ -11409,7 +12016,7 @@ function html(response) {
             <div>
               <p class="hero-eyebrow">Dataset Analysis</p>
               <h2 id="datasetTitle">Dataset readiness has not been checked yet</h2>
-              <p class="hero-subline" id="datasetSummary">Run this after the SC guide and dry-run prompt exist. The helper opens NetSuite, waits for login if needed, runs the dry-run path, then scores missing data, permissions, and customization needs.</p>
+              <p class="hero-subline" id="datasetSummary">Run this after the playbook and dry-run prompt exist. The helper opens NetSuite, waits for login if needed, runs the dry-run path, then scores missing data, permissions, and customization needs.</p>
               <div class="row" style="margin-top:12px">
                 <button id="runDatasetAnalysis" data-help="Opens or reuses the NetSuite browser, lets the SC login if needed, runs the dry-run path without narration, and scores dataset preparation.">Run Dataset Analysis</button>
                 <button class="secondary" id="executeDatasetPrompt" disabled data-help="Copies the dataset setup prompt, opens NetSuite and Codex, and prepares a Codex handoff for approved account setup work.">Execute Dataset Prompt In Codex</button>
@@ -11475,7 +12082,7 @@ function html(response) {
       <div class="grid">
         <div class="panel full">
           <h2>Admin</h2>
-          <p class="hint">Protected local admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, additional demo logic sources, and the Codex rules behind the SC story, asset prompt, account setup prompt, and dry-run creation prompt. Active sources are matched to the demo context and included when the helper creates the manifest and SC guide. Passwords are stored as salted scrypt hashes and every CMS save creates a rollback version.</p>
+          <p class="hint">Protected local admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, additional demo logic sources, and the Codex rules behind the demo story, asset prompt, account setup prompt, and dry-run creation prompt. Active sources are matched to the demo context and included when the helper creates the manifest and playbook. Passwords are stored as salted scrypt hashes and every CMS save creates a rollback version.</p>
           <div class="cms-auth-grid" id="cmsAuthArea">
             <div class="analysis-item" id="cmsSetupPanel" hidden>
               <strong>Create Admin Login</strong>
@@ -11505,15 +12112,64 @@ function html(response) {
                 <button class="secondary" id="cmsLogoutButton">Logout</button>
               </div>
               <div class="feature-toggle-card">
-                <label for="liveDemoFunctionalityToggle">
-                  <input id="liveDemoFunctionalityToggle" type="checkbox">
-                  Live demo functionality
-                </label>
-                <p class="hint">Switch this off to hide narration, dry-run, dataset analysis, and Run controls. The helper will focus on Prep, SC Guide, and Intelligence only.</p>
+                <div class="section-head" style="margin-bottom:6px">
+                  <label for="liveDemoFunctionalityToggle">
+                    <input id="liveDemoFunctionalityToggle" type="checkbox">
+                    Live demo functionality
+                  </label>
+                  <span class="status-badge advisory" id="liveDemoStateBadge">Disabled</span>
+                </div>
+                <p class="hint">Default is off. Turn this on only when the SC is ready to use narration, dry-run, dataset analysis, and Run controls.</p>
               </div>
             </div>
           </div>
           <p class="hint" id="cmsStatus">CMS status will appear here.</p>
+        </div>
+
+        <div class="panel full" id="sessionDatabasePanel" data-mvp-only hidden>
+          <div class="section-head">
+            <div>
+              <h2>Demo Prep Database</h2>
+              <p>Admin-only review of saved MVP sessions, selected options, scores, generated outputs, and run history.</p>
+            </div>
+            <button class="secondary" id="reloadSessionDatabase" data-help="Reloads saved user sessions and generated outputs from the local application database.">Reload Sessions</button>
+          </div>
+          <div class="advisory" style="margin-bottom:12px">Session logs may contain customer discovery information and generated demo content. Handle appropriately and do not share exports without checking the content.</div>
+          <div class="session-controls">
+            <div>
+              <label for="sessionSearch">Search sessions</label>
+              <input id="sessionSearch" placeholder="Company, website, audience, strategy, or status">
+            </div>
+            <div>
+              <label for="sessionStatusFilter">Status</label>
+              <select id="sessionStatusFilter">
+                <option value="">All statuses</option>
+                <option value="success">Success</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+            <div>
+              <label for="sessionAudienceFilter">Audience</label>
+              <input id="sessionAudienceFilter" placeholder="Prospect">
+            </div>
+            <div>
+              <label for="sessionSort">Sort by</label>
+              <select id="sessionSort">
+                <option value="updated_desc">Last updated</option>
+                <option value="created_desc">Created date</option>
+                <option value="readiness_desc">Readiness score</option>
+                <option value="discovery_desc">Discovery score</option>
+              </select>
+            </div>
+            <button class="secondary" id="applySessionFilters" data-help="Filters and sorts the saved session list.">Apply</button>
+          </div>
+          <div class="session-metrics" id="sessionDatabaseMetrics"></div>
+          <div class="session-table" id="sessionDatabaseTable">
+            <p class="hint" style="padding:12px">Unlock Admin to load saved demo sessions.</p>
+          </div>
+          <div class="session-detail" id="sessionDatabaseDetail">
+            <p class="hint">Select a session to inspect the full stored inputs, outputs, scores, recommendations, and dry-run data.</p>
+          </div>
         </div>
 
         <div class="panel full" id="cmsEditorPanel" hidden>
@@ -11930,6 +12586,14 @@ function html(response) {
     const cmsSessionPanel = document.getElementById("cmsSessionPanel");
     const cmsEditorPanel = document.getElementById("cmsEditorPanel");
     const platformFoundationPanel = document.getElementById("platformFoundationPanel");
+    const sessionDatabasePanel = document.getElementById("sessionDatabasePanel");
+    const sessionDatabaseMetrics = document.getElementById("sessionDatabaseMetrics");
+    const sessionDatabaseTable = document.getElementById("sessionDatabaseTable");
+    const sessionDatabaseDetail = document.getElementById("sessionDatabaseDetail");
+    const sessionSearch = document.getElementById("sessionSearch");
+    const sessionStatusFilter = document.getElementById("sessionStatusFilter");
+    const sessionAudienceFilter = document.getElementById("sessionAudienceFilter");
+    const sessionSort = document.getElementById("sessionSort");
     const cmsStatus = document.getElementById("cmsStatus");
     const cmsBlockSelect = document.getElementById("cmsBlockSelect");
     const cmsBlockDescription = document.getElementById("cmsBlockDescription");
@@ -11940,6 +12604,7 @@ function html(response) {
     const cmsHistory = document.getElementById("cmsHistory");
     const cmsSecuritySummary = document.getElementById("cmsSecuritySummary");
     const liveDemoFunctionalityToggle = document.getElementById("liveDemoFunctionalityToggle");
+    const liveDemoStateBadge = document.getElementById("liveDemoStateBadge");
     const platformHealthCards = document.getElementById("platformHealthCards");
     const platformWarnings = document.getElementById("platformWarnings");
     const founderReadinessSummary = document.getElementById("founderReadinessSummary");
@@ -12036,14 +12701,34 @@ function html(response) {
     let latestFollowUpQuestionsMarkdown = "";
     let latestFollowUpQuestionCards = [];
     let latestDatasetAnalysis = null;
+    let latestSessionRows = [];
+    let selectedSessionLogId = "";
     let prepDirtyForIntelligence = false;
     let prepDirtyForPreDemoIntelligence = false;
     let liveDemoFunctionalityEnabled = ${JSON.stringify(liveDemoFunctionalityEnabled)};
 
+    function browserSessionId(key, prefix) {
+      const storage = key === "nsdhBrowserSessionId" ? sessionStorage : localStorage;
+      let value = storage.getItem(key);
+      if (!value) {
+        value = prefix + "_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        storage.setItem(key, value);
+      }
+      return value;
+    }
+
+    const demoHelperSessionId = browserSessionId("nsdhBrowserSessionId", "session");
+    const demoHelperAnonymousUserId = browserSessionId("nsdhAnonymousUserId", "user");
+
     async function api(path, options = {}) {
       const response = await fetch(path, {
         ...options,
-        headers: { "content-type": "application/json", ...(options.headers || {}) }
+        headers: {
+          "content-type": "application/json",
+          "x-demo-helper-session-id": demoHelperSessionId,
+          "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
+          ...(options.headers || {})
+        }
       });
       const payload = await response.json();
       if (!response.ok || payload.ok === false) throw new Error(payload.error || "Request failed");
@@ -12053,7 +12738,12 @@ function html(response) {
     async function apiWithLog(path, options = {}) {
       const response = await fetch(path, {
         ...options,
-        headers: { "content-type": "application/json", ...(options.headers || {}) }
+        headers: {
+          "content-type": "application/json",
+          "x-demo-helper-session-id": demoHelperSessionId,
+          "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
+          ...(options.headers || {})
+        }
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Request failed");
@@ -12079,6 +12769,7 @@ function html(response) {
       cmsSessionPanel.hidden = !payload.authenticated;
       cmsEditorPanel.hidden = !payload.authenticated;
       platformFoundationPanel.hidden = !payload.authenticated;
+      sessionDatabasePanel.hidden = !payload.authenticated || activeAppProfile !== "mvp";
       cmsStatus.textContent = payload.setupRequired
         ? "Create the local CMS admin password before editing shared content."
         : payload.authenticated
@@ -12092,6 +12783,7 @@ function html(response) {
       const payload = await api("/api/cms");
       renderCms(payload);
       await loadPlatformFoundation();
+      if (activeAppProfile === "mvp") await loadSessionDatabase();
       await loadButtonInstructionCatalog();
     }
 
@@ -12109,6 +12801,125 @@ function html(response) {
         "<div class='cms-history-item'><strong>" + escapeClientHtml(item.label || item.blockId) + "</strong><br>" +
         escapeClientHtml(item.note || "Updated") + "<br><span>" + escapeClientHtml(item.changedAt || "") + "</span></div>"
       ).join("") || "<p class='hint'>No CMS changes yet.</p>";
+    }
+
+    async function loadSessionDatabase() {
+      if (activeAppProfile !== "mvp" || sessionDatabasePanel.hidden) return;
+      const params = new URLSearchParams();
+      if (sessionSearch.value.trim()) params.set("search", sessionSearch.value.trim());
+      if (sessionStatusFilter.value) params.set("status", sessionStatusFilter.value);
+      if (sessionAudienceFilter.value.trim()) params.set("audience", sessionAudienceFilter.value.trim());
+      if (sessionSort.value) params.set("sort", sessionSort.value);
+      const payload = await api("/api/session-logs" + (params.toString() ? "?" + params.toString() : ""));
+      renderSessionDatabase(payload);
+      return payload;
+    }
+
+    function renderSessionDatabase(payload = {}) {
+      latestSessionRows = payload.sessions || [];
+      const metrics = payload.metrics || {};
+      sessionDatabaseMetrics.innerHTML = [
+        sessionMetricCard("Total sessions", metrics.total_sessions ?? payload.total ?? 0),
+        sessionMetricCard("Successful", metrics.successful_sessions ?? 0),
+        sessionMetricCard("Failed", metrics.failed_sessions ?? 0),
+        sessionMetricCard("Avg discovery", scoreOrDash(metrics.average_discovery_score)),
+        sessionMetricCard("Avg readiness", scoreOrDash(metrics.average_demo_readiness_score))
+      ].join("");
+      sessionDatabaseTable.innerHTML = sessionTableHtml(latestSessionRows);
+      if (!latestSessionRows.length) {
+        sessionDatabaseDetail.innerHTML = "<p class='hint'>No saved sessions match the current filters yet.</p>";
+      } else if (!selectedSessionLogId || !latestSessionRows.some((session) => session.session_id === selectedSessionLogId)) {
+        sessionDatabaseDetail.innerHTML = "<p class='hint'>Select a session to inspect the full stored inputs, outputs, scores, recommendations, and dry-run data.</p>";
+      }
+    }
+
+    function sessionMetricCard(label, value) {
+      return "<div class='session-metric-card'><strong>" + escapeClientHtml(label) + "</strong><span>" + escapeClientHtml(value ?? "-") + "</span></div>";
+    }
+
+    function sessionTableHtml(rows = []) {
+      if (!rows.length) return "<p class='hint' style='padding:12px'>No saved demo sessions found yet. Run Pre-demo scoring or Learn / Create Demo to create the first record.</p>";
+      return "<div class='session-row header'>" +
+        "<span>Company</span><span>Audience</span><span>Segment</span><span>Industry</span><span>Strategy</span><span>Discovery</span><span>Ready</span><span>Provider</span><span>Status</span><span>Action</span>" +
+        "</div>" +
+        rows.map((session) => "<div class='session-row'>" +
+          "<span><strong>" + escapeClientHtml(session.company_name || "Unknown company") + "</strong><br><small>" + escapeClientHtml(formatDisplayDateTime(session.generation_timestamp)) + "</small></span>" +
+          "<span>" + escapeClientHtml(session.audience_type || "-") + "</span>" +
+          "<span>" + escapeClientHtml(session.target_segment || "-") + "</span>" +
+          "<span>" + escapeClientHtml(session.industry || "-") + "</span>" +
+          "<span>" + escapeClientHtml(session.demo_strategy || "-") + "</span>" +
+          "<span>" + escapeClientHtml(scoreOrDash(session.discovery_score)) + "</span>" +
+          "<span>" + escapeClientHtml(scoreOrDash(session.demo_readiness_score)) + "</span>" +
+          "<span>" + escapeClientHtml(session.active_ai_provider || "-") + "</span>" +
+          "<span><span class='status-badge " + statusForSession(session.session_status) + "'>" + escapeClientHtml(session.session_status || "unknown") + "</span></span>" +
+          "<span><button class='secondary' data-session-id='" + escapeClientHtml(session.session_id) + "'>Open</button></span>" +
+        "</div>").join("");
+    }
+
+    function scoreOrDash(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? Math.round(number) + "/100" : "-";
+    }
+
+    function statusForSession(status = "") {
+      const text = String(status || "").toLowerCase();
+      if (text === "success") return "strong";
+      if (text === "failed") return "critical";
+      return "advisory";
+    }
+
+    async function openSessionDetail(sessionId) {
+      selectedSessionLogId = sessionId;
+      const payload = await api("/api/session-logs/" + encodeURIComponent(sessionId));
+      renderSessionDetail(payload.session);
+    }
+
+    function renderSessionDetail(session = {}) {
+      const outputs = session.generated_outputs || {};
+      sessionDatabaseDetail.innerHTML =
+        "<div class='section-head'><div><h3 style='margin:0'>" + escapeClientHtml(session.company_name || "Unknown company") + "</h3>" +
+        "<p class='hint'>" + escapeClientHtml(session.website || "No website saved") + " | Last updated: " + escapeClientHtml(formatDisplayDateTime(session.updated_at)) + "</p></div>" +
+        "<div class='row'><a class='secondary button-link' href='/api/session-logs/download/" + encodeURIComponent(session.session_id) + "' download>Export JSON</a>" +
+        "<button class='danger' id='deleteSessionLog'>Delete Session</button></div></div>" +
+        "<div class='session-detail-grid'>" +
+          sessionDetailCard("Selected options", [
+            "Audience: " + (session.audience_type || "-"),
+            "Segment: " + (session.target_segment || "-"),
+            "Industry: " + (session.industry || "-"),
+            "Strategy: " + (session.demo_strategy || "-"),
+            "Language: " + (session.output_language || "-")
+          ]) +
+          sessionDetailCard("Scores", [
+            "Discovery: " + scoreOrDash(session.discovery_score),
+            "Readiness: " + scoreOrDash(session.demo_readiness_score),
+            "Risk: " + scoreOrDash(session.risk_score)
+          ]) +
+          sessionDetailCard("Generated outputs", [
+            outputs.scRunbook ? "Demo story/runbook saved" : "No story/runbook saved",
+            outputs.assetGenerationPrompt ? "PPT prompt saved" : "No PPT prompt saved",
+            outputs.setupPrompt ? "Setup prompt saved" : "No setup prompt saved",
+            outputs.dryRunCreationPrompt || outputs.dryRunManifest ? "Dry-run output saved" : "No dry-run output saved"
+          ]) +
+          sessionDetailCard("Backbone", [
+            session.provider_backbone?.activeProvider?.name || "Unknown provider",
+            session.provider_backbone?.runtime?.runtimeStatus || "Unknown runtime"
+          ]) +
+        "</div>" +
+        "<details open><summary><strong>Full stored session JSON</strong></summary><pre class='session-json'>" + escapeClientHtml(JSON.stringify(session, null, 2)) + "</pre></details>";
+      const deleteButton = document.getElementById("deleteSessionLog");
+      if (deleteButton) {
+        deleteButton.onclick = async () => {
+          if (!window.confirm("Delete this saved session from the local demo prep database?")) return;
+          await api("/api/session-logs/" + encodeURIComponent(session.session_id), { method: "DELETE", body: "{}" });
+          selectedSessionLogId = "";
+          await loadSessionDatabase();
+        };
+      }
+    }
+
+    function sessionDetailCard(title, lines = []) {
+      return "<div class='session-detail-card'><strong>" + escapeClientHtml(title) + "</strong>" +
+        lines.map((line) => "<p class='hint'>" + escapeClientHtml(line) + "</p>").join("") + "</div>";
     }
 
     async function loadPlatformFoundation() {
@@ -12866,6 +13677,14 @@ function html(response) {
       }
       document.body.classList.toggle("live-demo-disabled", !liveDemoFunctionalityEnabled);
       if (liveDemoFunctionalityToggle) liveDemoFunctionalityToggle.checked = liveDemoFunctionalityEnabled;
+      if (liveDemoStateBadge) {
+        liveDemoStateBadge.textContent = liveDemoFunctionalityEnabled
+          ? (runInProgress ? "Running" : "Ready")
+          : "Disabled";
+        liveDemoStateBadge.classList.toggle("strong", liveDemoFunctionalityEnabled && !runInProgress);
+        liveDemoStateBadge.classList.toggle("warning", liveDemoFunctionalityEnabled && runInProgress);
+        liveDemoStateBadge.classList.toggle("advisory", !liveDemoFunctionalityEnabled);
+      }
       const activeLiveOnlyTab = document.querySelector(".tab.active[data-live-demo-only]");
       if (!liveDemoFunctionalityEnabled && activeLiveOnlyTab) {
         activateTab("prep", { skipAutoLoad: true });
@@ -12992,15 +13811,19 @@ function html(response) {
         "App load": "App load",
         "Reload": "Reload",
         "Reload Manifest": "Reload Manifest",
-        "SC Guide refresh": "SC Guide refresh",
+        "SC Guide refresh": "Playbook refresh",
+        "Playbook refresh": "Playbook refresh",
         "Demo Intelligence refresh": "Demo Intelligence refresh",
-        "Re-analyze Updated Guide": "Re-analyze Updated Guide",
+        "Re-analyze Updated Guide": "Re-analyze Updated Playbook",
+        "Re-analyze Updated Playbook": "Re-analyze Updated Playbook",
         "Pre-demo scoring": "Pre-demo scoring",
         "Refresh Pre-Demo Scoring": "Refresh Pre-Demo Scoring",
         "Generate With Codex": "Generate With Codex",
         "Generate Discovery Follow-Up Questions": "Generate Discovery Follow-Up Questions",
-        "Apply All Recommendations To SC Guide": "Apply All Recommendations To SC Guide",
-        "Apply Edited Output To SC Guide": "Apply Edited Output To SC Guide",
+        "Apply All Recommendations To SC Guide": "Apply All Recommendations To Playbook",
+        "Apply All Recommendations To Playbook": "Apply All Recommendations To Playbook",
+        "Apply Edited Output To SC Guide": "Apply Edited Output To Playbook",
+        "Apply Edited Output To Playbook": "Apply Edited Output To Playbook",
         "Save Manifest": "Save Manifest",
         "Create Dry-Run From Prompt": "Create Dry-Run From Prompt",
         "Restore Selected": "Restore Selected",
@@ -13087,10 +13910,10 @@ function html(response) {
         "<div class='codex-info-card'><strong>Where Codex Is Used</strong>" +
         "<ul class='codex-flow-list'>" +
           "<li>Learn / Create Demo: Codex reviews the company, notes, audience, scope, strategy, and instructions.</li>" +
-          "<li>SC Guide: Codex authors the personalized story, runbook, asset prompt, and NetSuite prep summary.</li>" +
-          "<li>Manifest: the app converts the Codex-authored SC guide into runnable browser steps.</li>" +
+          "<li>Playbook: Codex authors the personalized story, runbook, asset prompt, and NetSuite prep summary.</li>" +
+          "<li>Manifest: the app converts the Codex-authored playbook into runnable browser steps.</li>" +
           "<li>Intelligence: Codex returns structured JSON for readiness, quality, risk, SC briefing, timing, discovery, stakeholders, and recommendations.</li>" +
-          "<li>AI Actions: Codex rewrites or improves the SC guide when actions are applied.</li>" +
+          "<li>AI Actions: Codex rewrites or improves the playbook when actions are applied.</li>" +
         "</ul></div>" +
         (operator.analysis ? "<div class='codex-info-card'><strong>Latest Codex Intelligence Output</strong><pre class='operator-output'>" + escapeClientHtml(operator.analysis) + "</pre></div>" : "");
     }
@@ -13337,13 +14160,13 @@ function html(response) {
     }
 
     function sourceLabel(source) {
-      if (source === "codex-sc-guide-section") return "Source: Codex-authored SC guide section.";
+      if (source === "codex-sc-guide-section") return "Source: Codex-authored playbook section.";
       if (source === "system-generated-from-sc-story-runbook") return "Source: generated after the Personalized SC story and runbook, with system guardrails.";
       if (source === "codex-sc-guide-personalized-story-runbook") return "Source: completed Personalized SC story and runbook.";
       if (source === "legacy-codex-sc-guide-netSuite-prep-summary") return "Source: legacy Codex-authored NetSuite Prep Summary, wrapped with account safety rules.";
       if (source === "codex-sc-guide-netSuite-prep-summary") return "Source: Codex-authored NetSuite Prep Summary, wrapped with account safety rules.";
       if (source === "local-setup-guardrail-fallback") return "Source: local setup safety fallback because no Codex prep section was found.";
-      if (source === "local-dry-run-manifest-instruction") return "Source: local dry-run instruction built from the current SC guide and manifest.";
+      if (source === "local-dry-run-manifest-instruction") return "Source: local dry-run instruction built from the current playbook and manifest.";
       if (source === "live-demo-functionality-disabled") return "Source: live demo functionality is disabled in Admin.";
       if (source === "local-fallback") return "Source: local fallback because the Codex guide section was missing.";
       return source ? "Source: " + source : "Source unavailable.";
@@ -13795,7 +14618,7 @@ function html(response) {
       latestDatasetAnalysis = payload;
       if (!payload) {
         datasetTitle.textContent = "Dataset readiness has not been checked yet";
-        datasetSummary.textContent = "Run Dataset Analysis after the SC guide and dry-run prompt exist.";
+        datasetSummary.textContent = "Run Dataset Analysis after the playbook and dry-run prompt exist.";
         datasetScore.textContent = "-";
         datasetReadinessLabel.textContent = "Not checked";
         datasetFindings.innerHTML = "";
@@ -14164,7 +14987,7 @@ function html(response) {
       if (label === "High risk") return warning ? "High risk: fix this before presenting. " + warning : "High risk: tighten the story before presenting.";
       if (label === "Medium risk") return warning ? "Medium risk: worth tightening before rehearsal. " + warning : "Medium risk: review pacing, audience fit, and story clarity.";
       if (label === "Healthy") return warning ? "Mostly healthy, with one item to watch. " + warning : "Healthy: no major risk is currently blocking rehearsal.";
-      return "Needs review: refresh Intelligence after the SC guide and manifest are ready.";
+      return "Needs review: refresh Intelligence after the playbook and manifest are ready.";
     }
 
     function notesQualityLabel(score) {
@@ -14442,8 +15265,8 @@ function html(response) {
         executive: executiveDemoOutput(metadata, risk, winning, avoid, stakeholder),
         technical: technicalDemoOutput(metadata, discovery, winning, avoid, stakeholder),
         custom: customAiInstruction.value.trim()
-          ? "Apply this custom instruction to the SC guide: " + customAiInstruction.value.trim()
-          : "Write a custom SC guide instruction first, then preview it here."
+          ? "Apply this custom instruction to the playbook: " + customAiInstruction.value.trim()
+          : "Write a custom playbook instruction first, then preview it here."
       };
       if (mode === "custom") return [modes.custom, "", "Context to preserve:", ...common.map((line) => "- " + line)].join("\\n");
       return modes[mode] || modes.custom;
@@ -14579,7 +15402,7 @@ function html(response) {
       intelligenceActionOutput.value = instruction || "";
       applyAiActionToGuideButton.disabled = !String(instruction || "").trim();
       intelligenceActionOutput.focus();
-      setStatus(statusText || "Guide action preview ready. Edit the output if needed, then apply it to the SC guide.");
+      setStatus(statusText || "Playbook action preview ready. Edit the output if needed, then apply it to the playbook.");
     }
 
     function showStandaloneAiOutput(output, statusText) {
@@ -14849,12 +15672,12 @@ function html(response) {
     async function load(action = "Reload") {
       startCodexProgress("Loading NetSuite Demo Helper", "Loading the last saved workspace from this machine.", [
         "Detect Codex and active AI brain on this machine",
-        "Read the saved SC guide and manifest",
+        "Read the saved playbook and manifest",
         "Restore last generated Intelligence"
       ]);
       try {
         await Promise.all([refreshCodexStatus(), refreshPlatformStatus()]);
-        updateCodexProgress("Reading the last saved manifest, SC guide, and Intelligence from this machine.", 1);
+        updateCodexProgress("Reading the last saved manifest, playbook, and Intelligence from this machine.", 1);
         render(await api("/api/manifest"), action);
         finishCodexProgress("Workspace loaded from the last saved local state.");
       } catch (error) {
@@ -14902,8 +15725,8 @@ function html(response) {
         updateAvatarPersona(preferredVoice);
       }
 
-    async function loadGuide(action = "SC Guide refresh") {
-      startCodexProgress("Refreshing SC Guide", "Codex is checking whether the guide needs to be generated or refreshed.", [
+    async function loadGuide(action = "Playbook refresh") {
+      startCodexProgress("Refreshing Playbook", "Codex is checking whether the playbook needs to be generated or refreshed.", [
         "Read current guide",
         "Ask Codex if generation is needed",
         "Update the guide screen"
@@ -14915,7 +15738,7 @@ function html(response) {
         const setupPayload = await api("/api/setup-prompt");
         renderSetupPrompt(setupPayload.setupPrompt);
         markPageLoaded("guide", action);
-        finishCodexProgress("SC guide refreshed.");
+        finishCodexProgress("Playbook refreshed.");
       } catch (error) {
         failCodexProgress(error.message);
         throw error;
@@ -14923,8 +15746,8 @@ function html(response) {
     }
 
     async function loadIntelligence(action = "Demo Intelligence refresh") {
-      startCodexProgress("Refreshing Intelligence", "Codex is reviewing the current Prep fields, SC guide, dry-run manifest, and saved Pre-Demo website context.", [
-        "Send current Prep fields to Codex",
+      startCodexProgress("Refreshing Intelligence", "Codex is reviewing the current Discovery & Prep fields, playbook, dry-run manifest, and saved Pre-Demo website context.", [
+        "Send current Discovery & Prep fields to Codex",
         "Review risk, gaps, pacing, and stakeholders",
         "Update the dashboard"
       ]);
@@ -14941,7 +15764,7 @@ function html(response) {
         prepDirtyForPreDemoIntelligence = false;
         markPageLoaded("intelligence", action);
         markPageLoaded("pre-demo-intelligence", action);
-        finishCodexProgress("Intelligence refreshed from current Prep inputs.");
+        finishCodexProgress("Intelligence refreshed from current Discovery & Prep inputs.");
         return payload;
       } catch (error) {
         failCodexProgress(error.message);
@@ -14951,7 +15774,7 @@ function html(response) {
 
     async function loadPreDemoIntelligence(action = "Pre-demo scoring") {
       setStatus("Running Codex pre-demo scoring against the current notes and discovery context...");
-      startCodexProgress("Scoring Pre-Demo Notes", "Codex is reviewing the company context, Prep inputs, notes, and Admin scoring guidance. The website scan is reused when the URL already matches.", [
+      startCodexProgress("Scoring Pre-Demo Notes", "Codex is reviewing the company context, Discovery & Prep inputs, notes, and Admin scoring guidance. The website scan is reused when the URL already matches.", [
         "Package pre-demo context and website signal",
         "Run Codex pre-demo scorer",
         "Update Pre-Demo Intelligence"
@@ -15089,9 +15912,9 @@ function html(response) {
       setActiveAiActionButton("refreshIntelligence");
       setBusy(true);
       try {
-        await loadIntelligence("Re-analyze Updated Guide");
-        clearPendingAiAction("Insights rebuilt from the current saved SC guide and manifest. Use this after applying a shortened, executive, or technical demo version.");
-        setStatus("Re-analyzed updated SC guide and manifest.");
+        await loadIntelligence("Re-analyze Updated Playbook");
+        clearPendingAiAction("Insights rebuilt from the current saved playbook and manifest. Use this after applying a shortened, executive, or technical demo version.");
+        setStatus("Re-analyzed updated playbook and manifest.");
       } catch (error) {
         setStatus(error.message);
       } finally {
@@ -15143,6 +15966,8 @@ function html(response) {
         await api("/api/cms/logout", { method: "POST", body: "{}" });
         cmsBlocks = [];
         renderCmsAuth({ setupRequired: false, authenticated: false, security: {} });
+        sessionDatabaseTable.innerHTML = "<p class='hint' style='padding:12px'>Login to load saved demo sessions.</p>";
+        sessionDatabaseDetail.innerHTML = "<p class='hint'>Admin login is required before session details can be viewed.</p>";
       } catch (error) {
         cmsStatus.textContent = error.message;
       }
@@ -15158,13 +15983,42 @@ function html(response) {
         renderCms(payload);
         cmsStatus.textContent = liveDemoFunctionalityEnabled
           ? "Live demo functionality is enabled. Narration, dry-run, dataset analysis, and Run controls are visible."
-          : "Live demo functionality is disabled. The app now focuses on Prep, SC Guide, and Intelligence only.";
+          : "Live demo functionality is disabled. The app now focuses on Discovery & Prep, Playbook, and Intelligence only.";
       } catch (error) {
         liveDemoFunctionalityToggle.checked = liveDemoFunctionalityEnabled;
         cmsStatus.textContent = error.message;
       }
     };
     document.getElementById("reloadButtonInstructionFiles").onclick = loadButtonInstructionCatalog;
+    document.getElementById("reloadSessionDatabase").onclick = async () => {
+      try {
+        await loadSessionDatabase();
+        cmsStatus.textContent = "Session database reloaded.";
+      } catch (error) {
+        sessionDatabaseDetail.innerHTML = "<p class='hint'>" + escapeClientHtml(error.message) + "</p>";
+      }
+    };
+    document.getElementById("applySessionFilters").onclick = async () => {
+      try {
+        await loadSessionDatabase();
+      } catch (error) {
+        sessionDatabaseDetail.innerHTML = "<p class='hint'>" + escapeClientHtml(error.message) + "</p>";
+      }
+    };
+    sessionDatabaseTable.onclick = async (event) => {
+      const button = event.target.closest?.("[data-session-id]");
+      if (!button) return;
+      try {
+        await openSessionDetail(button.dataset.sessionId);
+      } catch (error) {
+        sessionDatabaseDetail.innerHTML = "<p class='hint'>" + escapeClientHtml(error.message) + "</p>";
+      }
+    };
+    for (const control of [sessionSearch, sessionStatusFilter, sessionAudienceFilter, sessionSort]) {
+      control.addEventListener("change", () => loadSessionDatabase().catch((error) => {
+        sessionDatabaseDetail.innerHTML = "<p class='hint'>" + escapeClientHtml(error.message) + "</p>";
+      }));
+    }
     document.getElementById("generateButtonInstructionFiles").onclick = async () => {
       try {
         const payload = await api("/api/button-instructions/export", { method: "POST", body: "{}" });
@@ -15364,12 +16218,12 @@ function html(response) {
     async function runDiscoveryFollowUps({ showInAiOutput = false, actionLabel = "Generate With Codex" } = {}) {
       setBusy(true);
       try {
-        startCodexProgress("Generating Discovery Questions", "Codex is checking the website context, pre-demo notes, SC guide, and Intelligence signals.", [
+        startCodexProgress("Generating Discovery Questions", "Codex is checking the website context, pre-demo notes, playbook, and Intelligence signals.", [
           "Package customer and demo context",
           "Ask Codex for missing discovery",
           "Show the questions in Pre-Demo Intelligence"
         ]);
-        setStatus("Running Codex discovery operator against the website context, prep notes, demo request, scope, SC guide, and current Intelligence...");
+        setStatus("Running Codex discovery operator against the website context, prep notes, demo request, scope, playbook, and current Intelligence...");
         const payload = await generateDiscoveryFollowUpsForCurrentPrep(actionLabel);
         const operatorFooter = [
           "",
@@ -15382,7 +16236,7 @@ function html(response) {
         ].filter(Boolean).join("\\n");
         if (showInAiOutput) {
           showStandaloneAiOutput((payload.questions || "") + operatorFooter, payload.operator === "codex-background-operator"
-            ? "Codex discovery operator completed. These questions are also shown in Pre-Demo Intelligence and are not applied to the SC guide."
+            ? "Codex discovery operator completed. These questions are also shown in Pre-Demo Intelligence and are not applied to the playbook."
             : "Codex operator was unavailable, so the helper returned a fallback question set and saved the Codex prompt for manual use.");
         } else {
           setStatus("Codex discovery questions generated. Review them in Recommended Follow-Up Questions.");
@@ -15431,9 +16285,9 @@ function html(response) {
       setActiveAiActionButton("improveGuideFromIntel");
       setBusy(true);
       try {
-        startCodexProgress("Applying All Recommendations", "Codex is rewriting the SC guide using the Intelligence recommendations.", [
+        startCodexProgress("Applying All Recommendations", "Codex is rewriting the playbook using the Intelligence recommendations.", [
           "Read Intelligence recommendations",
-          "Rewrite the SC guide with Codex",
+          "Rewrite the playbook with Codex",
           "Refresh the Intelligence dashboard"
         ]);
         const payload = await api("/api/intelligence/improve-guide", { method: "POST", body: "{}" });
@@ -15443,12 +16297,12 @@ function html(response) {
         renderPreDemoIntelligence(payload.preDemoIntelligence || preDemoIntelligenceFromDemoIntelligence(payload.intelligence));
         prepDirtyForIntelligence = false;
         prepDirtyForPreDemoIntelligence = false;
-        markPageLoaded("guide", "Apply All Recommendations To SC Guide");
-        markPageLoaded("intelligence", "Apply All Recommendations To SC Guide");
-        markPageLoaded("pre-demo-intelligence", "Apply All Recommendations To SC Guide");
-        clearPendingAiAction("All Intelligence recommendations were applied to the SC guide. Review the SC Guide tab for the updated runbook and improvement section.");
-        setStatus("Applied all Intelligence recommendations to the SC guide.");
-        finishCodexProgress("SC guide improved and Intelligence refreshed.");
+        markPageLoaded("guide", "Apply All Recommendations To Playbook");
+        markPageLoaded("intelligence", "Apply All Recommendations To Playbook");
+        markPageLoaded("pre-demo-intelligence", "Apply All Recommendations To Playbook");
+        clearPendingAiAction("All Intelligence recommendations were applied to the playbook. Review the Playbook tab for the updated runbook and improvement section.");
+        setStatus("Applied all Intelligence recommendations to the playbook.");
+        finishCodexProgress("Playbook improved and Intelligence refreshed.");
       } catch (error) {
         setStatus(error.message);
         failCodexProgress(error.message);
@@ -15458,15 +16312,15 @@ function html(response) {
     };
     document.getElementById("compressDemo").onclick = () => {
       setActiveAiActionButton("compressDemo");
-      previewAiAction("compress", "Shortened demo draft ready. Edit it if needed, then apply it to the SC guide.");
+      previewAiAction("compress", "Shortened demo draft ready. Edit it if needed, then apply it to the playbook.");
     };
     document.getElementById("generateExecutiveVersion").onclick = () => {
       setActiveAiActionButton("generateExecutiveVersion");
-      previewAiAction("executive", "Executive demo draft ready. Edit it if needed, then apply it to the SC guide.");
+      previewAiAction("executive", "Executive demo draft ready. Edit it if needed, then apply it to the playbook.");
     };
     document.getElementById("rebuildTechnicalAudience").onclick = () => {
       setActiveAiActionButton("rebuildTechnicalAudience");
-      previewAiAction("technical", "Tech-audience demo draft ready. Edit it if needed, then apply it to the SC guide.");
+      previewAiAction("technical", "Tech-audience demo draft ready. Edit it if needed, then apply it to the playbook.");
     };
     document.getElementById("copyCustomAiInstruction").onclick = () => {
       setActiveAiActionButton("copyCustomAiInstruction");
@@ -15476,24 +16330,24 @@ function html(response) {
         setStatus("Add a custom instruction before previewing it.");
         return;
       }
-      previewAiAction("custom", "Custom instruction preview ready. Edit it if needed, then apply it to the SC guide.");
+      previewAiAction("custom", "Custom instruction preview ready. Edit it if needed, then apply it to the playbook.");
     };
     applyAiActionToGuideButton.onclick = async () => {
       if (!pendingAiAction) {
-        setStatus("Preview a guide action first. Discovery follow-up questions are not applied to the SC guide.");
+        setStatus("Preview a playbook action first. Discovery follow-up questions are not applied to the playbook.");
         return;
       }
       const editedInstruction = intelligenceActionOutput.value.trim();
       if (!editedInstruction) {
         applyAiActionToGuideButton.disabled = true;
-        setStatus("Add text to the editable output before applying it to the SC guide.");
+        setStatus("Add text to the editable output before applying it to the playbook.");
         return;
       }
       setBusy(true);
       try {
-        startCodexProgress("Updating SC Guide", "Codex is applying the selected guide action to the editable output.", [
+        startCodexProgress("Updating Playbook", "Codex is applying the selected playbook action to the editable output.", [
           "Read edited output",
-          "Rewrite the SC guide with Codex",
+          "Rewrite the playbook with Codex",
           "Refresh the Intelligence dashboard"
         ]);
         const payload = await api("/api/intelligence/apply-action", {
@@ -15506,12 +16360,12 @@ function html(response) {
         renderPreDemoIntelligence(payload.preDemoIntelligence || preDemoIntelligenceFromDemoIntelligence(payload.intelligence));
         prepDirtyForIntelligence = false;
         prepDirtyForPreDemoIntelligence = false;
-        markPageLoaded("guide", "Apply Edited Output To SC Guide");
-        markPageLoaded("intelligence", "Apply Edited Output To SC Guide");
-        markPageLoaded("pre-demo-intelligence", "Apply Edited Output To SC Guide");
-        clearPendingAiAction((payload.message || "Applied edited output to SC guide.") + " Review the SC Guide tab for the updated runbook.");
-        setStatus("Applied edited output to SC guide.");
-        finishCodexProgress("SC guide updated.");
+        markPageLoaded("guide", "Apply Edited Output To Playbook");
+        markPageLoaded("intelligence", "Apply Edited Output To Playbook");
+        markPageLoaded("pre-demo-intelligence", "Apply Edited Output To Playbook");
+        clearPendingAiAction((payload.message || "Applied edited output to playbook.") + " Review the Playbook tab for the updated runbook.");
+        setStatus("Applied edited output to playbook.");
+        finishCodexProgress("Playbook updated.");
       } catch (error) {
         setStatus(error.message);
         failCodexProgress(error.message);
@@ -15672,20 +16526,20 @@ function html(response) {
 
     async function createDemoWorkflow(createRunnableManifest) {
       if (createRunnableManifest && !liveDemoFunctionalityEnabled) {
-        setStatus("Live demo functionality is switched off in Admin. Use Learn / Create Demo to generate the SC guide and intelligence only.");
+        setStatus("Live demo functionality is switched off in Admin. Use Learn / Create Demo to generate the playbook and intelligence only.");
         return;
       }
       setBusy(true);
       try {
         setStatus(createRunnableManifest
-          ? "Checking company context with the Codex prep operator, creating the SC guide, and building the runnable manifest..."
-          : "Checking company context with the Codex prep operator and creating the SC guide...");
+          ? "Checking company context with the Codex prep operator, creating the playbook, and building the runnable manifest..."
+          : "Checking company context with the Codex prep operator and creating the playbook...");
         startCodexProgress("Creating Demo With Codex", createRunnableManifest
           ? "Codex is reading the website context, notes, scope, and instructions before generating the guide and runnable manifest."
           : "Codex is reading the website context, notes, scope, and instructions before generating the guide.", [
           "Analyze company and pre-demo notes",
           "Run Codex prep operator",
-          "Generate Codex-authored SC guide",
+          "Generate Codex-authored playbook",
           createRunnableManifest ? "Create dry-run prompt, runnable manifest, and dry-run" : "Refresh Intelligence dashboard"
         ]);
         const payload = await api("/api/learn", {
@@ -15698,7 +16552,7 @@ function html(response) {
         scGuide.value = payload.guide || "";
         renderGuideOutputs(payload.guide || "", payload.guideOutputs);
         if (createRunnableManifest) {
-          setStatus("SC guide and runnable manifest created. Starting browser dry-run...");
+          setStatus("Playbook and runnable manifest created. Starting browser dry-run...");
           updateCodexProgress("Guide created. Starting the browser dry-run.", 3);
           const runPayload = await apiWithLog("/api/run", {
             method: "POST",
@@ -15710,11 +16564,11 @@ function html(response) {
               voice: voiceSelect.value
             })
           });
-          setStatus("SC guide and runnable manifest created. Browser dry-run complete.\\n\\n" + (runPayload.log || ""));
+          setStatus("Playbook and runnable manifest created. Browser dry-run complete.\\n\\n" + (runPayload.log || ""));
           finishCodexProgress("Demo generated and browser dry-run completed.");
         } else {
-          setStatus("SC guide and Intelligence created. Runnable manifest was not built yet.");
-          finishCodexProgress("SC guide and Intelligence created.");
+          setStatus("Playbook and Intelligence created. Runnable manifest was not built yet.");
+          finishCodexProgress("Playbook and Intelligence created.");
         }
       } catch (error) {
         setStatus(error.message);
@@ -15783,7 +16637,12 @@ function html(response) {
           return;
         }
       }
+      if (mode === "live" && !window.confirm("Start the narrated Live Demo now? This will use the current dry-run manifest and narrator settings.")) {
+        setStatus("Live Demo cancelled before starting.");
+        return;
+      }
       runInProgress = true;
+      applyFeatureFlags({ liveDemoFunctionality: liveDemoFunctionalityEnabled });
       setBusy(true);
       setStatus("Running " + (runLabels[mode] || mode) + "...");
       try {
@@ -15804,6 +16663,7 @@ function html(response) {
         setStatus(error.message);
       } finally {
         runInProgress = false;
+        applyFeatureFlags({ liveDemoFunctionality: liveDemoFunctionalityEnabled });
         setBusy(false);
       }
     }
