@@ -547,6 +547,47 @@
       overflow-wrap: anywhere;
       font-size: 13px;
     }
+    .codex-status-panel {
+      display: grid;
+      gap: 12px;
+    }
+    .codex-status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+      gap: 9px;
+    }
+    .codex-status-row {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+      display: grid;
+      gap: 4px;
+    }
+    body.night .codex-status-row { background: #111b24; }
+    .codex-status-row small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+    .codex-status-row span {
+      font-size: 13px;
+      color: var(--ink);
+    }
+    .codex-status-detail {
+      border-left: 4px solid var(--ocean);
+      padding-left: 10px;
+      display: grid;
+      gap: 4px;
+    }
+    .codex-status-detail p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.42;
+    }
     .codex-flow-list {
       margin: 0;
       padding-left: 18px;
@@ -5418,6 +5459,38 @@ If a page takes time to load, narrate the business reason for the next step inst
       ].join(" | ");
     }
 
+    function cloudConnectionCode(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "connected") return "CODEX_LOCAL_CONNECTED";
+      if (normalized === "codex not detected") return "CODEX_LOCAL_RUNTIME_NOT_READY";
+      if (normalized === "wrong service") return "CODEX_LOCAL_WRONG_SERVICE";
+      if (normalized === "timeout") return "CODEX_LOCAL_TIMEOUT";
+      if (normalized === "not detected") return "CODEX_LOCAL_NOT_FOUND";
+      if (normalized === "invalid endpoint") return "CODEX_LOCAL_INVALID_ENDPOINT";
+      if (normalized === "checking") return "CODEX_LOCAL_CHECKING";
+      if (normalized === "local mode") return "CODEX_LOCAL_SAME_ORIGIN";
+      return "CODEX_LOCAL_UNKNOWN";
+    }
+
+    function cloudConnectionAction(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "connected") return "You can run Codex-backed generation from this cloud page.";
+      if (normalized === "codex not detected") return "Start Codex locally, keep the local bridge running, then click Test Codex Connection.";
+      if (normalized === "wrong service") return "Check that the endpoint points to NetSuite Demo Helper, not another local service.";
+      if (normalized === "timeout") return "Confirm the bridge is running and the browser or firewall is not blocking localhost/private-network access.";
+      if (normalized === "invalid endpoint") return "Use a browser-local URL only, such as http://127.0.0.1:4173 or http://localhost:4173.";
+      if (normalized === "checking") return "Wait for the local bridge check to finish.";
+      if (normalized === "local mode") return "No cloud bridge is needed because the MVP is running locally.";
+      return "Start the local bridge on this machine and click Test Codex Connection.";
+    }
+
+    function formatCloudCheckTime(value = nsdhCloudConnection.testedAt) {
+      if (!value) return "Not checked yet";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString([], { dateStyle: "medium", timeStyle: "medium" });
+    }
+
     function renderCloudConnectionStatus() {
       const target = document.getElementById("cloudCodexBridgeStatus");
       if (target) {
@@ -5428,12 +5501,40 @@ If a page takes time to load, narrate the business reason for the next step inst
       }
     }
 
+    function cloudConnectionStatusPanelHtml() {
+      const status = nsdhCloudConnection.status || "Not tested";
+      const statusClass = providerStatusClass(status);
+      const endpoint = nsdhCloudRuntime ? (nsdhCloudConnection.base || cloudApiBase()) : "same-origin";
+      const reason = nsdhCloudConnection.detail || (status === "Connected"
+        ? "Local Codex bridge responded successfully."
+        : "No local Codex bridge check has completed yet.");
+      return "<div class='codex-info-card codex-status-panel'>" +
+        "<div class='card-title-row'><strong>Codex Connection Status</strong><span class='status-badge " + escapeClientHtml(statusClass) + "'>" + escapeClientHtml(status) + "</span></div>" +
+        "<div class='codex-status-grid'>" +
+          codexStatusRow("Active Brain", "Codex") +
+          codexStatusRow("Connection Type", nsdhCloudRuntime ? "Local Device" : "Same-Origin Local MVP") +
+          codexStatusRow("Endpoint", endpoint) +
+          codexStatusRow("Last Check Time", formatCloudCheckTime()) +
+          codexStatusRow("Code", cloudConnectionCode(status)) +
+        "</div>" +
+        "<div class='codex-status-detail'>" +
+          "<p><strong>Reason:</strong> " + escapeClientHtml(reason) + "</p>" +
+          "<p><strong>Action:</strong> " + escapeClientHtml(cloudConnectionAction(status)) + "</p>" +
+        "</div>" +
+      "</div>";
+    }
+
+    function codexStatusRow(label, value) {
+      return "<div class='codex-status-row'><small>" + escapeClientHtml(label) + "</small><span>" + escapeClientHtml(value || "-") + "</span></div>";
+    }
+
     function renderCodexInfoBody() {
       const status = latestCodexStatus || {};
       const operator = latestCodexOperator || {};
       const active = status.available ? "Detected and active" : "Not detected";
       const intelligenceSource = latestIntelligenceSource || "Waiting for Intelligence refresh";
       codexInfoBody.innerHTML =
+        cloudConnectionStatusPanelHtml() +
         "<div class='codex-info-grid'>" +
           codexInfoCard("Runtime", active, status.message || "") +
           codexInfoCard("Connection", nsdhCloudRuntime ? "Local device bridge" : "Same-origin local MVP", nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "Running directly from localhost.") +
