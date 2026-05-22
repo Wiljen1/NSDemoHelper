@@ -551,17 +551,20 @@
       ]
     },
     "manifestBuild": {
-      "status": "guide-ready-manifest-not-built",
-      "source": "sc-guide-only",
-      "createdFromGuide": false,
-      "updatedAt": "2026-05-19T13:27:33.227Z",
-      "instruction": "Live demo functionality is switched off. The SC guide and intelligence outputs are ready; no dry-run creation prompt or runnable manifest is generated."
+      "status": "runnable-manifest-created",
+      "source": "dry-run-creation-prompt",
+      "createdFromGuide": true,
+      "createdFromDryRunPrompt": true,
+      "dryRunPromptCreatedAt": "2026-05-21T11:35:53.913Z",
+      "runSource": "live-demo",
+      "updatedAt": "2026-05-21T12:13:15.415Z",
+      "instruction": "This manifest was refreshed from the SC Guide tab's dry-run creation prompt and is ready for browser dry-run or rehearsal."
     },
     "dryRunCreationPrompt": {
-      "createdAt": "2026-05-19T08:03:28.646Z",
-      "updatedAt": "2026-05-19T08:03:28.646Z",
+      "createdAt": "2026-05-21T11:35:53.913Z",
+      "updatedAt": "2026-05-21T11:35:53.913Z",
       "source": "system-generated-from-sc-story-runbook",
-      "promptHash": "c4fa0c98f8dc552c",
+      "promptHash": "91359e027a4b7246",
       "status": "ready",
       "instruction": "This timestamp confirms when the SC Guide tab's dry-run creation prompt was last prepared for manifest generation."
     },
