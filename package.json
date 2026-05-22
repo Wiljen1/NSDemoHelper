@@ -21,6 +21,7 @@
     "whitelabel": "node scripts/start-local.mjs whitelabel",
     "test": "node --test tests/*.test.mjs",
     "test:stress": "node tests/stress.mjs",
+    "apex:package": "node scripts/package-apex-app.mjs apex/apps/f56174 apex/build/f56174-apexlang.zip",
     "voice:test": "say -v Moira -r 175 \"Moira is now the default demo narrator voice.\""
   },
   "dependencies": {
