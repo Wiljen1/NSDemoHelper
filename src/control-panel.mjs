@@ -2483,7 +2483,7 @@ async function setupCmsAdmin(body, request) {
   }, null, 2)}\n`, "utf8");
   const session = await createCmsSession(request);
   return {
-    payload: { ok: true, authenticated: true, setupRequired: false },
+    payload: { ok: true, authenticated: true, setupRequired: false, adminSessionToken: session.token },
     headers: { "Set-Cookie": session.cookie }
   };
 }
@@ -2494,7 +2494,7 @@ async function loginCmsAdmin(body, request) {
   if (!valid) throw httpError("Incorrect admin password.", 401);
   const session = await createCmsSession(request);
   return {
-    payload: { ok: true, authenticated: true, setupRequired: false },
+    payload: { ok: true, authenticated: true, setupRequired: false, adminSessionToken: session.token },
     headers: { "Set-Cookie": session.cookie }
   };
 }
@@ -2813,7 +2813,7 @@ async function createCmsSession(request) {
     expiresAt: new Date(now + 8 * 60 * 60 * 1000).toISOString()
   };
   await writeCmsSessions(pruneCmsSessions(sessions));
-  return { cookie: cmsSessionCookie(token, request) };
+  return { cookie: cmsSessionCookie(token, request), token };
 }
 
 async function isCmsAuthenticated(request) {
@@ -2826,7 +2826,7 @@ async function isCmsAuthenticated(request) {
 }
 
 async function requireCmsAuth(request) {
-  const token = parseCookies(request.headers.cookie).nsdh_admin_session;
+  const token = parseCookies(request.headers.cookie).nsdh_admin_session || request.headers["x-demo-helper-admin-session"];
   if (!token) throw httpError("CMS login required.", 401);
   const sessions = pruneCmsSessions(await readCmsSessions());
   const session = sessions[hashToken(token)];
@@ -2836,7 +2836,7 @@ async function requireCmsAuth(request) {
 }
 
 async function destroyCmsSession(request) {
-  const token = parseCookies(request.headers.cookie).nsdh_admin_session;
+  const token = parseCookies(request.headers.cookie).nsdh_admin_session || request.headers["x-demo-helper-admin-session"];
   if (!token) return;
   const sessions = await readCmsSessions();
   delete sessions[hashToken(token)];
@@ -9044,7 +9044,7 @@ function applyCorsHeaders(request, response) {
   response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   response.setHeader(
     "Access-Control-Allow-Headers",
-    request.headers["access-control-request-headers"] || "content-type, x-demo-helper-session-id, x-demo-helper-anonymous-user-id"
+    request.headers["access-control-request-headers"] || "content-type, x-demo-helper-session-id, x-demo-helper-anonymous-user-id, x-demo-helper-admin-session"
   );
   response.setHeader("Access-Control-Allow-Private-Network", "true");
   response.setHeader("Vary", "Origin, Access-Control-Request-Headers, Access-Control-Request-Private-Network");
@@ -12743,18 +12743,37 @@ function html(response) {
 
     const demoHelperSessionId = browserSessionId("nsdhBrowserSessionId", "session");
     const demoHelperAnonymousUserId = browserSessionId("nsdhAnonymousUserId", "user");
+    let demoHelperAdminSessionToken = sessionStorage.getItem("nsdhAdminSessionToken") || "";
+
+    function demoHelperHeaders(extraHeaders = {}) {
+      const headers = {
+        "content-type": "application/json",
+        "x-demo-helper-session-id": demoHelperSessionId,
+        "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
+        ...extraHeaders
+      };
+      if (demoHelperAdminSessionToken) headers["x-demo-helper-admin-session"] = demoHelperAdminSessionToken;
+      return headers;
+    }
+
+    function captureAdminSession(path, payload) {
+      if (payload?.adminSessionToken) {
+        demoHelperAdminSessionToken = payload.adminSessionToken;
+        sessionStorage.setItem("nsdhAdminSessionToken", demoHelperAdminSessionToken);
+      }
+      if (path === "/api/cms/logout") {
+        demoHelperAdminSessionToken = "";
+        sessionStorage.removeItem("nsdhAdminSessionToken");
+      }
+    }
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
         ...options,
-        headers: {
-          "content-type": "application/json",
-          "x-demo-helper-session-id": demoHelperSessionId,
-          "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
-          ...(options.headers || {})
-        }
+        headers: demoHelperHeaders(options.headers || {})
       });
       const payload = await response.json();
+      captureAdminSession(path, payload);
       if (!response.ok || payload.ok === false) throw new Error(payload.error || "Request failed");
       return payload;
     }
@@ -12762,14 +12781,10 @@ function html(response) {
     async function apiWithLog(path, options = {}) {
       const response = await fetch(path, {
         ...options,
-        headers: {
-          "content-type": "application/json",
-          "x-demo-helper-session-id": demoHelperSessionId,
-          "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
-          ...(options.headers || {})
-        }
+        headers: demoHelperHeaders(options.headers || {})
       });
       const payload = await response.json();
+      captureAdminSession(path, payload);
       if (!response.ok) throw new Error(payload.error || "Request failed");
       return payload;
     }

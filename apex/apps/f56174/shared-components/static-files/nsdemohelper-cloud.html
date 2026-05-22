@@ -4027,18 +4027,37 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     const demoHelperSessionId = browserSessionId("nsdhBrowserSessionId", "session");
     const demoHelperAnonymousUserId = browserSessionId("nsdhAnonymousUserId", "user");
+    let demoHelperAdminSessionToken = sessionStorage.getItem("nsdhAdminSessionToken") || "";
+
+    function demoHelperHeaders(extraHeaders = {}) {
+      const headers = {
+        "content-type": "application/json",
+        "x-demo-helper-session-id": demoHelperSessionId,
+        "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
+        ...extraHeaders
+      };
+      if (demoHelperAdminSessionToken) headers["x-demo-helper-admin-session"] = demoHelperAdminSessionToken;
+      return headers;
+    }
+
+    function captureAdminSession(path, payload) {
+      if (payload?.adminSessionToken) {
+        demoHelperAdminSessionToken = payload.adminSessionToken;
+        sessionStorage.setItem("nsdhAdminSessionToken", demoHelperAdminSessionToken);
+      }
+      if (path === "/api/cms/logout") {
+        demoHelperAdminSessionToken = "";
+        sessionStorage.removeItem("nsdhAdminSessionToken");
+      }
+    }
 
     async function api(path, options = {}) {
       const response = await fetch(cloudApiUrl(path), {
         ...options,
-        headers: {
-          "content-type": "application/json",
-          "x-demo-helper-session-id": demoHelperSessionId,
-          "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
-          ...(options.headers || {})
-        }
+        headers: demoHelperHeaders(options.headers || {})
       });
       const payload = await response.json();
+      captureAdminSession(path, payload);
       if (!response.ok || payload.ok === false) throw new Error(payload.error || "Request failed");
       return payload;
     }
@@ -4046,14 +4065,10 @@ If a page takes time to load, narrate the business reason for the next step inst
     async function apiWithLog(path, options = {}) {
       const response = await fetch(cloudApiUrl(path), {
         ...options,
-        headers: {
-          "content-type": "application/json",
-          "x-demo-helper-session-id": demoHelperSessionId,
-          "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
-          ...(options.headers || {})
-        }
+        headers: demoHelperHeaders(options.headers || {})
       });
       const payload = await response.json();
+      captureAdminSession(path, payload);
       if (!response.ok) throw new Error(payload.error || "Request failed");
       return payload;
     }
