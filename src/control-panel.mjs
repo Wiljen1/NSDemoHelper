@@ -866,6 +866,12 @@ await loadCmsContentIntoRuntime();
 
 const server = http.createServer(async (request, response) => {
   try {
+    applyCorsHeaders(request, response);
+    if (request.method === "OPTIONS") {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
     if (request.method === "GET" && request.url === "/") return html(response);
     if (request.method === "GET" && request.url?.startsWith("/assets/")) {
       const fileName = decodeURIComponent(path.basename(request.url.replace("/assets/", "")));
@@ -9024,6 +9030,24 @@ function stopCurrentRun() {
 function json(response, payload, status = 200, headers = {}) {
   response.writeHead(status, { "content-type": "application/json", ...headers });
   response.end(JSON.stringify(payload));
+}
+
+function applyCorsHeaders(request, response) {
+  const origin = request.headers.origin;
+  if (!origin) return;
+  const allowed = /^https:\/\/apex\.oraclecorp\.com$/i.test(origin)
+    || /^https?:\/\/localhost(?::\d+)?$/i.test(origin)
+    || /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i.test(origin);
+  if (!allowed) return;
+  response.setHeader("Access-Control-Allow-Origin", origin);
+  response.setHeader("Access-Control-Allow-Credentials", "true");
+  response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  response.setHeader(
+    "Access-Control-Allow-Headers",
+    request.headers["access-control-request-headers"] || "content-type, x-demo-helper-session-id, x-demo-helper-anonymous-user-id"
+  );
+  response.setHeader("Access-Control-Allow-Private-Network", "true");
+  response.setHeader("Vary", "Origin, Access-Control-Request-Headers, Access-Control-Request-Private-Network");
 }
 
 async function sendFile(response, filePath, contentType) {
