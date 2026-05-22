@@ -7,7 +7,7 @@ This folder contains the Oracle APEX shell package for the NetSuite Demo Helper 
 - Cloud APEX workspace: `EMEAWJ`
 - Cloud APEX application ID: `56174`
 - Cloud APEX application alias: `nsdemohelper`
-- Local MVP runtime: `http://localhost:4173`
+- Local MVP runtime/bridge: user-local, normally `http://127.0.0.1:4173`
 
 ## Current Architecture
 
@@ -17,12 +17,44 @@ Application `56174` is now a cloud-hosted MVP runtime:
 2. Page 1 is public.
 3. Page 1 redirects to the APEX-hosted static application file `nsdemohelper-cloud.html`.
 4. The UI renders from Oracle APEX cloud static files, including the full MVP HTML/CSS/JavaScript and the ribbon asset.
-5. Browser API calls to relative `/api/...` endpoints are routed to the configured local bridge, defaulting to `http://localhost:4173`.
+5. Browser API calls to relative `/api/...` endpoints are routed to the current browser user's local bridge, defaulting to `http://127.0.0.1:4173`.
 6. The local bridge handles Codex-backed generation, session logging, exports, narrator state, and other MVP API behavior.
 
 The cloud runtime no longer redirects to `localhost` for frontend rendering, routing, or static assets.
 
 The full local Node MVP remains available for local Codex-backed generation and desktop demo automation. The APEX cloud UI provides the internal browser-hosted experience while using the local bridge only for API/Codex-backed operations.
+
+## User-Local Codex Bridge
+
+The APEX app must not point to one shared laptop, hostname, or tunnel. Each browser session discovers or stores its own local bridge endpoint:
+
+- Default candidates: `http://127.0.0.1:4173`, `http://localhost:4173`, `http://127.0.0.1:4181`, `http://localhost:4181`, `http://127.0.0.1:4182`, `http://localhost:4182`, `http://127.0.0.1:4192`, `http://localhost:4192`.
+- Manual override: open `Backbone` in the app, enter a local endpoint, and select `Save For This Browser`.
+- Storage: the override is saved in that browser's `localStorage` only. It is not stored globally and does not affect other users.
+- Allowed hosts: only browser-local endpoints are accepted (`localhost`, `127.0.0.1`, `::1`). Shared machine names and personal tunnel URLs are intentionally rejected by the UI validation.
+
+If Codex is not detected, the cloud UI should still render and show a disconnected state. The user should start the local MVP/Codex bridge on their own Mac or Windows machine, then use `Backbone > Test Codex Connection`.
+
+### Colleague Startup Flow
+
+macOS:
+
+1. Start the local MVP/Codex bridge with `npm run mvp`.
+2. Open the APEX runtime URL.
+3. Open `Backbone`.
+4. Select `Test Codex Connection`.
+5. If the bridge uses another port, enter `http://127.0.0.1:<port>` or `http://localhost:<port>` and save it for that browser.
+
+Windows:
+
+1. Start the local MVP/Codex bridge with `npm run mvp`.
+2. Allow browser/private-network or firewall prompts for localhost if Windows asks.
+3. Open the APEX runtime URL.
+4. Open `Backbone`.
+5. Select `Test Codex Connection`.
+6. If the bridge uses another port, enter `http://127.0.0.1:<port>` or `http://localhost:<port>` and save it for that browser.
+
+Browser security note: Oracle APEX is loaded over HTTPS while the local bridge normally runs on HTTP localhost. Modern browsers generally allow loopback requests, but private-network or CORS policy can still block the call. The local bridge must return the required CORS headers for `https://apex.oraclecorp.com`.
 
 ## Package
 
@@ -76,7 +108,7 @@ Expected behavior:
 - the final URL points to an APEX static application file
 - the page title is `NetSuite Demo Helper`
 - no frontend route, stylesheet, script, or image is loaded from `localhost`
-- only API calls use `http://localhost:4173/api/...`
+- only API calls use the current user's browser-local bridge, such as `http://127.0.0.1:4173/api/...`
 - Active Brain shows the local Codex provider when the bridge is running
 - Pre-demo scoring can be triggered from the cloud page and should complete through the local Codex bridge
 

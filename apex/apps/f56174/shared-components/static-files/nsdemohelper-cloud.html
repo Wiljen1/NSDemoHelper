@@ -4003,17 +4003,29 @@ If a page takes time to load, narrate the business reason for the next step inst
     let prepDirtyForPreDemoIntelligence = false;
     let liveDemoFunctionalityEnabled = false;
     const nsdhCloudRuntime = location.hostname === "apex.oraclecorp.com";
-    const nsdhDefaultLocalApiBase = "http://localhost:4173";
-
-    function cloudApiBase() {
-      return (localStorage.getItem("nsdhCloudApiBase") || nsdhDefaultLocalApiBase).replace(/\/$/, "");
-    }
-
-    function cloudApiUrl(path) {
-      if (!path || !String(path).startsWith("/")) return path;
-      if (!nsdhCloudRuntime) return path;
-      return cloudApiBase() + path;
-    }
+    const nsdhDefaultLocalApiBase = "http://127.0.0.1:4173";
+    const nsdhLocalApiCandidateBases = [
+      "http://127.0.0.1:4173",
+      "http://localhost:4173",
+      "http://127.0.0.1:4181",
+      "http://localhost:4181",
+      "http://127.0.0.1:4182",
+      "http://localhost:4182",
+      "http://127.0.0.1:4192",
+      "http://localhost:4192"
+    ];
+    const nsdhCloudApiBaseStorageKey = "nsdhCloudApiBase";
+    const nsdhDetectedCloudApiBaseStorageKey = "nsdhDetectedCloudApiBase";
+    let nsdhCloudConnection = {
+      status: nsdhCloudRuntime ? "Not tested" : "Local mode",
+      base: nsdhCloudRuntime ? "" : "same-origin",
+      detail: nsdhCloudRuntime
+        ? "The APEX page has not checked this user's local Codex bridge yet."
+        : "Local MVP mode uses same-origin API calls.",
+      testedAt: ""
+    };
+    let nsdhCloudDetectionPromise = null;
+    let nsdhLastCloudDetectionAt = 0;
 
     function browserSessionId(key, prefix) {
       const storage = key === "nsdhBrowserSessionId" ? sessionStorage : localStorage;
@@ -4028,6 +4040,47 @@ If a page takes time to load, narrate the business reason for the next step inst
     const demoHelperSessionId = browserSessionId("nsdhBrowserSessionId", "session");
     const demoHelperAnonymousUserId = browserSessionId("nsdhAnonymousUserId", "user");
     let demoHelperAdminSessionToken = sessionStorage.getItem("nsdhAdminSessionToken") || "";
+
+    function normalizeLocalApiBase(value) {
+      const raw = String(value || "").trim().replace(new RegExp("/+$"), "");
+      if (!raw) return "";
+      try {
+        const parsed = new URL(raw);
+        const localHost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "::1" || parsed.hostname === "[::1]";
+        const localProtocol = parsed.protocol === "http:" || parsed.protocol === "https:";
+        return localHost && localProtocol ? parsed.origin : "";
+      } catch {
+        return "";
+      }
+    }
+
+    function configuredCloudApiBase() {
+      return normalizeLocalApiBase(localStorage.getItem(nsdhCloudApiBaseStorageKey));
+    }
+
+    function detectedCloudApiBase() {
+      return normalizeLocalApiBase(localStorage.getItem(nsdhDetectedCloudApiBaseStorageKey));
+    }
+
+    function cloudApiBase() {
+      if (!nsdhCloudRuntime) return "";
+      return configuredCloudApiBase() || detectedCloudApiBase() || nsdhDefaultLocalApiBase;
+    }
+
+    function cloudApiUrl(path) {
+      if (!path || !String(path).startsWith("/")) return path;
+      if (!nsdhCloudRuntime) return path;
+      return cloudApiBase() + path;
+    }
+
+    function cloudApiCandidateBases(preferred = "") {
+      return Array.from(new Set([
+        normalizeLocalApiBase(preferred),
+        configuredCloudApiBase(),
+        detectedCloudApiBase(),
+        ...nsdhLocalApiCandidateBases.map(normalizeLocalApiBase)
+      ].filter(Boolean)));
+    }
 
     function demoHelperHeaders(extraHeaders = {}) {
       const headers = {
@@ -4051,7 +4104,121 @@ If a page takes time to load, narrate the business reason for the next step inst
       }
     }
 
+    async function probeCloudApiBase(base) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+      try {
+        const response = await fetch(base + "/api/codex/status", {
+          method: "GET",
+          headers: demoHelperHeaders(),
+          signal: controller.signal
+        });
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch {
+          payload = null;
+        }
+        if (!response.ok) {
+          return { ok: false, base, status: "Wrong service", detail: "HTTP " + response.status + " from " + base + "." };
+        }
+        if (!payload || typeof payload.available !== "boolean") {
+          return { ok: false, base, status: "Wrong service", detail: "The endpoint responded, but not like NetSuite Demo Helper." };
+        }
+        return {
+          ok: true,
+          base,
+          status: payload.available ? "Connected" : "Codex not detected",
+          detail: payload.message || (payload.available ? "Local Codex bridge responded." : "The bridge responded but Codex was not detected."),
+          payload
+        };
+      } catch (error) {
+        const aborted = error.name === "AbortError";
+        return {
+          ok: false,
+          base,
+          status: aborted ? "Timeout" : "Not detected",
+          detail: aborted
+            ? "Timed out checking " + base + "."
+            : "Could not reach " + base + ". The local bridge may be stopped, blocked by CORS/firewall, or running on another port."
+        };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function detectLocalCodexEndpoint(options = {}) {
+      if (!nsdhCloudRuntime) {
+        nsdhCloudConnection = {
+          status: "Local mode",
+          base: "same-origin",
+          detail: "Local MVP mode talks to the same local server that served this page.",
+          testedAt: new Date().toISOString()
+        };
+        return nsdhCloudConnection;
+      }
+      if (nsdhCloudDetectionPromise && !options.force) return nsdhCloudDetectionPromise;
+      const recentlyChecked = Date.now() - nsdhLastCloudDetectionAt < 15000;
+      if (recentlyChecked && !options.force && detectedCloudApiBase()) return nsdhCloudConnection;
+
+      nsdhCloudDetectionPromise = (async () => {
+        nsdhLastCloudDetectionAt = Date.now();
+        nsdhCloudConnection = {
+          status: "Checking",
+          base: options.preferred || cloudApiBase(),
+          detail: "Checking this browser user's local Codex bridge.",
+          testedAt: new Date().toISOString()
+        };
+        renderCloudConnectionStatus();
+        const attempts = [];
+        for (const base of cloudApiCandidateBases(options.preferred)) {
+          const result = await probeCloudApiBase(base);
+          attempts.push(result);
+          if (result.ok) {
+            localStorage.setItem(nsdhDetectedCloudApiBaseStorageKey, base);
+            nsdhCloudConnection = {
+              status: result.status,
+              base,
+              detail: result.detail,
+              testedAt: new Date().toISOString(),
+              payload: result.payload,
+              attempts
+            };
+            renderCloudConnectionStatus();
+            return nsdhCloudConnection;
+          }
+        }
+        localStorage.removeItem(nsdhDetectedCloudApiBaseStorageKey);
+        const first = attempts[0] || {};
+        const wrongService = attempts.find((attempt) => attempt.status === "Wrong service");
+        const timeout = attempts.find((attempt) => attempt.status === "Timeout");
+        nsdhCloudConnection = {
+          status: wrongService ? "Wrong service" : timeout ? "Timeout" : "Not detected",
+          base: configuredCloudApiBase() || nsdhDefaultLocalApiBase,
+          detail: wrongService?.detail || timeout?.detail || first.detail || "No local NetSuite Demo Helper bridge was detected on this device.",
+          testedAt: new Date().toISOString(),
+          attempts
+        };
+        renderCloudConnectionStatus();
+        return nsdhCloudConnection;
+      })();
+      try {
+        return await nsdhCloudDetectionPromise;
+      } finally {
+        nsdhCloudDetectionPromise = null;
+      }
+    }
+
+    async function ensureCloudApiEndpoint(path) {
+      if (!nsdhCloudRuntime || !String(path || "").startsWith("/api/")) return;
+      const detection = await detectLocalCodexEndpoint();
+      if (detection.status !== "Connected" && detection.status !== "Codex not detected") {
+        throw new Error(detection.status + ": " + detection.detail);
+      }
+    }
+
     async function api(path, options = {}) {
+      await ensureCloudApiEndpoint(path);
       const response = await fetch(cloudApiUrl(path), {
         ...options,
         headers: demoHelperHeaders(options.headers || {})
@@ -4063,6 +4230,7 @@ If a page takes time to load, narrate the business reason for the next step inst
     }
 
     async function apiWithLog(path, options = {}) {
+      await ensureCloudApiEndpoint(path);
       const response = await fetch(cloudApiUrl(path), {
         ...options,
         headers: demoHelperHeaders(options.headers || {})
@@ -4487,12 +4655,15 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     async function refreshPlatformStatus() {
       try {
+        await ensureCloudApiEndpoint("/api/platform/status");
         const payload = await api("/api/platform/status");
         renderPlatformStatus(payload);
       } catch (error) {
         activeBrainBadge.classList.remove("ready", "missing", "checking");
         activeBrainBadge.classList.add("missing");
-        activeBrainText.textContent = "Active Brain: Unknown";
+        activeBrainText.textContent = nsdhCloudRuntime
+          ? "Active Brain: Codex | Local device | Not detected"
+          : "Active Brain: Unknown";
         activeBrainBadge.title = error.message;
       }
     }
@@ -4503,10 +4674,12 @@ If a page takes time to load, narrate the business reason for the next step inst
       activeBrainBadge.classList.remove("ready", "missing", "checking");
       activeBrainBadge.classList.add(runtime.available ? "ready" : "missing");
       const sourceText = (payload.activeKnowledgeSourceCount || 0) + " source" + (payload.activeKnowledgeSourceCount === 1 ? "" : "s");
-      activeBrainText.textContent = "Active Brain: " + (provider.name || "Not configured") + " | " + (runtime.runtimeStatus || "Unknown") + " | " + sourceText;
+      const cloudConnection = nsdhCloudRuntime ? " | Local device" : "";
+      activeBrainText.textContent = "Active Brain: " + (provider.name || "Not configured") + cloudConnection + " | " + (runtime.runtimeStatus || "Unknown") + " | " + sourceText;
       activeBrainBadge.title = [
         "Provider: " + (provider.name || "Not configured"),
         "Model: " + (provider.defaultModel || "Not configured"),
+        nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
         "Connection: " + (runtime.connectionStatus || "Unknown"),
         "Runtime: " + (runtime.runtimeStatus || "Unknown"),
         "Knowledge sources: " + ((payload.activeKnowledgeSources || []).map((source) => source.name).join(", ") || "None active"),
@@ -5192,28 +5365,67 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     async function refreshCodexStatus() {
       try {
+        const localConnection = await detectLocalCodexEndpoint();
+        if (nsdhCloudRuntime && localConnection.status !== "Connected" && localConnection.status !== "Codex not detected") {
+          const payload = { available: false, message: localConnection.detail, cloudConnection: localConnection };
+          renderCodexStatus(payload);
+          return payload;
+        }
         const payload = await api("/api/codex/status");
+        payload.cloudConnection = localConnection;
         renderCodexStatus(payload);
         return payload;
       } catch (error) {
-        renderCodexStatus({ available: false, message: error.message });
-        return { available: false, message: error.message };
+        const payload = { available: false, message: error.message, cloudConnection: nsdhCloudConnection };
+        renderCodexStatus(payload);
+        return payload;
       }
     }
 
     function renderCodexStatus(payload = {}) {
       latestCodexStatus = payload;
+      if (payload.cloudConnection) nsdhCloudConnection = payload.cloudConnection;
       codexRuntimeBadge.classList.remove("ready", "missing", "checking");
       if (payload.available) {
         codexRuntimeBadge.classList.add("ready");
         codexRuntimeText.textContent = "Codex active";
-        codexRuntimeBadge.title = [payload.message, payload.version, payload.command].filter(Boolean).join("\n");
+        codexRuntimeBadge.title = [
+          payload.message,
+          nsdhCloudRuntime ? "Connection: Local device" : "",
+          nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
+          payload.version,
+          payload.command
+        ].filter(Boolean).join("\n");
       } else {
         codexRuntimeBadge.classList.add("missing");
         codexRuntimeText.textContent = "Codex not detected";
-        codexRuntimeBadge.title = payload.message || "The app could not detect Codex on this machine.";
+        codexRuntimeBadge.title = [
+          payload.message || "The app could not detect Codex on this machine.",
+          nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
+          nsdhCloudRuntime ? "Use Backbone > Test Connection after starting the local bridge." : ""
+        ].filter(Boolean).join("\n");
       }
+      renderCloudConnectionStatus();
       renderCodexInfoBody();
+    }
+
+    function cloudConnectionStatusText() {
+      if (!nsdhCloudRuntime) return "Local MVP mode: same-origin API";
+      return [
+        "Connection: Local device",
+        "Status: " + (nsdhCloudConnection.status || "Not tested"),
+        "Endpoint: " + (nsdhCloudConnection.base || cloudApiBase())
+      ].join(" | ");
+    }
+
+    function renderCloudConnectionStatus() {
+      const target = document.getElementById("cloudCodexBridgeStatus");
+      if (target) {
+        target.textContent = cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "");
+      }
+      if (codexRuntimeBadge && nsdhCloudRuntime) {
+        codexRuntimeBadge.dataset.endpoint = cloudApiBase();
+      }
     }
 
     function renderCodexInfoBody() {
@@ -5224,12 +5436,14 @@ If a page takes time to load, narrate the business reason for the next step inst
       codexInfoBody.innerHTML =
         "<div class='codex-info-grid'>" +
           codexInfoCard("Runtime", active, status.message || "") +
+          codexInfoCard("Connection", nsdhCloudRuntime ? "Local device bridge" : "Same-origin local MVP", nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "Running directly from localhost.") +
           codexInfoCard("Version", status.version || "-", status.command || "") +
           codexInfoCard("Visible Intelligence Source", intelligenceSource === "codex-structured-json" ? "Codex structured JSON" : intelligenceSource, "This is what drives the visible Intelligence dashboard.") +
           codexInfoCard("Latest Intelligence Task", operator.sessionTitle || "Not run yet", operator.cachedAt ? "Cached: " + operator.cachedAt : "") +
           codexInfoCard("Prompt File", operator.promptFile || "-", "Saved background operator prompt.") +
           codexInfoCard("Output File", operator.outputFile || "-", "Saved Codex output used by the app.") +
         "</div>" +
+        localCodexBridgeSettingsHtml() +
         "<div class='codex-info-card'><strong>Where Codex Is Used</strong>" +
         "<ul class='codex-flow-list'>" +
           "<li>Learn / Create Demo: Codex reviews the company, notes, audience, scope, strategy, and instructions.</li>" +
@@ -5239,6 +5453,69 @@ If a page takes time to load, narrate the business reason for the next step inst
           "<li>AI Actions: Codex rewrites or improves the playbook when actions are applied.</li>" +
         "</ul></div>" +
         (operator.analysis ? "<div class='codex-info-card'><strong>Latest Codex Intelligence Output</strong><pre class='operator-output'>" + escapeClientHtml(operator.analysis) + "</pre></div>" : "");
+      attachCodexBridgeControls();
+    }
+
+    function localCodexBridgeSettingsHtml() {
+      const cloudOnlyNote = nsdhCloudRuntime
+        ? "This setting is saved only in this browser. Each colleague should use their own localhost or 127.0.0.1 endpoint."
+        : "This setting is only needed from the Oracle APEX cloud page.";
+      return "<div class='codex-info-card'><strong>Local Codex Bridge</strong>" +
+        "<p class='hint'>The APEX UI is hosted in Oracle APEX. Codex-backed actions call the NetSuite Demo Helper bridge running on the current user's own Mac or Windows device.</p>" +
+        "<label for='localCodexEndpointInput'>Local endpoint for this browser</label>" +
+        "<input id='localCodexEndpointInput' type='text' value='" + escapeClientHtml(cloudApiBase() || nsdhDefaultLocalApiBase) + "' placeholder='http://127.0.0.1:4173'>" +
+        "<p class='hint'>" + escapeClientHtml(cloudOnlyNote) + "</p>" +
+        "<div class='row'>" +
+          "<button class='secondary' id='testLocalCodexEndpoint' type='button'>Test Codex Connection</button>" +
+          "<button class='secondary' id='saveLocalCodexEndpoint' type='button'>Save For This Browser</button>" +
+          "<button class='secondary' id='resetLocalCodexEndpoint' type='button'>Auto Detect</button>" +
+        "</div>" +
+        "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
+        "<details><summary>Startup guidance</summary>" +
+          "<p><strong>macOS:</strong> start the NetSuite Demo Helper local bridge with the documented MVP command, keep Codex open, then test this connection.</p>" +
+          "<p><strong>Windows:</strong> start the local bridge on the same port, allow localhost/private network access if prompted by the browser or firewall, then test this connection.</p>" +
+          "<p>If your bridge uses another port, enter the full localhost or 127.0.0.1 URL above. Do not enter another person's machine name or shared tunnel unless a secure hosted bridge is intentionally configured.</p>" +
+        "</details></div>";
+    }
+
+    function attachCodexBridgeControls() {
+      const input = document.getElementById("localCodexEndpointInput");
+      const testButton = document.getElementById("testLocalCodexEndpoint");
+      const saveButton = document.getElementById("saveLocalCodexEndpoint");
+      const resetButton = document.getElementById("resetLocalCodexEndpoint");
+      if (!input || !testButton || !saveButton || !resetButton) return;
+      testButton.onclick = async () => {
+        const value = normalizeLocalApiBase(input.value);
+        if (!value) {
+          nsdhCloudConnection = { status: "Invalid endpoint", base: input.value, detail: "Use http://localhost:<port> or http://127.0.0.1:<port>.", testedAt: new Date().toISOString() };
+          renderCloudConnectionStatus();
+          return;
+        }
+        const result = await detectLocalCodexEndpoint({ force: true, preferred: value });
+        renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
+        await refreshPlatformStatus();
+      };
+      saveButton.onclick = async () => {
+        const value = normalizeLocalApiBase(input.value);
+        if (!value) {
+          nsdhCloudConnection = { status: "Invalid endpoint", base: input.value, detail: "Use http://localhost:<port> or http://127.0.0.1:<port>.", testedAt: new Date().toISOString() };
+          renderCloudConnectionStatus();
+          return;
+        }
+        localStorage.setItem(nsdhCloudApiBaseStorageKey, value);
+        const result = await detectLocalCodexEndpoint({ force: true, preferred: value });
+        renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
+        await refreshPlatformStatus();
+      };
+      resetButton.onclick = async () => {
+        localStorage.removeItem(nsdhCloudApiBaseStorageKey);
+        localStorage.removeItem(nsdhDetectedCloudApiBaseStorageKey);
+        input.value = nsdhDefaultLocalApiBase;
+        const result = await detectLocalCodexEndpoint({ force: true });
+        input.value = result.base || cloudApiBase();
+        renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
+        await refreshPlatformStatus();
+      };
     }
 
     function codexInfoCard(label, value, detail = "") {

@@ -19,15 +19,10 @@ function injectCloudBridge(html) {
 
   next = replaceRequired(
     next,
-    "    let liveDemoFunctionalityEnabled = false;\n",
-    `    let liveDemoFunctionalityEnabled = false;\n    const nsdhCloudRuntime = location.hostname === "apex.oraclecorp.com";\n    const nsdhDefaultLocalApiBase = "http://localhost:4173";\n\n    function cloudApiBase() {\n      return (localStorage.getItem("nsdhCloudApiBase") || nsdhDefaultLocalApiBase).replace(/\\/$/, "");\n    }\n\n    function cloudApiUrl(path) {\n      if (!path || !String(path).startsWith("/")) return path;\n      if (!nsdhCloudRuntime) return path;\n      return cloudApiBase() + path;\n    }\n`,
-    "live demo feature flag bootstrap"
+    "    const nsdhCloudRuntime = false;\n",
+    `    const nsdhCloudRuntime = location.hostname === "apex.oraclecorp.com";\n`,
+    "cloud runtime detector"
   );
-
-  next = next.replaceAll("fetch(path, {", "fetch(cloudApiUrl(path), {");
-  next = next.replaceAll("window.location.href = payload.downloadUrl;", "window.location.href = cloudApiUrl(payload.downloadUrl);");
-  next = next.replaceAll("href='/api/session-logs/download/\" + encodeURIComponent(session.session_id) + \"'", "href='\" + escapeClientHtml(cloudApiUrl(\"/api/session-logs/download/\" + encodeURIComponent(session.session_id))) + \"'");
-  next = next.replaceAll("escapeClientHtml(file.downloadUrl)", "escapeClientHtml(cloudApiUrl(file.downloadUrl))");
 
   next = next.replace(
     "Current version: local SC workspace.",
