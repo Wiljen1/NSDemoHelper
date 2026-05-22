@@ -31,13 +31,13 @@ page 1 (
         }
     )
 
-    process open-local-mvp (
-        name: Open Local MVP Runtime
+    process open-cloud-mvp (
+        name: Open Cloud MVP Runtime
         type: executeCode
         source {
             plsqlCode:
                 ```plsql
-                apex_util.redirect_url('http://localhost:4173');
+                apex_util.redirect_url('/pls/apex/' || :APP_IMAGES || 'nsdemohelper-cloud.html');
                 ```
         }
         execution {

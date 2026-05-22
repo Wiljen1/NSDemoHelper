@@ -23,3 +23,12 @@ file "icons/app-icon-512.png" (
     charSet: utf-8
 )
 
+file "b31e8773d38eab8a3c4a3e25413a77595a765691.png" (
+    mimeType: image/png
+    charSet: utf-8
+)
+
+file "nsdemohelper-cloud.html" (
+    mimeType: text/html
+    charSet: utf-8
+)

@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetSuite Demo Helper</title>
+  <style>
+    :root {
+      --ocean: #2C5266;
+      --ocean-dark: #173545;
+      --cream: #F5F4F2;
+      --card: #ffffff;
+      --ink: #17242d;
+      --muted: #5d6b73;
+      --line: #d9dddf;
+      --soft: #eef1f2;
+      --green: #2f7d5a;
+      --amber: #a86600;
+      --red: #b64231;
+      --blue: #3b6f8e;
+      font-family: "Oracle Sans", Arial, Helvetica, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--cream);
+    }
+    .ribbon {
+      height: 12px;
+      background-color: var(--ocean);
+      background-image: url("b31e8773d38eab8a3c4a3e25413a77595a765691.png"), linear-gradient(90deg, #1f3d4e 0%, #2C5266 34%, #57798a 68%, #2C5266 100%);
+      background-size: auto 12px, cover;
+      background-repeat: repeat-x, no-repeat;
+    }
+    header {
+      background: var(--ocean);
+      color: #fff;
+      padding: 30px 48px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+    }
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: 12px;
+      color: #c8d8df;
+      margin: 0 0 8px;
+      font-weight: 700;
+    }
+    h1, h2, .hero-line {
+      font-family: Georgia, "Times New Roman", serif;
+      letter-spacing: 0;
+    }
+    h1 { margin: 0; font-size: 34px; font-weight: 500; }
+    header p { margin: 8px 0 0; color: #dbe7eb; max-width: 760px; }
+    .meta {
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+      font-size: 13px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: rgba(255,255,255,.08);
+      color: inherit;
+      white-space: nowrap;
+    }
+    .badge.light {
+      border-color: var(--line);
+      background: var(--soft);
+      color: var(--ink);
+    }
+    .badge.ready { background: #e8f3ed; border-color: #b9dbc9; color: var(--green); }
+    .badge.warn { background: #fff4df; border-color: #f0d5a7; color: var(--amber); }
+    .badge.critical { background: #fae8e4; border-color: #efc5bc; color: var(--red); }
+    main { padding: 24px 48px 48px; }
+    nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      min-height: 38px;
+      padding: 8px 13px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .tab.active {
+      background: var(--ocean);
+      border-color: var(--ocean);
+      color: #fff;
+    }
+    .hero {
+      background: var(--ocean-dark);
+      color: #fff;
+      border-radius: 6px;
+      padding: 22px 24px;
+      border-left: 5px solid #7eb1c6;
+      margin-bottom: 18px;
+    }
+    .hero-line { font-size: 24px; margin: 0 0 8px; }
+    .hero p { margin: 0; color: #d8e6ec; max-width: 920px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 18px;
+      min-width: 0;
+    }
+    .span-12 { grid-column: span 12; }
+    .span-8 { grid-column: span 8; }
+    .span-6 { grid-column: span 6; }
+    .span-4 { grid-column: span 4; }
+    .span-3 { grid-column: span 3; }
+    h2 { margin: 0 0 12px; font-size: 22px; font-weight: 500; }
+    h3 { margin: 0 0 10px; font-size: 15px; }
+    label { display: block; font-weight: 700; font-size: 13px; margin: 0 0 6px; }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 10px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+    textarea { min-height: 140px; resize: vertical; line-height: 1.45; }
+    .small textarea { min-height: 88px; }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 6px 0 0; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    button, .button {
+      border: 1px solid var(--ocean);
+      background: var(--ocean);
+      color: #fff;
+      border-radius: 5px;
+      padding: 9px 13px;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+    }
+    button.secondary, .button.secondary {
+      background: #fff;
+      color: var(--ocean);
+      border-color: var(--line);
+    }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .score {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 42px;
+      color: var(--ocean);
+      margin: 0;
+      line-height: 1;
+    }
+    .metric { display: grid; gap: 8px; }
+    .bar {
+      height: 8px;
+      background: var(--soft);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .fill { height: 100%; background: var(--ocean); width: 0; }
+    .list { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.5; }
+    .output {
+      white-space: pre-wrap;
+      background: #fbfbfa;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 14px;
+      min-height: 140px;
+      line-height: 1.45;
+    }
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { text-align: left; border-bottom: 1px solid var(--line); padding: 10px 8px; vertical-align: top; }
+    .table th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .hidden { display: none !important; }
+    .status-line { margin-top: 12px; color: var(--muted); font-size: 13px; }
+    .callout {
+      border-left: 4px solid var(--blue);
+      background: #f0f6f8;
+      padding: 12px;
+      border-radius: 4px;
+      color: #234150;
+      line-height: 1.45;
+    }
+    @media (max-width: 900px) {
+      header { grid-template-columns: 1fr; padding: 24px; }
+      .meta { justify-items: start; }
+      main { padding: 18px; }
+      .span-8, .span-6, .span-4, .span-3 { grid-column: span 12; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ribbon" aria-hidden="true"></div>
+  <header>
+    <div>
+      <p class="eyebrow">Demo Intelligence</p>
+      <h1>NetSuite Demo Helper</h1>
+      <p>Cloud-hosted MVP for discovery prep, playbook creation, pre-demo scoring, and demo readiness review.</p>
+    </div>
+    <div class="meta">
+      <span class="badge ready">Cloud UI: Running in Oracle APEX</span>
+      <span class="badge warn" id="providerBadge">AI provider: Optional</span>
+      <span class="badge">v0.1.0-alpha | cloud-mvp</span>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="Primary">
+      <button class="tab active" data-tab="prep">Discovery & Prep</button>
+      <button class="tab" data-tab="playbook">Playbook</button>
+      <button class="tab" data-tab="preDemo">Pre-Demo Intelligence</button>
+      <button class="tab" data-tab="demoIntel">Demo Intelligence</button>
+      <button class="tab" data-tab="admin">Admin</button>
+    </nav>
+
+    <section class="hero">
+      <p class="hero-line" id="heroLine">Prepare the demo story before the customer-facing meeting.</p>
+      <p id="heroCopy">This page is hosted by Oracle APEX cloud. It does not require localhost for rendering, routing, or static assets. Local Codex can be connected separately as an optional provider.</p>
+    </section>
+
+    <section id="prep" class="page">
+      <div class="grid">
+        <div class="card span-8">
+          <h2>Customer Context</h2>
+          <div class="grid">
+            <div class="span-6">
+              <label for="company">Company / opportunity</label>
+              <input id="company" value="Air Charter Service">
+            </div>
+            <div class="span-6">
+              <label for="website">Website</label>
+              <input id="website" value="https://www.aircharterservice.com/">
+            </div>
+            <div class="span-6 small">
+              <label for="scope">Demo scope</label>
+              <textarea id="scope">Financials First Services Premium, SuiteProjects, Fixed Asset Management, reporting, approvals, consolidation, and project-level flight profitability.</textarea>
+            </div>
+            <div class="span-6 small">
+              <label for="competition">Competition / status quo</label>
+              <textarea id="competition">SAP S/4HANA, Microsoft Dynamics, Access ERP, Jedox, spreadsheets, and manual email-heavy finance processes.</textarea>
+            </div>
+            <div class="span-12 small">
+              <label for="request">Demo request</label>
+              <textarea id="request">Create a prospect-focused standard platform demo that opens with executive visibility, then moves into finance operations, project-level flight tracking, approvals, reporting, and consolidation.</textarea>
+            </div>
+            <div class="span-12">
+              <label for="notes">Pre-demo notes</label>
+              <textarea id="notes">Stakeholders include a CFO, finance transformation, financial controller, IT director, project manager, and business analyst. The customer is evaluating a wider ERP transformation after initially looking at procure-to-pay. Key challenges include multi-country consolidation, local GAAP, e-invoicing, integrations, project tracking for flights, manual AP and approvals, fragmented expense handling, Jedox consolidation, spreadsheets for fixed assets, and a need to link revenue/costs to flight projects.</textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="card span-4">
+          <h2>Demo Settings</h2>
+          <label for="audience">Audience type</label>
+          <select id="audience">
+            <option>Prospect</option>
+            <option>Executive</option>
+            <option>Operational / End User</option>
+            <option>Technical</option>
+            <option>Customer</option>
+            <option>Marketing</option>
+          </select>
+          <label for="segment" style="margin-top:12px">Target segment</label>
+          <select id="segment">
+            <option>Mid-Market</option>
+            <option>Startup</option>
+            <option>Emerging / SMB</option>
+            <option>Enterprise</option>
+            <option>Public Sector / Government</option>
+          </select>
+          <label for="strategy" style="margin-top:12px">Demo strategy</label>
+          <select id="strategy">
+            <option>Standard Platform Demo</option>
+            <option>Discovery Demo</option>
+            <option>Vision Demo</option>
+            <option>Executive Alignment Demo</option>
+            <option>Technical Validation Demo</option>
+          </select>
+          <label for="industry" style="margin-top:12px">Industry</label>
+          <select id="industry">
+            <option>General Business</option>
+            <option>Services</option>
+            <option>Financial Services</option>
+            <option>Wholesale Distribution</option>
+            <option>SaaS</option>
+          </select>
+          <label for="language" style="margin-top:12px">Output language</label>
+          <select id="language">
+            <option>English</option>
+            <option>Dutch</option>
+            <option>German</option>
+            <option>French</option>
+            <option>Spanish</option>
+          </select>
+          <div class="row" style="margin-top:16px">
+            <button id="scoreBtn">Pre-demo scoring</button>
+            <button id="learnBtn">Learn / Create Demo</button>
+          </div>
+          <p class="status-line" id="prepStatus">Ready. Cloud UI is loaded from APEX.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="playbook" class="page hidden">
+      <div class="grid">
+        <div class="card span-8">
+          <h2>Personalized Demo Story And Runbook</h2>
+          <div id="playbookOutput" class="output">Run Learn / Create Demo to generate the playbook.</div>
+        </div>
+        <div class="card span-4">
+          <h2>Setup And Asset Prompts</h2>
+          <h3>NetSuite setup prompt</h3>
+          <div id="setupOutput" class="output">Setup prompt will appear after generation.</div>
+          <h3 style="margin-top:14px">Demo asset / PowerPoint prompt</h3>
+          <div id="assetOutput" class="output">Asset prompt will appear after generation.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="preDemo" class="page hidden">
+      <div class="grid">
+        <div class="card span-3 metric">
+          <h3>Discovery Score</h3>
+          <p class="score" id="discoveryScore">--</p>
+          <div class="bar"><div class="fill" id="discoveryFill"></div></div>
+        </div>
+        <div class="card span-9">
+          <h2>Pre-Demo Intelligence</h2>
+          <div id="preDemoOutput" class="output">Run Pre-demo scoring to assess notes, website context, gaps, and risk areas.</div>
+        </div>
+        <div class="card span-12">
+          <h2>Recommended Follow-Up Questions</h2>
+          <ul id="questionList" class="list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="demoIntel" class="page hidden">
+      <div class="grid">
+        <div class="card span-3 metric">
+          <h3>Demo Readiness</h3>
+          <p class="score" id="readinessScore">--</p>
+          <div class="bar"><div class="fill" id="readinessFill"></div></div>
+        </div>
+        <div class="card span-3 metric">
+          <h3>Demo Risk</h3>
+          <p class="score" id="riskScore">--</p>
+          <div class="bar"><div class="fill" id="riskFill"></div></div>
+        </div>
+        <div class="card span-6">
+          <h2>SC Briefing</h2>
+          <div id="briefingOutput" class="output">Run Learn / Create Demo to generate demo intelligence.</div>
+        </div>
+        <div class="card span-6">
+          <h2>Winning Moments</h2>
+          <ul id="winningList" class="list"></ul>
+        </div>
+        <div class="card span-6">
+          <h2>What NOT To Demo</h2>
+          <ul id="avoidList" class="list"></ul>
+        </div>
+        <div class="card span-12">
+          <h2>Win Strategy</h2>
+          <div id="winStrategyOutput" class="output">Win strategy will appear after generation.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="admin" class="page hidden">
+      <div class="grid">
+        <div class="card span-6">
+          <h2>Cloud Runtime Status</h2>
+          <div class="callout">
+            This MVP UI is hosted in Oracle APEX static application files. It no longer redirects to localhost for rendering, routing, or assets.
+          </div>
+          <table class="table" style="margin-top:12px">
+            <tbody>
+              <tr><th>Frontend hosting</th><td>Oracle APEX cloud</td></tr>
+              <tr><th>Local frontend required</th><td>No</td></tr>
+              <tr><th>Optional AI provider</th><td id="providerStatus">Not configured</td></tr>
+              <tr><th>Session storage</th><td>Browser local storage in this cloud MVP shell</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card span-6">
+          <h2>Optional Local Provider</h2>
+          <p class="hint">Only configure this if you intentionally want this cloud UI to call a local Codex/MVP backend. The UI itself does not depend on it.</p>
+          <label><input type="checkbox" id="providerEnabled" style="width:auto;margin-right:8px"> Enable optional local provider calls</label>
+          <label for="providerBase" style="margin-top:12px">Provider base URL</label>
+          <input id="providerBase" placeholder="Example: http://localhost:4173">
+          <div class="row" style="margin-top:12px">
+            <button class="secondary" id="testProviderBtn">Test provider</button>
+            <button class="secondary" id="saveProviderBtn">Save setting</button>
+          </div>
+          <p class="status-line" id="providerTestResult">Provider calls are disabled by default.</p>
+        </div>
+        <div class="card span-12">
+          <h2>Demo Prep Sessions</h2>
+          <div class="row" style="margin-bottom:12px">
+            <button class="secondary" id="exportBtn">Export Current Session JSON</button>
+            <button class="secondary" id="clearBtn">Clear Local Sessions</button>
+          </div>
+          <table class="table">
+            <thead><tr><th>Updated</th><th>Company</th><th>Audience</th><th>Discovery</th><th>Readiness</th></tr></thead>
+            <tbody id="sessionRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const storageKey = "nsdh-cloud-mvp-state";
+    const providerKey = "nsdh-cloud-provider";
+    const tabs = Array.from(document.querySelectorAll(".tab"));
+    const pages = Array.from(document.querySelectorAll(".page"));
+    const fields = ["company","website","scope","competition","request","notes","audience","segment","strategy","industry","language"];
+    let state = loadState();
+
+    function byId(id) { return document.getElementById(id); }
+    function text(id, value) { byId(id).textContent = value; }
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+    }
+    function loadState() {
+      try { return JSON.parse(localStorage.getItem(storageKey)) || { sessions: [] }; }
+      catch { return { sessions: [] }; }
+    }
+    function saveState() { localStorage.setItem(storageKey, JSON.stringify(state)); }
+    function currentInput() {
+      return Object.fromEntries(fields.map(id => [id, byId(id).value.trim()]));
+    }
+    function restoreInput() {
+      if (!state.input) return;
+      for (const id of fields) if (state.input[id] !== undefined) byId(id).value = state.input[id];
+    }
+    function keywordScore(notes, keywords) {
+      const raw = String(notes || "").toLowerCase();
+      return keywords.filter(k => raw.includes(k.toLowerCase())).length;
+    }
+    function scorePreDemo(input) {
+      const notes = [input.notes, input.request, input.scope, input.competition].join(" ");
+      const categories = [
+        ["Stakeholders", ["cfo","controller","it director","business analyst","project manager","stakeholder"]],
+        ["Current systems", ["current","access erp","jedox","payhawk","spreadsheet","crm"]],
+        ["Pain points", ["challenge","manual","email","complex","limitation","issue"]],
+        ["Business process", ["approval","consolidation","reporting","project","invoice","revenue"]],
+        ["Integration", ["integration","odbc","crm","architecture","data flow"]],
+        ["Localization", ["country","countries","local gaap","tax","language","e-invoicing"]],
+        ["Competitors", ["sap","dynamics","competition","competitor","status quo"]],
+        ["Success metrics", ["roi","kpi","success","timeline","budget","goal"]]
+      ];
+      const coverage = categories.map(([label, words]) => {
+        const hits = keywordScore(notes, words);
+        return { label, score: Math.min(100, hits * 34), hits };
+      });
+      const score = Math.round(coverage.reduce((sum, item) => sum + Math.min(100, item.score), 0) / coverage.length);
+      const gaps = coverage.filter(item => item.score < 45).map(item => item.label);
+      const questions = [
+        "Which countries and legal entities are in scope for the first phase?",
+        "What measurable outcome would make the CFO call the demo successful?",
+        "Which process creates the most delay today: close, approvals, AP, reporting, or project profitability?",
+        "Which SAP S/4HANA or Microsoft Dynamics assumptions should the demo directly counter?",
+        "What data must exist in the account before the demo to make the story feel real?"
+      ];
+      return { score, coverage, gaps, questions };
+    }
+    function buildOutputs(input) {
+      const pre = scorePreDemo(input);
+      const readiness = Math.max(45, Math.min(94, pre.score + (input.scope ? 7 : 0) + (input.competition ? 4 : 0)));
+      const risk = Math.max(8, 100 - readiness + pre.gaps.length * 5);
+      const company = input.company || "the customer";
+      const competitors = input.competition || "the current status quo";
+      const playbook = [
+        `Demo story for ${company}`,
+        "",
+        "Open with an executive view of the business: global finance visibility, consolidation pressure, and the need to understand performance without waiting for offline consolidation or spreadsheet clean-up.",
+        "",
+        "Move quickly into the strongest proof moments first: OneWorld consolidation, finance dashboards, standard reporting, approval context, and project-level profitability tied to each flight or customer engagement.",
+        "",
+        "Then show the operating story through personas: the CFO needs confidence and control, finance transformation needs process consistency, controllers need close and reporting accuracy, and IT needs integration clarity without over-customizing the first demo.",
+        "",
+        `Position against ${competitors} by focusing on speed to usable finance insight, connected processes, standard reporting, and a practical path from current systems to a scalable operating model.`,
+        "",
+        "Close by summarizing the before/after: less fragmented finance work, clearer approval context, stronger consolidation, and better project-level insight for decision-making."
+      ].join("\\n");
+      const setup = [
+        "Create or validate demo data for:",
+        "- Multi-entity consolidation examples",
+        "- Flight or project records with linked revenue and costs",
+        "- Approval matrix examples with supporting documentation",
+        "- Standard financial reports and dashboard views",
+        "- Fixed asset sample data if in scope",
+        "- Template/document output examples"
+      ].join("\\n");
+      const assets = [
+        "Create a light persona storyboard for the presentation:",
+        "- Cary, Group CFO: wants consolidated visibility and confidence",
+        "- Jonathan, Financial Controller: wants faster close and cleaner reporting",
+        "- Rob, IT Director: wants integration confidence and reduced system sprawl",
+        "- Tom, Finance Transformation: wants a practical path from current-state friction to scalable process"
+      ].join("\\n");
+      const briefing = [
+        `Customer situation: ${company} appears to be evaluating broader ERP transformation with finance, reporting, consolidation, approvals, integration, and project tracking pressures.`,
+        `Demo goal: Run a ${input.strategy || "Standard Platform Demo"} for a ${input.audience || "Prospect"} audience in the ${input.segment || "Mid-Market"} segment.`,
+        "Recommended tone: structured, practical, finance-first, and outcome-led. Avoid wandering into configuration depth too early.",
+        "Critical moments: executive overview, consolidation, project profitability, approvals, reporting, and integration confidence."
+      ].join("\\n\\n");
+      const winning = ["Executive KPI and consolidation visibility", "Project-level flight profitability", "Context-rich approvals", "Standard reporting without custom-report dependency", "Integration confidence for current architecture"];
+      const avoid = ["Long admin setup sequences", "Empty dashboards", "Deep technical configuration too early", "Custom reports before standard reporting", "Feature dumping across unrelated modules"];
+      const winStrategy = [
+        "1. Lead with financial control and global visibility before going into operational detail.",
+        "2. Make the demo feel specific to the flight/project business model, not a generic finance walkthrough.",
+        "3. Contrast NetSuite's connected suite story with status quo fragmentation and the implementation weight competitors may introduce."
+      ].join("\\n");
+      return { pre, readiness, risk, playbook, setup, assets, briefing, winning, avoid, winStrategy };
+    }
+    function renderOutputs(outputs) {
+      byId("discoveryScore").textContent = outputs.pre.score;
+      byId("discoveryFill").style.width = outputs.pre.score + "%";
+      byId("readinessScore").textContent = outputs.readiness;
+      byId("readinessFill").style.width = outputs.readiness + "%";
+      byId("riskScore").textContent = outputs.risk;
+      byId("riskFill").style.width = Math.min(100, outputs.risk) + "%";
+      byId("playbookOutput").textContent = outputs.playbook;
+      byId("setupOutput").textContent = outputs.setup;
+      byId("assetOutput").textContent = outputs.assets;
+      byId("briefingOutput").textContent = outputs.briefing;
+      byId("winStrategyOutput").textContent = outputs.winStrategy;
+      byId("preDemoOutput").innerHTML = [
+        `<strong>Discovery quality:</strong> ${outputs.pre.score}/100`,
+        `<strong>Missing or weak areas:</strong> ${outputs.pre.gaps.length ? escapeHtml(outputs.pre.gaps.join(", ")) : "No major gaps detected."}`,
+        `<strong>Website context:</strong> Website URL is captured for customer research. Cloud-only mode does not crawl external pages until a provider is connected.`
+      ].join("<br><br>");
+      byId("questionList").innerHTML = outputs.pre.questions.map(q => `<li>${escapeHtml(q)}</li>`).join("");
+      byId("winningList").innerHTML = outputs.winning.map(q => `<li>${escapeHtml(q)}</li>`).join("");
+      byId("avoidList").innerHTML = outputs.avoid.map(q => `<li>${escapeHtml(q)}</li>`).join("");
+      byId("heroLine").textContent = outputs.readiness >= 75 ? "Demo readiness looks healthy." : "Demo readiness needs attention before customer use.";
+      byId("heroCopy").textContent = outputs.pre.gaps.length
+        ? "Focus on these discovery gaps before the meeting: " + outputs.pre.gaps.join(", ") + "."
+        : "The core discovery notes cover the main planning areas. Keep the opening executive-led and specific.";
+    }
+    function saveSession(outputs, status) {
+      const input = currentInput();
+      state.input = input;
+      state.outputs = outputs;
+      state.sessions = state.sessions || [];
+      state.sessions.unshift({
+        updatedAt: new Date().toISOString(),
+        company: input.company,
+        audience: input.audience,
+        discovery: outputs.pre.score,
+        readiness: outputs.readiness,
+        status
+      });
+      state.sessions = state.sessions.slice(0, 20);
+      saveState();
+      renderSessions();
+    }
+    function renderSessions() {
+      const rows = (state.sessions || []).map(s => `<tr><td>${escapeHtml(new Date(s.updatedAt).toLocaleString())}</td><td>${escapeHtml(s.company)}</td><td>${escapeHtml(s.audience)}</td><td>${escapeHtml(s.discovery)}</td><td>${escapeHtml(s.readiness)}</td></tr>`).join("");
+      byId("sessionRows").innerHTML = rows || "<tr><td colspan='5'>No saved cloud sessions yet.</td></tr>";
+    }
+    function setTab(name) {
+      tabs.forEach(tab => tab.classList.toggle("active", tab.dataset.tab === name));
+      pages.forEach(page => page.classList.toggle("hidden", page.id !== name));
+      sessionStorage.setItem("nsdhCloudTab", name);
+    }
+    async function optionalProvider(path, payload) {
+      const enabled = byId("providerEnabled").checked;
+      const base = byId("providerBase").value.replace(/\/$/, "");
+      if (!enabled || !base) return null;
+      const response = await fetch(base + path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload || {})
+      });
+      if (!response.ok) throw new Error("Provider returned " + response.status);
+      return response.json();
+    }
+    function providerSettings() {
+      return {
+        enabled: byId("providerEnabled").checked,
+        base: byId("providerBase").value.trim()
+      };
+    }
+    function loadProviderSettings() {
+      try {
+        const value = JSON.parse(localStorage.getItem(providerKey)) || {};
+        byId("providerEnabled").checked = Boolean(value.enabled);
+        byId("providerBase").value = value.base || "";
+      } catch {}
+      syncProviderBadge();
+    }
+    function syncProviderBadge() {
+      const settings = providerSettings();
+      byId("providerBadge").textContent = settings.enabled && settings.base ? "AI provider: configured" : "AI provider: optional";
+      byId("providerStatus").textContent = settings.enabled && settings.base ? settings.base : "Not configured";
+    }
+    async function runPreDemo() {
+      const input = currentInput();
+      text("prepStatus", "Scoring pre-demo notes...");
+      let outputs = buildOutputs(input);
+      try {
+        const provider = await optionalProvider("/api/pre-demo-intelligence", { ...input, cloudMvp: true });
+        if (provider?.intelligence?.discovery_score) {
+          outputs.pre.score = provider.intelligence.discovery_score;
+        }
+      } catch (error) {
+        text("prepStatus", "Cloud fallback used. Optional provider was unavailable: " + error.message);
+      }
+      renderOutputs(outputs);
+      saveSession(outputs, "pre-demo-scored");
+      text("prepStatus", "Pre-demo scoring completed in cloud runtime.");
+      setTab("preDemo");
+    }
+    async function runLearn() {
+      const input = currentInput();
+      text("prepStatus", "Creating playbook and intelligence...");
+      let outputs = buildOutputs(input);
+      try {
+        await optionalProvider("/api/learn", { ...input, createRunnableManifest: false, cloudMvp: true });
+        text("prepStatus", "Optional provider responded. Cloud page kept the UI state locally.");
+      } catch (error) {
+        if (providerSettings().enabled) text("prepStatus", "Cloud fallback used. Optional provider was unavailable: " + error.message);
+      }
+      renderOutputs(outputs);
+      saveSession(outputs, "generated");
+      setTab("playbook");
+    }
+    function exportSession() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "nsdemohelper-cloud-session.json";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+    tabs.forEach(tab => tab.addEventListener("click", () => setTab(tab.dataset.tab)));
+    fields.forEach(id => byId(id).addEventListener("input", () => { state.input = currentInput(); saveState(); }));
+    byId("scoreBtn").addEventListener("click", runPreDemo);
+    byId("learnBtn").addEventListener("click", runLearn);
+    byId("saveProviderBtn").addEventListener("click", () => { localStorage.setItem(providerKey, JSON.stringify(providerSettings())); syncProviderBadge(); text("providerTestResult", "Provider setting saved in this browser."); });
+    byId("testProviderBtn").addEventListener("click", async () => {
+      syncProviderBadge();
+      try {
+        const settings = providerSettings();
+        if (!settings.enabled || !settings.base) throw new Error("Enable provider calls and enter a base URL first.");
+        const response = await fetch(settings.base.replace(/\/$/, "") + "/api/platform/status");
+        text("providerTestResult", response.ok ? "Provider reachable." : "Provider returned " + response.status + ".");
+      } catch (error) {
+        text("providerTestResult", "Provider unavailable or blocked by browser security: " + error.message);
+      }
+    });
+    byId("exportBtn").addEventListener("click", exportSession);
+    byId("clearBtn").addEventListener("click", () => { state.sessions = []; saveState(); renderSessions(); });
+
+    restoreInput();
+    loadProviderSettings();
+    if (state.outputs) renderOutputs(state.outputs);
+    renderSessions();
+    setTab(sessionStorage.getItem("nsdhCloudTab") || "prep");
+  </script>
+</body>
+</html>

@@ -11,16 +11,17 @@ This folder contains the Oracle APEX shell package for the NetSuite Demo Helper 
 
 ## Current Architecture
 
-The MVP is a local Node/Codex application. Oracle APEX does not run the Node backend directly.
-
-Application `56174` is therefore a thin APEX launcher:
+Application `56174` is now a cloud-hosted MVP runtime shell:
 
 1. The user opens the cloud APEX app.
 2. Page 1 is public.
-3. Page 1 redirects the browser to the local MVP runtime at `http://localhost:4173`.
-4. The local MVP handles Codex, session logging, admin protection, exports, and generation workflows.
+3. Page 1 redirects to the APEX-hosted static application file `nsdemohelper-cloud.html`.
+4. The UI renders from Oracle APEX cloud static files, including CSS, JavaScript, and the ribbon asset.
+5. Local Codex/MVP backend calls are optional and must be enabled by the user in the cloud Admin tab.
 
-This is not a fully hosted cloud runtime. A true cloud-hosted version still needs either a hosted backend, an HTTPS tunnel, or an approved browser-side local connector.
+The cloud runtime no longer redirects to `localhost` for frontend rendering, routing, or static assets.
+
+The full local Node MVP remains available for local Codex-backed generation and desktop demo automation. The APEX cloud shell provides a self-contained internal app experience and can optionally call a configured local provider for AI-backed operations.
 
 ## Package
 
@@ -57,3 +58,19 @@ Use APEX App Builder Import:
 Do not leave the import wizard on the first upload page and assume deployment completed.
 
 Do not use the older e-invoicing app package `f56594-apexlang.zip` for this MVP deployment.
+
+## Validation
+
+After import, open:
+
+```text
+https://apex.oraclecorp.com/pls/apex/r/emeawj/nsdemohelper
+```
+
+Expected behavior:
+
+- the browser remains on `apex.oraclecorp.com`
+- the final URL points to an APEX static application file
+- the page title is `NetSuite Demo Helper`
+- no request is made to `localhost` unless the optional local provider is manually enabled
+- Pre-demo scoring and Learn / Create Demo work in cloud fallback mode without a local frontend runtime
