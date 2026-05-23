@@ -4105,6 +4105,12 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     function cloudApiBase() {
       if (!nsdhCloudRuntime) return "";
+      if (
+        (nsdhCloudConnection.status === "Connected" || nsdhCloudConnection.status === "Codex not detected") &&
+        normalizeLocalApiBase(nsdhCloudConnection.base)
+      ) {
+        return normalizeLocalApiBase(nsdhCloudConnection.base);
+      }
       return configuredCloudApiBase() || detectedCloudApiBase() || nsdhDefaultLocalApiBase;
     }
 
@@ -4166,12 +4172,27 @@ If a page takes time to load, narrate the business reason for the next step inst
         if (!payload || typeof payload.available !== "boolean") {
           return { ok: false, base, status: "Wrong service", detail: "The endpoint responded, but not like NetSuite Demo Helper." };
         }
+        let platformPayload = null;
+        try {
+          const platformResponse = await fetch(base + "/api/platform/status", {
+            method: "GET",
+            headers: demoHelperHeaders(),
+            signal: controller.signal
+          });
+          platformPayload = await platformResponse.json();
+          if (!platformResponse.ok || !platformPayload?.ok || !platformPayload?.runtime) {
+            return { ok: false, base, status: "Wrong service", detail: "The endpoint answered Codex status, but it is not the NetSuite Demo Helper bridge." };
+          }
+        } catch {
+          return { ok: false, base, status: "Wrong service", detail: "The endpoint answered Codex status, but it does not expose the NetSuite Demo Helper platform API." };
+        }
         return {
           ok: true,
           base,
           status: payload.available ? "Connected" : "Codex not detected",
           detail: payload.message || (payload.available ? "Local Codex bridge responded." : "The bridge responded but Codex was not detected."),
-          payload
+          payload,
+          platformPayload
         };
       } catch (error) {
         const aborted = error.name === "AbortError";
