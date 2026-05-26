@@ -1705,7 +1705,7 @@
     .prep-grid {
       grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr);
       grid-template-areas:
-        "helper helper"
+        "connection connection"
         "scope scope"
         "audience audience"
         "actions actions"
@@ -1715,7 +1715,7 @@
         "how how";
       align-items: start;
     }
-    .prep-helper { grid-area: helper; }
+    .prep-connection { grid-area: connection; }
     .prep-instructions { grid-area: instructions; }
     .prep-scope { grid-area: scope; }
     .prep-audience { grid-area: audience; }
@@ -1742,6 +1742,43 @@
       align-items: start;
     }
     .local-helper-card h2 { margin-bottom: 6px; }
+    .prep-connection-card {
+      padding: 12px 14px;
+    }
+    .compact-connection-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .compact-connection-row .hint {
+      flex: 1 1 260px;
+      margin: 0;
+    }
+    .connection-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      padding: 7px 10px;
+      color: var(--accent-dark);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .connection-chip::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #aab5ba;
+    }
+    .connection-chip.ready::before { background: var(--ok); }
+    .connection-chip.warning::before { background: var(--warn); }
+    .connection-chip.error::before { background: var(--danger); }
     .helper-download-grid {
       display: flex;
       flex-wrap: wrap;
@@ -2492,7 +2529,7 @@
       .prep-grid {
         grid-template-columns: 1fr;
         grid-template-areas:
-          "helper"
+          "connection"
           "scope"
           "audience"
           "actions"
@@ -2542,7 +2579,7 @@ Profile: mvp">
           <span class="dot" aria-hidden="true"></span>
           <span>v0.1.0-alpha | development | mvp</span>
         </span>
-        <button class="codex-info-button" id="codexInfoButton" data-help="Shows which parts of the helper are using Codex and where the latest Codex output was saved.">Backbone</button>
+        <button class="codex-info-button" id="codexInfoButton" data-help="Opens the Codex Connection tab with Local Helper downloads, setup guidance, and connection status.">Codex Connection</button>
         <label class="theme-toggle" for="nightMode">
           <input type="checkbox" id="nightMode">
           Night mode
@@ -2557,6 +2594,7 @@ Profile: mvp">
     <button class="tab" data-tab="manifest" data-live-demo-only data-help="Review or edit the runnable dry-run manifest created from the Playbook tab's Dry-run creation prompt.">Dry-Run</button>
     <button class="tab" data-tab="dataset" data-live-demo-only data-help="Run the dry-run through the browser and score whether the NetSuite dataset, permissions, and demo setup are ready.">Dataset Analysis</button>
     <button class="tab" data-tab="run" data-live-demo-only data-help="Prepare NetSuite, buffer the dry-run, run the narrated live demo, or stop an active browser automation.">Run</button>
+    <button class="tab" data-tab="codex-connection" data-help="Download and test the Local Helper used by the APEX MVP to connect to Codex on this device.">Codex Connection</button>
     <button class="tab" data-tab="admin" data-help="Edit shared helper guidance, demo logic sources, labels, playbooks, and versioned CMS content.">Admin</button>
     </nav>
   <main>
@@ -2571,27 +2609,11 @@ Profile: mvp">
         </div>
       </div>
       <div class="grid prep-grid">
-        <div class="panel prep-helper local-helper-card">
-          <div>
-            <h2>Connect Codex Locally</h2>
-            <p class="hint">Use the lightweight helper when the MVP is opened from Oracle APEX and Codex should run on the current user's own Mac or Windows device.</p>
-            <div class="helper-download-grid">
-              <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper zip. Save it to Desktop, unzip it, run it, keep Codex open, then test the connection.">Download Helper for macOS</button>
-              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper zip. Save it to Desktop, unzip it, run it, keep Codex open, then test the connection.">Download Helper for Windows</button>
-              <button class="secondary" type="button" data-local-helper-download="readme" data-help="Downloads the helper setup notes and troubleshooting guide.">Download Instructions</button>
-            </div>
-            <div class="row">
-              <button class="secondary" type="button" data-test-local-helper data-help="Checks whether the local helper and Codex are available on this device.">Test Connection</button>
-            </div>
-          </div>
-          <div>
-            <p class="helper-status" data-local-helper-status>Local helper not checked yet.</p>
-            <ol class="helper-steps">
-              <li>Download the helper for your operating system.</li>
-              <li>Save it to Desktop, unzip it, and run it.</li>
-              <li>Keep Codex open and signed in.</li>
-              <li>Click Test Connection, then use the MVP.</li>
-            </ol>
+        <div class="panel prep-connection prep-connection-card">
+          <div class="compact-connection-row">
+            <span class="connection-chip" id="prepCodexConnectionChip">Codex: Checking</span>
+            <p class="hint" id="prepCodexConnectionSummary">Use Codex Connection if the helper is not running or Codex needs to be tested.</p>
+            <button class="secondary" type="button" data-open-codex-connection data-help="Opens the Local Helper downloads, setup guidance, and connection test.">Open Codex Connection</button>
           </div>
         </div>
         <div class="panel prep-scope">
@@ -3462,6 +3484,45 @@ If a page takes time to load, narrate the business reason for the next step inst
       </div>
     </section>
 
+    <section class="screen" id="screen-codex-connection">
+      <div class="mvp-heads-up">
+        <strong>Connect Codex Locally</strong>
+        <p>Use the lightweight helper when this Oracle APEX MVP should run Codex on the current user's own Mac or Windows device.</p>
+        <div class="heads-up-meta" aria-label="Codex connection checkpoints">
+          <span>Local Helper mode</span>
+          <span>Runs on this device</span>
+          <span>No repo clone needed</span>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="panel full local-helper-card">
+          <div>
+            <h2>Setup</h2>
+            <p class="hint">Download the helper for your operating system, run it once to install/start the local bridge, keep Codex open and signed in, then test the connection.</p>
+            <div class="helper-download-grid">
+              <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper zip. Save it to Desktop, unzip it, and run helper-mac.command once.">Download Helper for macOS</button>
+              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper zip. Save it to Desktop, unzip it, and run helper-windows.bat once.">Download Helper for Windows</button>
+              <button class="secondary" type="button" data-local-helper-download="readme" data-help="Downloads the helper setup notes and troubleshooting guide.">Download Instructions</button>
+            </div>
+            <ol class="helper-steps">
+              <li>Download the helper for your operating system.</li>
+              <li>Run it once to set up and start the helper.</li>
+              <li>Keep Codex open and signed in.</li>
+              <li>Return here and click Test Connection.</li>
+            </ol>
+          </div>
+          <div>
+            <h2>Status</h2>
+            <p class="helper-status" data-local-helper-status>Local helper not checked yet.</p>
+            <div class="row">
+              <button class="secondary" type="button" data-test-local-helper data-help="Checks whether the local helper and Codex are available on this device.">Test Connection</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel full" id="codexConnectionBody"></div>
+      </div>
+    </section>
+
     <section class="screen" id="screen-admin">
       <div class="grid">
         <div class="panel full">
@@ -4099,7 +4160,7 @@ If a page takes time to load, narrate the business reason for the next step inst
     let prepDirtyForIntelligence = false;
     let prepDirtyForPreDemoIntelligence = false;
     let liveDemoFunctionalityEnabled = false;
-    const localHelperDownloads = {"mac":{"fileName":"helper-mac.zip","mimeType":"application/zip","encoding":"base64","content":"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"},"windows":{"fileName":"helper-windows.zip","mimeType":"application/zip","encoding":"base64","content":"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"},"readme":{"fileName":"README.md","mimeType":"text/markdown","encoding":"utf8","content":"# NS DemoHelper Local Helper\n\nThe Local Helper is a lightweight pilot bridge for the MVP Oracle APEX app.\n\nIt lets a user open the APEX MVP, run a small helper locally, and let the cloud-hosted page call Codex on that user's own machine.\n\n## User Flow\n\n1. Open the NS DemoHelper APEX link.\n2. Download the helper for your operating system.\n3. Save it to your Desktop.\n4. Run the helper and keep the helper window open.\n5. Keep Codex open and signed in.\n6. In the APEX app, click **Test Connection**.\n7. Use the MVP.\n\n## macOS\n\nDownload `helper-mac.zip`, save it to Desktop, unzip it, then double-click `helper-mac.command`.\n\nIf macOS blocks the first run, right-click the file and choose **Open**.\n\nThe helper uses the built-in `/usr/bin/python3` runtime and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\n## Windows\n\nDownload `helper-windows.zip`, save it to Desktop, unzip it, then double-click `helper-windows.bat`.\n\nThe script launches a temporary PowerShell helper and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\nIf Windows Defender Firewall asks for access, only allow local/private access if your security policy permits it. The helper is intended to bind to localhost only.\n\n## API\n\nThe helper exposes:\n\n- `GET /api/helper/status`\n- `GET /api/codex/status`\n- `POST /api/generate`\n- `POST /api/pre-demo-score`\n- `POST /api/demo-runbook`\n- `POST /api/ppt-prompt`\n- `POST /api/dataset-enhancement`\n\nFor MVP compatibility it also exposes:\n\n- `GET /api/platform/status`\n- `GET /api/manifest`\n- `GET /api/sc-guide`\n- `GET /api/setup-prompt`\n- `POST /api/pre-demo-intelligence`\n- `POST /api/learn`\n- `POST /api/dataset-analysis`\n\n## Security Notes\n\n- The helper binds to `127.0.0.1` only.\n- It does not expose a public network port.\n- It restricts browser access to `https://apex.oraclecorp.com` and localhost development origins.\n- It does not log API keys, passwords, request bodies, or local files.\n- It is a pilot helper, not a production hosted backend.\n\n## Troubleshooting\n\n`HELPER_NOT_RUNNING`: start the helper and keep the helper window open.\n\n`HELPER_WRONG_PORT`: confirm the app is checking `http://127.0.0.1:4173`.\n\n`HELPER_CORS_BLOCKED`: confirm the APEX app is running from `https://apex.oraclecorp.com` and the helper was not modified.\n\n`CODEX_NOT_AVAILABLE`: open Codex, sign in, and make sure the `codex` command is available.\n\n`GENERATION_TIMEOUT`: Codex did not return in time. Try again with a smaller request.\n\n`HELPER_INVALID_RESPONSE`: the endpoint responded, but not as NS DemoHelper expects.\n"}};
+    const localHelperDownloads = {"mac":{"fileName":"helper-mac.zip","mimeType":"application/zip","encoding":"base64","content":"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"},"windows":{"fileName":"helper-windows.zip","mimeType":"application/zip","encoding":"base64","content":"UEsDBBQAAAAIAPWFulz+toqHJxEAACQ2AAASABwAaGVscGVyLXdpbmRvd3MuYmF0VVQJAAONshVqqrIVanV4CwABBPUBAAAEFAAAAK1be3PbNhL/X58Cw8pnamrSdi73GHvci2LLiVpF0klKcjdJq9IkJLGmCJYELesS32e/XTxIUKJkOz23iS1gsVgs9vHbhfOK+gtG2GzWyCiPmO9FjUY4I9ZBf3z1dvq20xt2RtPhYDQ5sC4uLIsAFdmcunh5+rc/G6vaw86/poNR9023v7nKmLpYcJ5kZ8fHXkLvXZZ6fkR9liauz5YNlIZY3f540u71plfd0cVBb3DZ7rWHw6v2pH3wGbjRJXtLo4SmVpVaSnZxYKw++LwQlM4qjAO2ytwbj6tVQDOavB/KPQr270I/ZRmb8c8f5YrPY+6lnLyjcf55mLJ56i3VWJ5scLru9joXBwZflJaU4pIeqpnID66/DNT64bhe9DgLYK06gLgiR35wk+zUEtd13AXd//cUle04GU3vqEXmjDMift6m4CzRBPDj1nweh3HGvShSRMXnGk4ez7OCF35oNM4M6phxQu/DDM5XOZVFlrdBmG6ONnyWrMnxv3GL2YllTEvVwLof4jxq2A1ChOW+KuxXDWTinqzdGrfI8TKM6zgr1TVa5AeYNq8TBBPMd3MlYUbUsWngSuouJ6swipRIXs7Z0uMhrInWZLWgMVmznGThPIaVakknDhIWxvyMoHeAc5y++Jt7Av+dnm17pFiiFgpTDOM54QtKpHmA7leu6zaeoJE9yhDcf6I0IZcsoPeEJSC4FwdCcBqA6Ee4Z0xSyvM0JmAH6OSCxI9C/5ZMKNz+JYtj6vOQqZMqsSfSAknkcZoekTSPz+QE2SETmqteWZjlk5eXhpx4eQaHuw85Ob4hJ2C0gnXCVjTNQH8RcfoMHH0WRpQ4nXvq5yj8kMGR1uT1OvGyjDiXbLnEg/4C1mc1E5byi09wez83aXx3tnlf5ySc2Q46hKBsfZELMHg+nFuKhw96unhDudOnfHI5LNVGHHFlQ1gi14NUacrStpwdg5wxj9awAMwgp+QrGVMIqNwZ3PwG34hzHaZwD6d6J5BFbNb6ArbDEgfO6lM8UzcgYsIdrEBb82L8mqU+PScf05BT5y0DXod73AG1mYAnHJIHQqOMki/VlaxKnqhdVl5GZiwHlcKZ+MLjBI+KXKyaKyuvE51KxwxlJQGNtrxYBA/y4oc/nTbSJYaf4zE5/udWaCqpHvP6QgJ0+jqbEhHxj1gVT9egu258x26pMwJXekf5ggXEeZ+GxD7cChOH5HtSa34wfgi5NjyW0eFYynbYIs4kXFKW8zH1yV/AbsCE7mjKJ8z5MUO7u6IJX5DTE7hJ3+P+onqVzanbufeBBF37HdyhN6f1t1XkoufmhD/mlWDLHFyDXBB0q0v1yRl5K3ApOEYKTuXBAQ/Reg4LR8z8NExwlV1wcLIkguMcfvfdd2Q4+NgZjUG9Or5MX3d6g48E5g6PyIvWp9OfNauxuW11xyLlHxwS54MXgd/qjZ1O7LMAI/r7yfXfQQnVML/HJuHOnpo8ZGDnC0heEhnJ8L5aoH7zTOcTGdCTxH3uTVzjrGUc0yos4qAzGg1Gvc6HTu+g0XhEpY2mEeuGKZ3RlMY+hduxMHhZjaaIixdERF+71v5baHoq/iJ1C+xYL8MYTB4azTZA0UEazgEfXBheZKBWg0lJLFhV1lp7wK2FO8FFcpT/1RcwkXkeBuIwFnzI/FEe3zB2qwdAk5S/oTHYjTw+WwrDlNSQdZPqUJCugcNlSmvIk5Si2XTBGqMonCslNiHeRbhy91TkZVoGGrQVv4dGY5bHMgFdg/04EiLgkVBNQoGXgytQ3utunzjokzaiAUeYf3W6hUpUGGJj4QPwawJOLlxYurcvNtubBbUgsNhkDx/dMcshnxW8wYLr2Lv0nj55C+CxsQuMmBvpGaFTU3lyX9hvLIKy0KA6calXtZM0PnkiGCq4vpKfCBGW0+SpkA2/vDsvjLybSNznzINsrCbwiHiTUtX9wWTa/tDu9tqvex1LkSxVREcqoW/M0CiByNIuGWC8UMgwJV4AgJAjBhy2J28VMOSI/7y5ByBXckVV4B+R2sRIExJOhoq4IH+SB3ccPSTy8LPPaTd77fGk86/uBA9HHPo7OWkVx5Y3fCG2UoOlBHYhjfMbw0rh19hqVTXWtMWd12wB96/UKerV6eWg3+9cTjpXVgmEavVNHlpbKn9kG6F1CN3Fud3KJmI6pVnC4gCA+ioEn/Pg7mLnPzTV1ZpbbCxuRWf4P2xYNRp+lrXVwQrDeEznqeKVsTejcIOYS6WDqFOosZ345sWJAA4QILOsVeEvwQ7S2k2Rx+/5EWQObx0xL4CfpM9eytO9ODmR2zZZkUfUIndEf8/BF9y31AvAwj5ZMl1YP1c8m5UppWRhJJcHRW3raSem1WQkA205zfhS3Kr1i8hK/4C0ZIs+wgIA3FcACZ/dE/H/acs++xx83/pH02rp6FIrhHJg42RoZRkEO1MXhmZqiRUomqwTYRcAMAA8iKR1/Bto26pdpJTntoPAtto+Vg0CXaUsctpRxFaO0upRocpv5COBdgaMrDedyRHgkzH8PRhOuoP+2PpWrooCuSpc6XBQwBG5dzD9qtYOFN8ZhiAnDDZnPPDg9ZLlmQMAO60jCJZhrBl8s5zDNLyDXI916Iqltygvev5T+H3w0jXSq4sQK27WkAYQoE1wnca2P5+dIbp1If+9RgLb3nbmwtVa9VsrK+rReM4Xf32Jdic2c+VI7ZpBzhMoeDhgpKUr/NuWi47IyVF1/Y5NI5ZRuxonRqAD5zUL1pVQ0Srh0FYc8LIOgAi+xkUisMsgaoCIV18epKelQsFwuD5d6ZK+O3DlEUZicnuDblyc8mg7DCnF6bsQB02hKrrQu7nId8I6cWC3KiEKqGpklJVqEW6RVRFsrwGFboTbllFPVjhtAiNxCiW83URdVQK7Sk+QchIvXve9pQg9SOYaY4JmRW+ykBuZ1aR6n0Yi6G6MlRlVzmgeKmt6eRBqqGzw1MMlx4Jwg58eF1FQMc3ofClLVpPn0ktvKVTpYq5kXBne5A7l4tyYlOwBUeYZ3pbWkx6Qm3PE+PNyFmPLWA0KisiL53kFoQg6JpyqpyZLAavjBkLpxPMozBYFAkGlU/AHCcPKi1BjgkYI47OEVsXDkWJeGfiGeFAnhn4plfi4qS5ztRJKVUx9JuOXpDMHt/CI6tUI/DURNitrMIULJO4qio0C9Fc8TIGzAmBtYX0FxkS8ON8Lrc4JxfIFqRVXjbI0Dm9igL8KkeRHALxGdTbpvBsS24qzYKGzi0W+J5/eQMEKsRtiEf5kt9wJWggEEdvqWyJOY5jqcrok4m9h3LADRC0Gdqd20Nt+JRCPnb4sNJtgLqJtUBFGk1qiKnOkSbn8nguQAEaOCn1lCx1ZjuNlt86MQSpMkpQB7sNsFFMIRNaRJIGyztc/O5eIFdQOeszJAETdsHtcidHQYXG0tsrZ2zBx5iF3Upowx19Q/7aclNI5WDI7StcCjciDaTKUvFWtgpIsrEb4q9CbxwDSQj9zVSNWdIC68YwVS1zkquOeumIFwAUNKIJ6EGZt1BM4v9QXesKnOwb3KHi003mOMaIXQmbALI5ELWEeapcRDcQFggBx4KWBCMuVgqCWTKbax+k62kirZO8zOsZ2k+wwbRQaTWwbP6qxktQtlId8gL2Y0looCOxWdUl5XI0VlEPvJNPwQETbwqkF4Ucv5Ncs7dyH3H7x8gS+CqitU6gk/CmMIttIkg+K5pEQ8KbT74zaiFGnk+67zuD9xIgAqiicF80kwsMl1IZgmlgIFgUWnAqzre4ayUMYnRtlyiKaKsL9zdXCqx82dKIgUsGmqk1pPCYOwe52hUTYTYXioTZSolmdE72L+L6n4q3Xreomdvsf2r3u1XTUGQ+hFKiE2NpuuNhnFsbi5U/uNIL0cUdViByBbaeQhuQbSxntHms81eYd2QWeQAiUiQ8iD37AbyHXmUT2tIuLMyGWTHENadiqdfhvlhMvpaIZLE3oxvNvbxhUnhBdqs1oF84mtAhb+CGcCgFKwFYxNoggFocB+XE86OMLaIpNZjrLI/fXGGU8k6L+GitRzn6Nm3Yh6u7KvWVJiJzlEYq7mYD1SaoYVlC77LaCZCvGksnOHZzffHV3RAqCO+eoTqQWej0npbpMg1D7iM+FJelR8fHB7A3+n0TQG6Dizov+sjlaA7TfeXE4AydX9VYNyN7oAM0oJJuUXkeezL9fSBTeCWR0rfjCdfN14UnKNSErfyi6bdWDwQE4w3pYhp2bPIwCqMO9wOOe3OHu0ZWg/PguTFmsMHSFzhJKmkmAYS3vEh32lurwchet2H2v5ucap0vs0cLb1U4Flcw5YNGZB+qWqnlQ+yj51RoxVFyPeBRwxcdyQsbATL8VCIhuPBGoRcWQbs3teDRQ5LXTaumO9wO1sm5WLdx/+UZyqT5agLqTjU0MgnPi+T7L40Krcg5qELkUksxSKZNoHe945ZC8ayZVVVRHvfkkoqNuEyoXjvrDnkafQjHPedJTYwCNY7qC24XAQ2fhvX4QqjzJibenY6vk5A4FMZVdFLW0ZcxrcGK8vu6zzwqdFA0f9MB3FO8qhXjkU80+D1tANDgze34ValshCQk3zwhWBfZGQdPShUZV4mc+OZIhdmTJJU+j7y+J+o0l12o05Aq7VE83Kw6pkxxH1ZcUIKDuI4huR4LQ5ELQFV0RKPnd9k3GIkCbCF1088akwbvWz/D0d2IVPUGV3MuOsZShEtTBSl+cvFQFr5HKzUrg0R3fdCZWCRuzVYgYBnDEHO7EFucqZ6HY+GX74d8qnvF3yHmuf41IuFks64v98XCpcNJmwJWPrPKxFTw4BW8Ol/L187mx+tx8kZLbL4pfwALGePuuoNPKJQ+bekgijwNsWT5dE98u8fnTsh0KjKVqGGiFexBC78p3N0O71V/deth/VoEU9hx0y2n3MdM5ciejDQSxl1nmOyK/PUH9dQnyfDM71grgVoj2akrkFUdmoifIVM1h9ZubNHV7mwXXoy6Pzw+GzzdvsGl8Ue06C0mfFxRsyAXy+SDzWUq/Fh/NfNiyjIU1ULusOZRc1hiZEc2MBCFwB+izJr/nEhbgG5UCl3MvyY5IGma3+I1i74JCbYcQAgaQcMbEm0SeEKEbnAAnt4aavSmrZQoamoVNXa1zI2udYsFOjGDiL/mF54FEORV6g+mTyiw2jcIYYtU08m5ohI47onchXZGY0oAGVoU6y5dQJq0NjJ6YyEoRcQg7czj/FGoxryzO9ddNOBezqMnt2RjOO73Bea3DbZplmGEGnhbXNTXg1cbx1DXRYCpvZ5onBee9K7xdFAvAlEsvqZlRTfepCbANnWHBhSaQ4u4gvvgV2goqT+EyfGNfw/3Fuc0SozIDSToHxLGk6VSlQNVTNi3LfGgQzYxdk+bzfJ6mmEHgnrOE+tz4BQD9pZ8Gply+kFbZ6tmNRbLjPzWeECqr1PjGIvNFoEJeeRkov9DppuZDQXUP87FAf5kKN39+LMzuL4Cfi/TPd3ra80p24wAGiNs8nQ6xIp6msj77GlEvjZ8fUEXFJTswIuQBiFkjvyMExOn6WLE/kolJVVRHsg4sPkHxhnKUs3FQrXuUdjC4ouqI4mpth8jNnsJWvNosTPfRPglMPEvnScL35HL7MTV7ZIi/6TjEQHIs9C0VaXROJfdCU3L+2FinKKy9KMjGsAMrHRovPLgBdM6vesyDEnqdhVnrG8+g+BCDtyn2ztn9Iisd1AK3R4VC+00lwqGBtGSF39WbDghW9iXU4H55NMTFf9PyKGwzqoc+0yBbSaDkKovMR0Hbzs1U47jou7+Pb2NsgaqdqPpnHq71eHMZcsZLUS9WW9VP3bquI/2kTf9ycqKaHf8DUEsDBBQAAAAIAP2FulxMHV567wUAAJgOAAAJABwAUkVBRE1FLm1kVVQJAAOeshVqqrIVanV4CwABBPUBAAAEFAAAAK1X227bOBB911cMUBQLBLa86WUL5M1N3NSoY3ttp+1DgIiWaJswRXJJKo77sN++M6SUKE6y28sigGOL5OHMmTMXvYDxHM54qT9yabiFkc6ZhPgjSRYb/uAJCAcMpFhv/I7TJxghtYelFcWaw0pb8Hjk4vMUJpblkkN/OvgKzJg0SYYeJPcEUDmE0oarsDtswSMdsJXCVVcyKWETL5R0u9x3gKmCjocTudRV0d1o53kBhuHNtAlOdcFvQRMq8+GS3xzonYKS5RuhONrw4gVc0uUfpN4lyXEKk8aKhzQEm6RQ2zR5lcIZgkjNirCxNox83esq+GGZF2oNbo8GlWnyOoU5u+Eg0FodN51xt/UaWXiTwqxSbSCtck77hHIevejhp41uBt9rbtPkbQqfODeNl2Q3ceLEWiELQqXJHykMW5Qi6x2kSuRbODpacOfxqFI890Kro6M0eZcSF03AIjnI1GSeJHcOZ9HILj5PvwmTdcDde1Y71YFK4Ro+7BCYgkJXS8m78eo2Qq7LEm3OSAyreBcs0cutC1ashEUjUQSoBBJXjRCXUEvkbr7RGo0+OqLAkRdBozWVGPKItKyE9F2hIOtVzvaWQvXM3m+0ep0Rvhcl7zSEN4LsSn7DJYxYpfJNf82Vr0UnMKoKhaTkHj9OkiTLMs9vfbLx3pz0esev3qW/49/xyZvjd69ptU6ceyTKm/o6jFWlCm5bOH/3RmJpmd33WkdcD9lKlStQlNG9NOih/m7IrPu7GlEiTeiP5d91W98gSs5IDzCvjNHW98bz+yyI8KiRVSWhjp37KaTeYxFAt4sW+sr9DzDa/DJIpWrGotNjDawoUUCGObfTtqAIWv5XJSwvUmhRjtoqHGVDjA7WpKCUmE5fcFHv3BMJtYsrv5hUDcqS+axOBZdbYfyhuGFOVaUygMqyWE1lEBoP1TxUmanecTtH2Kby/oL4Mbdrx9GbFSf9wQckbkdFmjnMdiqeLM+5c50IjSt6F03pGStumOf1BhCrWEIdzysr/B6MRg7wH7elwHYi/IN4hEzzdGlBdFJ4nozOD2bNy9HktD/qT6dn/UX/5dXjNAnct0kmS3LLGfUo5ttQdygXIrfa6ZW/qvm6CmGCC66qq6nVa8vK+lllrp5v1GleFv+VrP/iwNVjNd1n50+cw3T84VPP5V9oBDE4P55+/enwQaD5rcHmQax0ITsfLKDHjKjrQS/6mz1YyqnXtlemk3m9hDWa+j4/eGws71LJ7rpc28PFsID9Z6n19vCc8V1jdWn84RnmmeO+y9WG4aRQoraQnw+YQDRlYaANlrqlkJQZWEGYdPoZP41kHhOvfNJTlItY4Yzw8KnLu+tKFPzgKUc5Pm3tnfuUgxIHRY42H+yRnFn1jJdMMbl3Ao2j+M2blB9rzx1581Tks7salNWx7wLOmoXGpFY4nEY2sNIZrKAiB8U9VvQtUGeo91r03Iochba0qEneVKcAT5XOYaljht+mOoy1GFtDzSOLRfJOegWNENpQkECjdFHTh9ZIvSZdwpbvsfg17QW/krxpSFvqQnCqi/XwG8tTDRPm7zhzN2WaQPGZ1UUVRjuo5+Ily7dYBmMmLGxoHw6nJxpVsSx8HIymg9n1eLK4nl2Ox8PxeXYC97NnTTK5t6Wps/UsJm6YQNN7oC+zyfj8ejqZLRAn1wqHuTKcwjE0lMINz7c0JWdPdo6sBXU6mc2v32MF+TQ4OwBrBtvQjiulCHCFQvyOKLU9YDEWJVK9Epw4yk4nZ4OvgY7+5/5w1H8/GuDdYcwOE3cnTNrYIWJjLNkW631l4/ychUKRNXU3hOmGCcmQcwI/H4wHs/5iOBlfL4YXg8klkRQH+UIUwRaLSWUJH2g6xRqHHYStGf7eCb9pXovQ+FonLb6G48/90fDsejaYTyfjOdlNRmHwjcY8JHUbTQ2xg4Oxj4JxBy88mCT4ZuBaqP3LxUeE/PNyOAthaPF3B1jbhm8iFU7XVnyLYxe3Vlt80eGP9BRiRb+LeiBCjLvZ3pP8g89p8g9QSwECHgMUAAAACAD1hbpc/raKhycRAAAkNgAAEgAYAAAAAAABAAAApIEAAAAAaGVscGVyLXdpbmRvd3MuYmF0VVQFAAONshVqdXgLAAEE9QEAAAQUAAAAUEsBAh4DFAAAAAgA/YW6XEwdXnrvBQAAmA4AAAkAGAAAAAAAAQAAAKSBcxEAAFJFQURNRS5tZFVUBQADnrIVanV4CwABBPUBAAAEFAAAAFBLBQYAAAAAAgACAKcAAAClFwAAAAA="},"readme":{"fileName":"README.md","mimeType":"text/markdown","encoding":"utf8","content":"# NS DemoHelper Local Helper\n\nThe Local Helper is a lightweight pilot bridge for the MVP Oracle APEX app.\n\nIt lets a user open the APEX MVP, run a small helper locally, and let the cloud-hosted page call Codex on that user's own machine.\n\n## User Flow\n\n1. Open the NS DemoHelper APEX link.\n2. Download the helper for your operating system.\n3. Save it to your Desktop.\n4. Run the helper once to install/start the local bridge.\n5. Keep Codex open and signed in.\n6. In the APEX app, click **Test Connection**.\n7. Use the MVP.\n\n## macOS\n\nDownload `helper-mac.zip`, save it to Desktop, unzip it, then double-click `helper-mac.command`.\n\nIf macOS blocks the first run, right-click the file and choose **Open**.\n\nThe helper uses the built-in `/usr/bin/python3` runtime, installs a user-level LaunchAgent, and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\nThe LaunchAgent is installed under:\n\n```text\n~/Library/LaunchAgents/com.nsdemohelper.localhelper.plist\n```\n\nThe helper files are installed under:\n\n```text\n~/Library/Application Support/NSDemoHelper\n```\n\nUseful commands:\n\n```text\n~/Library/Application Support/NSDemoHelper/helper-mac.command --status\n~/Library/Application Support/NSDemoHelper/helper-mac.command --stop\n~/Library/Application Support/NSDemoHelper/helper-mac.command --uninstall\n```\n\nNo admin password is required. The helper binds to localhost only.\n\n## Windows\n\nDownload `helper-windows.zip`, save it to Desktop, unzip it, then double-click `helper-windows.bat`.\n\nThe script installs a user Startup entry, launches a local PowerShell helper, and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\nIf Windows Defender Firewall asks for access, only allow local/private access if your security policy permits it. The helper is intended to bind to localhost only.\n\nThe helper files are installed under:\n\n```text\n%LOCALAPPDATA%\\NSDemoHelper\n```\n\nThe startup entry is created at:\n\n```text\n%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\NS DemoHelper Local Helper.cmd\n```\n\nUseful commands:\n\n```text\n%LOCALAPPDATA%\\NSDemoHelper\\helper-windows.bat --status\n%LOCALAPPDATA%\\NSDemoHelper\\helper-windows.bat --stop\n%LOCALAPPDATA%\\NSDemoHelper\\helper-windows.bat --uninstall\n```\n\nNo admin rights are required. The helper binds to localhost only.\n\n## API\n\nThe helper exposes:\n\n- `GET /api/helper/status`\n- `GET /api/codex/status`\n- `POST /api/generate`\n- `POST /api/pre-demo-score`\n- `POST /api/demo-runbook`\n- `POST /api/ppt-prompt`\n- `POST /api/dataset-enhancement`\n\nFor MVP compatibility it also exposes:\n\n- `GET /api/platform/status`\n- `GET /api/manifest`\n- `GET /api/sc-guide`\n- `GET /api/setup-prompt`\n- `POST /api/pre-demo-intelligence`\n- `POST /api/learn`\n- `POST /api/dataset-analysis`\n\n## Security Notes\n\n- The helper binds to `127.0.0.1` only.\n- It does not expose a public network port.\n- It restricts browser access to `https://apex.oraclecorp.com` and localhost development origins.\n- It does not log API keys, passwords, request bodies, or local files.\n- It is a pilot helper, not a production hosted backend.\n\n## Troubleshooting\n\n`HELPER_NOT_RUNNING`: start the helper and keep the helper window open.\n\n`HELPER_WRONG_PORT`: confirm the app is checking `http://127.0.0.1:4173`.\n\n`HELPER_CORS_BLOCKED`: confirm the APEX app is running from `https://apex.oraclecorp.com` and the helper was not modified.\n\n`CODEX_NOT_AVAILABLE`: open Codex, sign in, and make sure the `codex` command is available.\n\n`GENERATION_TIMEOUT`: Codex did not return in time. Try again with a smaller request.\n\n`HELPER_INVALID_RESPONSE`: the endpoint responded, but not as NS DemoHelper expects.\n\n`HELPER_AUTH_REQUIRED`: the helper responded with an authorization error. Restart the helper from the downloaded file and test again.\n"}};
     const nsdhCloudRuntime = location.hostname === "apex.oraclecorp.com";
     const nsdhRuntimeConfig = Object.freeze(window.NSDH_RUNTIME_CONFIG || {});
     const nsdhRuntimeMode = nsdhCloudRuntime ? (nsdhRuntimeConfig.runtimeMode || "user-local") : "local-development";
@@ -4270,8 +4331,16 @@ If a page takes time to load, narrate the business reason for the next step inst
           return {
             ok: false,
             base,
-            status: nsdhSharedLocalPilot && authFailed ? "Pilot auth failed" : nsdhLocalHelperRuntime ? "Helper wrong port" : "Wrong service",
-            detail: (nsdhSharedLocalPilot && authFailed ? "Shared Local Pilot authentication failed. " : "") + "HTTP " + response.status + " from " + base + "."
+            status: nsdhSharedLocalPilot && authFailed
+              ? "Pilot auth failed"
+              : nsdhLocalHelperRuntime && authFailed
+                ? "Helper auth required"
+                : nsdhLocalHelperRuntime ? "Helper wrong port" : "Wrong service",
+            detail: (nsdhSharedLocalPilot && authFailed
+              ? "Shared Local Pilot authentication failed. "
+              : nsdhLocalHelperRuntime && authFailed
+                ? "The Local Helper responded, but the MVP could not authenticate with it. "
+                : "") + "HTTP " + response.status + " from " + base + "."
           };
         }
         if (!payload || typeof payload.available !== "boolean") {
@@ -4284,6 +4353,9 @@ If a page takes time to load, narrate the business reason for the next step inst
               headers: demoHelperHeaders(),
               signal: controller.signal
             });
+            if ((helperResponse.status === 401 || helperResponse.status === 403) && nsdhLocalHelperRuntime) {
+              return { ok: false, base, status: "Helper auth required", detail: "The Local Helper responded with HTTP " + helperResponse.status + " from " + base + "." };
+            }
             const helperPayload = await helperResponse.json();
             if (!helperResponse.ok || !helperPayload?.ok || !helperPayload?.helper) {
               return { ok: false, base, status: "Helper invalid response", detail: "The endpoint answered Codex status, but it is not the NS DemoHelper Local Helper." };
@@ -4309,7 +4381,7 @@ If a page takes time to load, narrate the business reason for the next step inst
         return {
           ok: true,
           base,
-          status: payload.available ? "Connected" : nsdhSharedLocalPilot ? "Pilot Codex unavailable" : "Codex not detected",
+          status: payload.available ? "Connected" : nsdhSharedLocalPilot ? "Pilot Codex unavailable" : nsdhLocalHelperRuntime ? "Codex unavailable" : "Codex not detected",
           detail: payload.message || (payload.available ? "Codex bridge responded." : "The bridge responded but Codex was not detected."),
           payload,
           platformPayload
@@ -4417,7 +4489,7 @@ If a page takes time to load, narrate the business reason for the next step inst
     async function ensureCloudApiEndpoint(path) {
       if (!nsdhCloudRuntime || !String(path || "").startsWith("/api/")) return;
       const detection = await detectLocalCodexEndpoint();
-      if (detection.status !== "Connected" && detection.status !== "Codex not detected" && detection.status !== "Pilot Codex unavailable") {
+      if (detection.status !== "Connected" && detection.status !== "Codex not detected" && detection.status !== "Codex unavailable" && detection.status !== "Pilot Codex unavailable") {
         throw new Error(detection.status + ": " + detection.detail);
       }
     }
@@ -4867,14 +4939,16 @@ If a page takes time to load, narrate the business reason for the next step inst
       activeBrainBadge.classList.remove("ready", "missing", "checking");
       activeBrainBadge.classList.add("missing");
       if (nsdhCloudRuntime) {
-        activeBrainText.textContent = "Active Brain: Codex | " + cloudRuntimeModeLabel() + " | " + cloudConnectionDisplayStatus() + " | " + cloudConnectionCode();
+        activeBrainText.textContent = "Active Brain: Codex | " + cloudRuntimeModeLabel() + " | " + cloudConnectionDisplayStatus() + " | Sources: " + cloudConnectionSourcesLabel();
         activeBrainBadge.title = [
           "Provider: Codex",
           "Runtime mode: " + cloudRuntimeModeLabel(),
           nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
+          nsdhLocalHelperRuntime ? "Host: " + nsdhLocalHelperHostLabel : "",
           "Endpoint: " + cloudApiBase(),
           "Status: " + cloudConnectionDisplayStatus(),
           "Code: " + cloudConnectionCode(),
+          "Sources: " + cloudConnectionSourcesLabel(),
           "Reason: " + (nsdhCloudConnection.detail || error.message),
           "Action: " + cloudConnectionAction()
         ].filter(Boolean).join("\n");
@@ -4892,6 +4966,27 @@ If a page takes time to load, narrate the business reason for the next step inst
       activeBrainBadge.classList.add(runtime.available ? "ready" : "missing");
       const sourceText = (payload.activeKnowledgeSourceCount || 0) + " source" + (payload.activeKnowledgeSourceCount === 1 ? "" : "s");
       const cloudConnection = nsdhCloudRuntime ? " | " + cloudRuntimeModeLabel() : "";
+      if (nsdhCloudRuntime) {
+        const ready = nsdhCloudConnection.status === "Connected" || runtime.available;
+        activeBrainBadge.classList.toggle("ready", ready);
+        activeBrainBadge.classList.toggle("missing", !ready);
+        activeBrainText.textContent = "Active Brain: Codex | " + cloudRuntimeModeLabel() + " | " + cloudConnectionDisplayStatus() + " | Sources: " + cloudConnectionSourcesLabel();
+        activeBrainBadge.title = [
+          "Provider: Codex",
+          "Model: Local Codex",
+          "Runtime mode: " + cloudRuntimeModeLabel(),
+          nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
+          nsdhLocalHelperRuntime ? "Host: " + nsdhLocalHelperHostLabel : "",
+          "Endpoint: " + cloudApiBase(),
+          "Status: " + cloudConnectionDisplayStatus(),
+          "Code: " + cloudConnectionCode(),
+          "Sources: " + cloudConnectionSourcesLabel(),
+          nsdhCloudConnection.detail || runtime.message || ""
+        ].filter(Boolean).join("\n");
+        if (activeBrainSummary) activeBrainSummary.textContent = "Active Brain: Codex | " + cloudConnectionDisplayStatus();
+        if (activeSourcesSummary) activeSourcesSummary.textContent = "Sources: " + cloudConnectionSourcesLabel();
+        return;
+      }
       activeBrainText.textContent = "Active Brain: " + (provider.name || "Not configured") + cloudConnection + " | " + (runtime.runtimeStatus || "Unknown") + " | " + sourceText;
       activeBrainBadge.title = [
         "Provider: " + (provider.name || "Not configured"),
@@ -4969,7 +5064,7 @@ If a page takes time to load, narrate the business reason for the next step inst
     function providerStatusClass(status = "") {
       const text = String(status || "").toLowerCase();
       if (/connected|running|success|registered|ready|healthy|active/.test(text)) return "strong";
-      if (/invalid|missing|timeout|unreachable|unavailable|disconnected|failure|not detected|auth failed/.test(text)) return "critical";
+      if (/invalid|missing|timeout|unreachable|unavailable|disconnected|failure|not detected|auth failed|auth required/.test(text)) return "critical";
       if (/planned|standby|unknown|not tested/.test(text)) return "advisory";
       return "warning";
     }
@@ -5607,21 +5702,24 @@ If a page takes time to load, narrate the business reason for the next step inst
       codexRuntimeBadge.classList.remove("ready", "missing", "checking");
       if (payload.available) {
         codexRuntimeBadge.classList.add("ready");
-        codexRuntimeText.textContent = "Codex active";
+        codexRuntimeText.textContent = "Codex: Connected";
         codexRuntimeBadge.title = [
+          "Active Brain: Codex",
           payload.message,
           nsdhCloudRuntime ? "Runtime Mode: " + cloudRuntimeModeLabel() : "",
           nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
+          nsdhCloudRuntime ? "Sources: " + cloudConnectionSourcesLabel() : "",
           payload.version,
           payload.command
         ].filter(Boolean).join("\n");
       } else {
         codexRuntimeBadge.classList.add("missing");
-        codexRuntimeText.textContent = "Codex not detected";
+        codexRuntimeText.textContent = nsdhCloudRuntime ? "Codex: " + cloudConnectionDisplayStatus() : "Codex not detected";
         codexRuntimeBadge.title = [
           payload.message || "The app could not detect Codex on this machine.",
           nsdhCloudRuntime ? "Runtime Mode: " + cloudRuntimeModeLabel() : "",
           nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
+          nsdhCloudRuntime ? "Code: " + cloudConnectionCode() : "",
           nsdhCloudRuntime ? cloudConnectionAction(nsdhCloudConnection.status) : ""
         ].filter(Boolean).join("\n");
       }
@@ -5640,6 +5738,20 @@ If a page takes time to load, narrate the business reason for the next step inst
       ].filter(Boolean).join(" | ");
     }
 
+    function cloudConnectionSourcesLabel(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "connected" || normalized === "codex unavailable") return "Local Codex";
+      if (normalized === "pilot codex unavailable" || normalized === "pilot tunnel unavailable") return "Pilot Codex";
+      return "None active";
+    }
+
+    function cloudConnectionChipClass(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "connected") return "ready";
+      if (normalized === "checking" || normalized === "not tested") return "warning";
+      return "error";
+    }
+
     function cloudRuntimeModeLabel() {
       if (nsdhSharedLocalPilot) return "Shared Local Pilot";
       if (nsdhLocalHelperRuntime) return "Local Helper";
@@ -5655,11 +5767,13 @@ If a page takes time to load, narrate the business reason for the next step inst
       if (normalized === "pilot auth failed") return "Pilot auth failed";
       if (normalized === "pilot timeout") return "Pilot timeout";
       if (normalized === "pilot invalid response") return "Pilot invalid response";
-      if (normalized === "helper not running") return "Helper not running";
+      if (normalized === "helper not running") return "Local Helper Not Running";
+      if (normalized === "helper auth required") return "Helper Found, Authorization Required";
       if (normalized === "helper wrong port") return "Wrong helper port";
       if (normalized === "helper cors blocked") return "Helper blocked by browser";
       if (normalized === "helper timeout") return "Helper timeout";
       if (normalized === "helper invalid response") return "Helper invalid response";
+      if (normalized === "codex unavailable") return "Helper Connected, Codex Not Available";
       if (normalized === "codex not detected") return "Codex runtime not ready";
       if (normalized === "wrong service") return "Wrong local service";
       if (normalized === "timeout") return "Local bridge timeout";
@@ -5680,10 +5794,12 @@ If a page takes time to load, narrate the business reason for the next step inst
       if (normalized === "pilot timeout") return "PILOT_TIMEOUT";
       if (normalized === "pilot invalid response") return "PILOT_INVALID_RESPONSE";
       if (normalized === "helper not running") return "HELPER_NOT_RUNNING";
+      if (normalized === "helper auth required") return "HELPER_AUTH_REQUIRED";
       if (normalized === "helper wrong port") return "HELPER_WRONG_PORT";
       if (normalized === "helper cors blocked") return "HELPER_CORS_BLOCKED";
       if (normalized === "helper timeout") return "GENERATION_TIMEOUT";
       if (normalized === "helper invalid response") return "HELPER_INVALID_RESPONSE";
+      if (normalized === "codex unavailable") return "CODEX_NOT_AVAILABLE";
       if (normalized === "codex not detected") return nsdhLocalHelperRuntime ? "CODEX_NOT_AVAILABLE" : "CODEX_LOCAL_RUNTIME_NOT_READY";
       if (normalized === "wrong service") return "CODEX_LOCAL_WRONG_SERVICE";
       if (normalized === "timeout") return "CODEX_LOCAL_TIMEOUT";
@@ -5705,10 +5821,12 @@ If a page takes time to load, narrate the business reason for the next step inst
       if (normalized === "pilot timeout") return "The pilot endpoint timed out. Check whether Desktop 2, the bridge, or the tunnel is overloaded/offline.";
       if (normalized === "pilot invalid response") return "The pilot URL responded, but not as the NetSuite Demo Helper bridge.";
       if (normalized === "helper not running") return "Download and run the Local Helper on this device, keep Codex open/signed in, then click Test Connection.";
+      if (normalized === "helper auth required") return "Restart the helper from the downloaded file and click Test Connection again.";
       if (normalized === "helper wrong port") return "The endpoint is reachable but is not the Local Helper. Confirm the helper is running on http://127.0.0.1:4173.";
       if (normalized === "helper cors blocked") return "The browser blocked the Local Helper request. Confirm the helper is running, then allow localhost/private-network access if the browser or firewall prompts.";
       if (normalized === "helper timeout") return "The Local Helper did not respond in time. Confirm it is still open and try again.";
       if (normalized === "helper invalid response") return "The endpoint responded, but not as the NS DemoHelper Local Helper.";
+      if (normalized === "codex unavailable") return "Open/sign in to Codex locally, keep the Local Helper running, then click Test Connection.";
       if (normalized === "codex not detected") return nsdhLocalHelperRuntime
         ? "The Local Helper is running, but Codex is not available. Open/sign in to Codex locally, keep the helper window open, then click Test Connection."
         : "The local bridge responded, but Codex itself is not available. Open/sign in to Codex locally, keep the bridge running, then click Test Codex Connection.";
@@ -5735,7 +5853,58 @@ If a page takes time to load, narrate the business reason for the next step inst
       if (codexRuntimeBadge && nsdhCloudRuntime) {
         codexRuntimeBadge.dataset.endpoint = cloudApiBase();
       }
-      renderLocalHelperStatus(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : ""));
+      updateCompactConnectionStatus();
+      renderLocalHelperStatus(localHelperFriendlyStatusMessage());
+      renderCodexConnectionScreen();
+    }
+
+    function updateCompactConnectionStatus() {
+      const chip = document.getElementById("prepCodexConnectionChip");
+      const summary = document.getElementById("prepCodexConnectionSummary");
+      if (!chip && !summary) return;
+      const status = nsdhCloudConnection.status || "Not tested";
+      const statusLabel = cloudConnectionDisplayStatus(status);
+      const code = cloudConnectionCode(status);
+      if (chip) {
+        chip.className = "connection-chip " + cloudConnectionChipClass(status);
+        chip.textContent = "Codex: " + statusLabel;
+        chip.title = [
+          "Active Brain: Codex",
+          "Runtime Mode: " + cloudRuntimeModeLabel(),
+          "Status: " + statusLabel,
+          "Endpoint: " + (nsdhCloudConnection.base || cloudApiBase()),
+          "Code: " + code
+        ].join("\n");
+      }
+      if (summary) {
+        summary.textContent = status === "Connected"
+          ? "Local Helper is connected and Codex is available."
+          : "Open Codex Connection to download, start, or test the Local Helper. " + cloudConnectionAction(status);
+      }
+    }
+
+    function localHelperFriendlyStatusMessage(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      const code = cloudConnectionCode(status);
+      if (normalized === "connected") return "The Local Helper is running and Codex is available.";
+      if (normalized === "helper not running") return "Local Helper Not Running | Code: " + code + " | Action: Download and run the helper, then test again.";
+      if (normalized === "codex unavailable" || normalized === "codex not detected") return "Helper Connected, Codex Not Available | Code: CODEX_NOT_AVAILABLE | Action: Open/sign into Codex, then test again.";
+      if (normalized === "helper auth required") return "Helper Found, Authorization Required | Code: HELPER_AUTH_REQUIRED | Action: Restart the helper from the downloaded file and test again.";
+      if (normalized === "helper cors blocked") return "Helper request blocked by browser or firewall | Code: HELPER_CORS_BLOCKED | Action: Confirm the helper is running and allow localhost/private-network access if prompted.";
+      if (normalized === "helper wrong port") return "Wrong helper port | Code: HELPER_WRONG_PORT | Action: Confirm the endpoint is http://127.0.0.1:4173.";
+      if (normalized === "checking") return "Checking the Local Helper and Codex on this device...";
+      return cloudConnectionDisplayStatus(status) + " | Code: " + code + (nsdhCloudConnection.detail ? " | " + nsdhCloudConnection.detail : "");
+    }
+
+    function renderCodexConnectionScreen() {
+      const target = document.getElementById("codexConnectionBody");
+      if (!target) return;
+      target.innerHTML =
+        cloudConnectionStatusPanelHtml() +
+        localCodexBridgeSettingsHtml() +
+        localHelperInstallDetailsHtml();
+      attachCodexBridgeControls();
+      attachLocalHelperControls();
     }
 
     function cloudConnectionStatusPanelHtml() {
@@ -5750,11 +5919,13 @@ If a page takes time to load, narrate the business reason for the next step inst
         "<div class='codex-status-grid'>" +
           codexStatusRow("Active Brain", "Codex") +
           codexStatusRow("Runtime Mode", cloudRuntimeModeLabel()) +
+          codexStatusRow("Status", cloudConnectionDisplayStatus(status)) +
           (nsdhSharedLocalPilot ? codexStatusRow("Host", nsdhPilotHostLabel) : "") +
           (nsdhLocalHelperRuntime ? codexStatusRow("Host", nsdhLocalHelperHostLabel) : "") +
           codexStatusRow("Endpoint", endpoint) +
+          codexStatusRow("Sources", cloudConnectionSourcesLabel(status)) +
           codexStatusRow("Last Check Time", formatCloudCheckTime()) +
-          codexStatusRow("Code", cloudConnectionCode(status)) +
+          codexStatusRow("Error Code", cloudConnectionCode(status)) +
         "</div>" +
         "<div class='codex-status-detail'>" +
           "<p><strong>Reason:</strong> " + escapeClientHtml(reason) + "</p>" +
@@ -5833,8 +6004,8 @@ If a page takes time to load, narrate the business reason for the next step inst
           "</div>" +
           "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
           "<details><summary>Setup guidance</summary>" +
-            "<p><strong>macOS:</strong> download the helper zip, save it to Desktop, unzip it, right-click Open if macOS blocks the command file, keep Codex open/signed in, then test the connection.</p>" +
-            "<p><strong>Windows:</strong> download the helper zip, save it to Desktop, unzip it, run the batch file, allow local/private browser access if your policy permits it, keep Codex open/signed in, then test the connection.</p>" +
+            "<p><strong>macOS:</strong> download the helper zip, save it to Desktop, unzip it, then right-click Open the command file if macOS blocks the first run. The helper installs a user-level LaunchAgent so it can restart automatically on login.</p>" +
+            "<p><strong>Windows:</strong> download the helper zip, save it to Desktop, unzip it, then double-click the batch file. The helper creates a user Startup entry so it can restart automatically on login.</p>" +
             "<p>The helper listens on 127.0.0.1 only and does not expose a public port.</p>" +
           "</details></div>";
       }
@@ -5856,6 +6027,21 @@ If a page takes time to load, narrate the business reason for the next step inst
           "<p><strong>macOS:</strong> open the NetSuite Demo Helper project, run <code>npm run mvp</code>, keep Codex open/signed in, then test this connection.</p>" +
           "<p><strong>Windows:</strong> open the NetSuite Demo Helper project, run <code>npm run mvp</code>, allow localhost/private-network access if prompted by the browser or firewall, then test this connection.</p>" +
           "<p>If your bridge uses another port, enter the full localhost or 127.0.0.1 URL above. Do not enter another person's machine name or shared tunnel unless a secure hosted bridge is intentionally configured.</p>" +
+        "</details></div>";
+    }
+
+    function localHelperInstallDetailsHtml() {
+      if (!nsdhLocalHelperRuntime) return "";
+      return "<div class='codex-info-card'><strong>One-time helper setup</strong>" +
+        "<div class='codex-info-grid'>" +
+          codexInfoCard("macOS", "helper-mac.command", "Runs without admin rights, copies itself into ~/Library/Application Support/NSDemoHelper, and registers a user LaunchAgent. If macOS cannot verify it, right-click the file and choose Open. The helper remains localhost-only.") +
+          codexInfoCard("Windows", "helper-windows.bat", "Runs without admin rights, copies itself into %LOCALAPPDATA%\\NSDemoHelper, and creates a Startup shortcut. If SmartScreen appears, only continue when the file was downloaded from this APEX app and your policy allows it.") +
+          codexInfoCard("Stop / uninstall", "Included in instructions", "macOS supports --stop and --uninstall from the installed command file. Windows supports --stop and --uninstall from the installed batch file.") +
+          codexInfoCard("Security", "Local device only", "The helper binds to 127.0.0.1, restricts CORS to Oracle APEX and localhost, and does not expose files, API keys, or a public network port.") +
+        "</div>" +
+        "<details><summary>Technical details</summary>" +
+          "<p>Default endpoint: <code>http://127.0.0.1:4173</code>. The APEX app stores any endpoint override in this browser only.</p>" +
+          "<p>Error handling: HELPER_NOT_RUNNING means the helper is unavailable, CODEX_NOT_AVAILABLE means the helper is running but Codex is not ready, and HELPER_AUTH_REQUIRED means the helper responded but rejected the request.</p>" +
         "</details></div>";
     }
 
@@ -5936,7 +6122,7 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     function renderLocalHelperStatus(message) {
       document.querySelectorAll("[data-local-helper-status]").forEach((target) => {
-        target.textContent = message || cloudConnectionStatusText();
+        target.textContent = message || localHelperFriendlyStatusMessage();
       });
     }
 
@@ -5957,7 +6143,7 @@ If a page takes time to load, narrate the business reason for the next step inst
           try {
             const result = await detectLocalCodexEndpoint({ force: true, preferred: nsdhDefaultLocalApiBase });
             renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
-            renderLocalHelperStatus(cloudConnectionStatusText() + (result.detail ? " - " + result.detail : ""));
+            renderLocalHelperStatus(localHelperFriendlyStatusMessage(result.status));
             await refreshPlatformStatus();
           } catch (error) {
             renderLocalHelperStatus("HELPER_NOT_RUNNING - " + error.message);
@@ -6095,7 +6281,7 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     document.addEventListener("focusout", hideButtonHelp);
     document.addEventListener("scroll", hideButtonHelp, true);
-    codexInfoButton.onclick = openCodexInfo;
+    codexInfoButton.onclick = () => activateTab("codex-connection");
     codexInfoClose.onclick = closeCodexInfo;
     stopCodexActionButton.onclick = async () => {
       try {
@@ -7884,6 +8070,10 @@ If a page takes time to load, narrate the business reason for the next step inst
         document.getElementById("screen-" + button.dataset.tab).classList.add("active");
         sessionStorage.setItem("nsdhActiveTab", button.dataset.tab);
       if (options.skipAutoLoad) return;
+      if (button.dataset.tab === "codex-connection") {
+        renderCodexConnectionScreen();
+        attachLocalHelperControls();
+      }
       if (button.dataset.tab === "admin") await loadCmsStatus();
       if (button.dataset.tab === "intelligence" && prepDirtyForIntelligence) await loadIntelligence();
       if (button.dataset.tab === "pre-demo-intelligence" && (prepDirtyForPreDemoIntelligence || !latestPreDemoIntelligence)) await loadPreDemoIntelligence();
@@ -7932,6 +8122,11 @@ If a page takes time to load, narrate the business reason for the next step inst
       if (heatmapTab) {
         activeHeatmapTab = heatmapTab.dataset.heatmapTab || "discovery";
         if (latestIntelligence) renderIntelligenceHeatmap(latestIntelligence);
+        return;
+      }
+      const codexConnectionButton = event.target.closest("[data-open-codex-connection]");
+      if (codexConnectionButton) {
+        activateTab("codex-connection");
         return;
       }
       const button = event.target.closest("[data-heatmap-key]");
@@ -8757,6 +8952,7 @@ If a page takes time to load, narrate the business reason for the next step inst
         updateStrategyIndustryHints();
         updateManifestDemoModeHint();
         syncVoiceProviderSettings();
+        renderCodexConnectionScreen();
         attachLocalHelperControls();
         await loadVoices();
         renderStakeholderPersonas();

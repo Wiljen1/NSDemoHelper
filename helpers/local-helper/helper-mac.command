@@ -3,7 +3,115 @@ set -euo pipefail
 
 PORT="${NSDH_HELPER_PORT:-4173}"
 APEX_ORIGIN="${NSDH_APEX_ORIGIN:-https://apex.oraclecorp.com}"
-HELPER_FILE="${TMPDIR:-/tmp}/nsdemohelper-local-helper.py"
+COMMAND="${1:---install}"
+LABEL="com.nsdemohelper.localhelper"
+SUPPORT_DIR="${HOME}/Library/Application Support/NSDemoHelper"
+LOG_DIR="${HOME}/Library/Logs/NSDemoHelper"
+INSTALL_HELPER="${SUPPORT_DIR}/helper-mac.command"
+HELPER_FILE="${SUPPORT_DIR}/nsdemohelper-local-helper.py"
+PLIST="${HOME}/Library/LaunchAgents/${LABEL}.plist"
+
+pause_if_interactive() {
+  if [ -t 0 ]; then
+    printf "\nPress Return to close this window."
+    read -r _ || true
+  fi
+}
+
+stop_helper() {
+  launchctl bootout "gui/${UID}" "$PLIST" >/dev/null 2>&1 || true
+}
+
+install_helper() {
+  mkdir -p "$SUPPORT_DIR" "$LOG_DIR" "${HOME}/Library/LaunchAgents"
+  if [ "$0" != "$INSTALL_HELPER" ]; then
+    cp "$0" "$INSTALL_HELPER"
+    chmod 700 "$INSTALL_HELPER"
+  else
+    chmod 700 "$INSTALL_HELPER"
+  fi
+  cat > "$PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>${INSTALL_HELPER}</string>
+    <string>--serve</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NSDH_HELPER_PORT</key>
+    <string>${PORT}</string>
+    <key>NSDH_APEX_ORIGIN</key>
+    <string>${APEX_ORIGIN}</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>${LOG_DIR}/local-helper.log</string>
+  <key>StandardErrorPath</key>
+  <string>${LOG_DIR}/local-helper.err.log</string>
+</dict>
+</plist>
+PLIST
+  stop_helper
+  launchctl bootstrap "gui/${UID}" "$PLIST"
+  launchctl kickstart -k "gui/${UID}/${LABEL}" >/dev/null 2>&1 || true
+  echo "NS DemoHelper Local Helper is installed and running."
+  echo "It starts automatically when you log in."
+  echo "Endpoint: http://127.0.0.1:${PORT}"
+  echo "Logs: ${LOG_DIR}"
+  echo
+  echo "To stop later:"
+  echo "  ${INSTALL_HELPER} --stop"
+  echo "To uninstall later:"
+  echo "  ${INSTALL_HELPER} --uninstall"
+  echo
+  echo "Keep Codex open and signed in, then return to APEX and click Test Connection."
+  pause_if_interactive
+}
+
+case "$COMMAND" in
+  --install|"")
+    install_helper
+    exit 0
+    ;;
+  --stop)
+    stop_helper
+    echo "NS DemoHelper Local Helper stopped."
+    pause_if_interactive
+    exit 0
+    ;;
+  --uninstall)
+    stop_helper
+    rm -f "$PLIST"
+    rm -rf "$SUPPORT_DIR"
+    echo "NS DemoHelper Local Helper uninstalled."
+    pause_if_interactive
+    exit 0
+    ;;
+  --status)
+    curl -fsS "http://127.0.0.1:${PORT}/api/helper/status" || true
+    pause_if_interactive
+    exit 0
+    ;;
+  --serve)
+    mkdir -p "$SUPPORT_DIR" "$LOG_DIR"
+    ;;
+  *)
+    echo "Unknown option: $COMMAND"
+    echo "Use --install, --serve, --status, --stop, or --uninstall."
+    pause_if_interactive
+    exit 1
+    ;;
+esac
 
 cat > "$HELPER_FILE" <<'PY_HELPER'
 #!/usr/bin/env python3

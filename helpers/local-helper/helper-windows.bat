@@ -4,7 +4,63 @@ setlocal
 if "%NSDH_HELPER_PORT%"=="" set NSDH_HELPER_PORT=4173
 if "%NSDH_APEX_ORIGIN%"=="" set NSDH_APEX_ORIGIN=https://apex.oraclecorp.com
 
-set "PS_HELPER=%TEMP%\nsdemohelper-local-helper.ps1"
+set "INSTALL_DIR=%LOCALAPPDATA%\NSDemoHelper"
+set "INSTALL_HELPER=%INSTALL_DIR%\helper-windows.bat"
+set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+set "STARTUP_FILE=%STARTUP_DIR%\NS DemoHelper Local Helper.cmd"
+set "PS_HELPER=%INSTALL_DIR%\nsdemohelper-local-helper.ps1"
+
+if /I "%~1"=="--serve" goto serve
+if /I "%~1"=="--stop" goto stop
+if /I "%~1"=="--uninstall" goto uninstall
+if /I "%~1"=="--status" goto status
+
+:install
+if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+copy /Y "%~f0" "%INSTALL_HELPER%" >nul
+(
+  echo @echo off
+  echo start "NS DemoHelper Local Helper" /min "%INSTALL_HELPER%" --serve
+) > "%STARTUP_FILE%"
+echo NS DemoHelper Local Helper is installed.
+echo It will start automatically when you sign in.
+echo Endpoint: http://127.0.0.1:%NSDH_HELPER_PORT%
+echo.
+echo Starting the helper now...
+start "NS DemoHelper Local Helper" "%INSTALL_HELPER%" --serve
+echo Keep Codex open and signed in, then return to APEX and click Test Connection.
+echo.
+echo To stop later, run:
+echo   "%INSTALL_HELPER%" --stop
+echo To uninstall later, run:
+echo   "%INSTALL_HELPER%" --uninstall
+pause
+exit /b 0
+
+:stop
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$port=[int]$env:NSDH_HELPER_PORT; if(-not $port){$port=4173};" ^
+  "$conn=Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -First 1;" ^
+  "if($conn){ Stop-Process -Id $conn.OwningProcess -Force; Write-Host 'NS DemoHelper Local Helper stopped.' } else { Write-Host 'No Local Helper process was found on that port.' }"
+pause
+exit /b 0
+
+:uninstall
+call "%~f0" --stop
+del "%STARTUP_FILE%" >nul 2>&1
+rmdir /S /Q "%INSTALL_DIR%" >nul 2>&1
+echo NS DemoHelper Local Helper uninstalled.
+pause
+exit /b 0
+
+:status
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "try { Invoke-RestMethod -Uri ('http://127.0.0.1:' + $env:NSDH_HELPER_PORT + '/api/helper/status') -TimeoutSec 5 | ConvertTo-Json -Depth 10 } catch { Write-Host $_.Exception.Message }"
+pause
+exit /b 0
+
+:serve
+if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$content = Get-Content -Raw -LiteralPath '%~f0';" ^

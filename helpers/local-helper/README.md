@@ -9,7 +9,7 @@ It lets a user open the APEX MVP, run a small helper locally, and let the cloud-
 1. Open the NS DemoHelper APEX link.
 2. Download the helper for your operating system.
 3. Save it to your Desktop.
-4. Run the helper and keep the helper window open.
+4. Run the helper once to install/start the local bridge.
 5. Keep Codex open and signed in.
 6. In the APEX app, click **Test Connection**.
 7. Use the MVP.
@@ -20,23 +20,67 @@ Download `helper-mac.zip`, save it to Desktop, unzip it, then double-click `help
 
 If macOS blocks the first run, right-click the file and choose **Open**.
 
-The helper uses the built-in `/usr/bin/python3` runtime and listens only on:
+The helper uses the built-in `/usr/bin/python3` runtime, installs a user-level LaunchAgent, and listens only on:
 
 ```text
 http://127.0.0.1:4173
 ```
 
+The LaunchAgent is installed under:
+
+```text
+~/Library/LaunchAgents/com.nsdemohelper.localhelper.plist
+```
+
+The helper files are installed under:
+
+```text
+~/Library/Application Support/NSDemoHelper
+```
+
+Useful commands:
+
+```text
+~/Library/Application Support/NSDemoHelper/helper-mac.command --status
+~/Library/Application Support/NSDemoHelper/helper-mac.command --stop
+~/Library/Application Support/NSDemoHelper/helper-mac.command --uninstall
+```
+
+No admin password is required. The helper binds to localhost only.
+
 ## Windows
 
 Download `helper-windows.zip`, save it to Desktop, unzip it, then double-click `helper-windows.bat`.
 
-The script launches a temporary PowerShell helper and listens only on:
+The script installs a user Startup entry, launches a local PowerShell helper, and listens only on:
 
 ```text
 http://127.0.0.1:4173
 ```
 
 If Windows Defender Firewall asks for access, only allow local/private access if your security policy permits it. The helper is intended to bind to localhost only.
+
+The helper files are installed under:
+
+```text
+%LOCALAPPDATA%\NSDemoHelper
+```
+
+The startup entry is created at:
+
+```text
+%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\NS DemoHelper Local Helper.cmd
+```
+
+Useful commands:
+
+```text
+%LOCALAPPDATA%\NSDemoHelper\helper-windows.bat --status
+%LOCALAPPDATA%\NSDemoHelper\helper-windows.bat --stop
+%LOCALAPPDATA%\NSDemoHelper\helper-windows.bat --uninstall
+```
+
+No admin rights are required. The helper binds to localhost only.
 
 ## API
 
@@ -81,3 +125,5 @@ For MVP compatibility it also exposes:
 `GENERATION_TIMEOUT`: Codex did not return in time. Try again with a smaller request.
 
 `HELPER_INVALID_RESPONSE`: the endpoint responded, but not as NS DemoHelper expects.
+
+`HELPER_AUTH_REQUIRED`: the helper responded with an authorization error. Restart the helper from the downloaded file and test again.

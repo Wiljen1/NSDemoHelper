@@ -10968,7 +10968,7 @@ function html(response) {
     .prep-grid {
       grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr);
       grid-template-areas:
-        "helper helper"
+        "connection connection"
         "scope scope"
         "audience audience"
         "actions actions"
@@ -10978,7 +10978,7 @@ function html(response) {
         "how how";
       align-items: start;
     }
-    .prep-helper { grid-area: helper; }
+    .prep-connection { grid-area: connection; }
     .prep-instructions { grid-area: instructions; }
     .prep-scope { grid-area: scope; }
     .prep-audience { grid-area: audience; }
@@ -11005,6 +11005,43 @@ function html(response) {
       align-items: start;
     }
     .local-helper-card h2 { margin-bottom: 6px; }
+    .prep-connection-card {
+      padding: 12px 14px;
+    }
+    .compact-connection-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .compact-connection-row .hint {
+      flex: 1 1 260px;
+      margin: 0;
+    }
+    .connection-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      padding: 7px 10px;
+      color: var(--accent-dark);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .connection-chip::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #aab5ba;
+    }
+    .connection-chip.ready::before { background: var(--ok); }
+    .connection-chip.warning::before { background: var(--warn); }
+    .connection-chip.error::before { background: var(--danger); }
     .helper-download-grid {
       display: flex;
       flex-wrap: wrap;
@@ -11755,7 +11792,7 @@ function html(response) {
       .prep-grid {
         grid-template-columns: 1fr;
         grid-template-areas:
-          "helper"
+          "connection"
           "scope"
           "audience"
           "actions"
@@ -11813,7 +11850,7 @@ function html(response) {
           <span class="dot" aria-hidden="true"></span>
           <span>${escapeHtml(`${buildMetadata.version} | ${buildMetadata.environment} | ${buildMetadata.profile}`)}</span>
         </span>
-        <button class="codex-info-button" id="codexInfoButton" data-help="Shows which parts of the helper are using Codex and where the latest Codex output was saved.">Backbone</button>
+        <button class="codex-info-button" id="codexInfoButton" data-help="Opens the Codex Connection tab with Local Helper downloads, setup guidance, and connection status.">Codex Connection</button>
         <label class="theme-toggle" for="nightMode">
           <input type="checkbox" id="nightMode">
           Night mode
@@ -11828,6 +11865,7 @@ function html(response) {
     <button class="tab" data-tab="manifest" data-live-demo-only data-help="Review or edit the runnable dry-run manifest created from the Playbook tab's Dry-run creation prompt.">Dry-Run</button>
     <button class="tab" data-tab="dataset" data-live-demo-only data-help="Run the dry-run through the browser and score whether the NetSuite dataset, permissions, and demo setup are ready.">Dataset Analysis</button>
     <button class="tab" data-tab="run" data-live-demo-only data-help="Prepare NetSuite, buffer the dry-run, run the narrated live demo, or stop an active browser automation.">Run</button>
+    <button class="tab" data-tab="codex-connection" data-help="Download and test the Local Helper used by the APEX MVP to connect to Codex on this device.">Codex Connection</button>
     <button class="tab" data-tab="admin" data-help="Edit shared helper guidance, demo logic sources, labels, playbooks, and versioned CMS content.">Admin</button>
     </nav>
   <main>
@@ -11842,27 +11880,11 @@ function html(response) {
         </div>
       </div>`}
       <div class="grid prep-grid">
-        <div class="panel prep-helper local-helper-card">
-          <div>
-            <h2>Connect Codex Locally</h2>
-            <p class="hint">Use the lightweight helper when the MVP is opened from Oracle APEX and Codex should run on the current user's own Mac or Windows device.</p>
-            <div class="helper-download-grid">
-              <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper zip. Save it to Desktop, unzip it, run it, keep Codex open, then test the connection.">Download Helper for macOS</button>
-              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper zip. Save it to Desktop, unzip it, run it, keep Codex open, then test the connection.">Download Helper for Windows</button>
-              <button class="secondary" type="button" data-local-helper-download="readme" data-help="Downloads the helper setup notes and troubleshooting guide.">Download Instructions</button>
-            </div>
-            <div class="row">
-              <button class="secondary" type="button" data-test-local-helper data-help="Checks whether the local helper and Codex are available on this device.">Test Connection</button>
-            </div>
-          </div>
-          <div>
-            <p class="helper-status" data-local-helper-status>Local helper not checked yet.</p>
-            <ol class="helper-steps">
-              <li>Download the helper for your operating system.</li>
-              <li>Save it to Desktop, unzip it, and run it.</li>
-              <li>Keep Codex open and signed in.</li>
-              <li>Click Test Connection, then use the MVP.</li>
-            </ol>
+        <div class="panel prep-connection prep-connection-card">
+          <div class="compact-connection-row">
+            <span class="connection-chip" id="prepCodexConnectionChip">Codex: Checking</span>
+            <p class="hint" id="prepCodexConnectionSummary">Use Codex Connection if the helper is not running or Codex needs to be tested.</p>
+            <button class="secondary" type="button" data-open-codex-connection data-help="Opens the Local Helper downloads, setup guidance, and connection test.">Open Codex Connection</button>
           </div>
         </div>
         <div class="panel prep-scope">
@@ -12335,6 +12357,45 @@ function html(response) {
           <label>Output</label>
           <div id="status" class="status">Ready.</div>
         </div>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-codex-connection">
+      <div class="mvp-heads-up">
+        <strong>Connect Codex Locally</strong>
+        <p>Use the lightweight helper when this Oracle APEX MVP should run Codex on the current user's own Mac or Windows device.</p>
+        <div class="heads-up-meta" aria-label="Codex connection checkpoints">
+          <span>Local Helper mode</span>
+          <span>Runs on this device</span>
+          <span>No repo clone needed</span>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="panel full local-helper-card">
+          <div>
+            <h2>Setup</h2>
+            <p class="hint">Download the helper for your operating system, run it once to install/start the local bridge, keep Codex open and signed in, then test the connection.</p>
+            <div class="helper-download-grid">
+              <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper zip. Save it to Desktop, unzip it, and run helper-mac.command once.">Download Helper for macOS</button>
+              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper zip. Save it to Desktop, unzip it, and run helper-windows.bat once.">Download Helper for Windows</button>
+              <button class="secondary" type="button" data-local-helper-download="readme" data-help="Downloads the helper setup notes and troubleshooting guide.">Download Instructions</button>
+            </div>
+            <ol class="helper-steps">
+              <li>Download the helper for your operating system.</li>
+              <li>Run it once to set up and start the helper.</li>
+              <li>Keep Codex open and signed in.</li>
+              <li>Return here and click Test Connection.</li>
+            </ol>
+          </div>
+          <div>
+            <h2>Status</h2>
+            <p class="helper-status" data-local-helper-status>Local helper not checked yet.</p>
+            <div class="row">
+              <button class="secondary" type="button" data-test-local-helper data-help="Checks whether the local helper and Codex are available on this device.">Test Connection</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel full" id="codexConnectionBody"></div>
       </div>
     </section>
 
@@ -13137,8 +13198,16 @@ function html(response) {
           return {
             ok: false,
             base,
-            status: nsdhSharedLocalPilot && authFailed ? "Pilot auth failed" : nsdhLocalHelperRuntime ? "Helper wrong port" : "Wrong service",
-            detail: (nsdhSharedLocalPilot && authFailed ? "Shared Local Pilot authentication failed. " : "") + "HTTP " + response.status + " from " + base + "."
+            status: nsdhSharedLocalPilot && authFailed
+              ? "Pilot auth failed"
+              : nsdhLocalHelperRuntime && authFailed
+                ? "Helper auth required"
+                : nsdhLocalHelperRuntime ? "Helper wrong port" : "Wrong service",
+            detail: (nsdhSharedLocalPilot && authFailed
+              ? "Shared Local Pilot authentication failed. "
+              : nsdhLocalHelperRuntime && authFailed
+                ? "The Local Helper responded, but the MVP could not authenticate with it. "
+                : "") + "HTTP " + response.status + " from " + base + "."
           };
         }
         if (!payload || typeof payload.available !== "boolean") {
@@ -13151,6 +13220,9 @@ function html(response) {
               headers: demoHelperHeaders(),
               signal: controller.signal
             });
+            if ((helperResponse.status === 401 || helperResponse.status === 403) && nsdhLocalHelperRuntime) {
+              return { ok: false, base, status: "Helper auth required", detail: "The Local Helper responded with HTTP " + helperResponse.status + " from " + base + "." };
+            }
             const helperPayload = await helperResponse.json();
             if (!helperResponse.ok || !helperPayload?.ok || !helperPayload?.helper) {
               return { ok: false, base, status: "Helper invalid response", detail: "The endpoint answered Codex status, but it is not the NS DemoHelper Local Helper." };
@@ -13176,7 +13248,7 @@ function html(response) {
         return {
           ok: true,
           base,
-          status: payload.available ? "Connected" : nsdhSharedLocalPilot ? "Pilot Codex unavailable" : "Codex not detected",
+          status: payload.available ? "Connected" : nsdhSharedLocalPilot ? "Pilot Codex unavailable" : nsdhLocalHelperRuntime ? "Codex unavailable" : "Codex not detected",
           detail: payload.message || (payload.available ? "Codex bridge responded." : "The bridge responded but Codex was not detected."),
           payload,
           platformPayload
@@ -13284,7 +13356,7 @@ function html(response) {
     async function ensureCloudApiEndpoint(path) {
       if (!nsdhCloudRuntime || !String(path || "").startsWith("/api/")) return;
       const detection = await detectLocalCodexEndpoint();
-      if (detection.status !== "Connected" && detection.status !== "Codex not detected" && detection.status !== "Pilot Codex unavailable") {
+      if (detection.status !== "Connected" && detection.status !== "Codex not detected" && detection.status !== "Codex unavailable" && detection.status !== "Pilot Codex unavailable") {
         throw new Error(detection.status + ": " + detection.detail);
       }
     }
@@ -13734,14 +13806,16 @@ function html(response) {
       activeBrainBadge.classList.remove("ready", "missing", "checking");
       activeBrainBadge.classList.add("missing");
       if (nsdhCloudRuntime) {
-        activeBrainText.textContent = "Active Brain: Codex | " + cloudRuntimeModeLabel() + " | " + cloudConnectionDisplayStatus() + " | " + cloudConnectionCode();
+        activeBrainText.textContent = "Active Brain: Codex | " + cloudRuntimeModeLabel() + " | " + cloudConnectionDisplayStatus() + " | Sources: " + cloudConnectionSourcesLabel();
         activeBrainBadge.title = [
           "Provider: Codex",
           "Runtime mode: " + cloudRuntimeModeLabel(),
           nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
+          nsdhLocalHelperRuntime ? "Host: " + nsdhLocalHelperHostLabel : "",
           "Endpoint: " + cloudApiBase(),
           "Status: " + cloudConnectionDisplayStatus(),
           "Code: " + cloudConnectionCode(),
+          "Sources: " + cloudConnectionSourcesLabel(),
           "Reason: " + (nsdhCloudConnection.detail || error.message),
           "Action: " + cloudConnectionAction()
         ].filter(Boolean).join("\\n");
@@ -13759,6 +13833,27 @@ function html(response) {
       activeBrainBadge.classList.add(runtime.available ? "ready" : "missing");
       const sourceText = (payload.activeKnowledgeSourceCount || 0) + " source" + (payload.activeKnowledgeSourceCount === 1 ? "" : "s");
       const cloudConnection = nsdhCloudRuntime ? " | " + cloudRuntimeModeLabel() : "";
+      if (nsdhCloudRuntime) {
+        const ready = nsdhCloudConnection.status === "Connected" || runtime.available;
+        activeBrainBadge.classList.toggle("ready", ready);
+        activeBrainBadge.classList.toggle("missing", !ready);
+        activeBrainText.textContent = "Active Brain: Codex | " + cloudRuntimeModeLabel() + " | " + cloudConnectionDisplayStatus() + " | Sources: " + cloudConnectionSourcesLabel();
+        activeBrainBadge.title = [
+          "Provider: Codex",
+          "Model: Local Codex",
+          "Runtime mode: " + cloudRuntimeModeLabel(),
+          nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
+          nsdhLocalHelperRuntime ? "Host: " + nsdhLocalHelperHostLabel : "",
+          "Endpoint: " + cloudApiBase(),
+          "Status: " + cloudConnectionDisplayStatus(),
+          "Code: " + cloudConnectionCode(),
+          "Sources: " + cloudConnectionSourcesLabel(),
+          nsdhCloudConnection.detail || runtime.message || ""
+        ].filter(Boolean).join("\\n");
+        if (activeBrainSummary) activeBrainSummary.textContent = "Active Brain: Codex | " + cloudConnectionDisplayStatus();
+        if (activeSourcesSummary) activeSourcesSummary.textContent = "Sources: " + cloudConnectionSourcesLabel();
+        return;
+      }
       activeBrainText.textContent = "Active Brain: " + (provider.name || "Not configured") + cloudConnection + " | " + (runtime.runtimeStatus || "Unknown") + " | " + sourceText;
       activeBrainBadge.title = [
         "Provider: " + (provider.name || "Not configured"),
@@ -13836,7 +13931,7 @@ function html(response) {
     function providerStatusClass(status = "") {
       const text = String(status || "").toLowerCase();
       if (/connected|running|success|registered|ready|healthy|active/.test(text)) return "strong";
-      if (/invalid|missing|timeout|unreachable|unavailable|disconnected|failure|not detected|auth failed/.test(text)) return "critical";
+      if (/invalid|missing|timeout|unreachable|unavailable|disconnected|failure|not detected|auth failed|auth required/.test(text)) return "critical";
       if (/planned|standby|unknown|not tested/.test(text)) return "advisory";
       return "warning";
     }
@@ -14474,21 +14569,24 @@ function html(response) {
       codexRuntimeBadge.classList.remove("ready", "missing", "checking");
       if (payload.available) {
         codexRuntimeBadge.classList.add("ready");
-        codexRuntimeText.textContent = "Codex active";
+        codexRuntimeText.textContent = "Codex: Connected";
         codexRuntimeBadge.title = [
+          "Active Brain: Codex",
           payload.message,
           nsdhCloudRuntime ? "Runtime Mode: " + cloudRuntimeModeLabel() : "",
           nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
+          nsdhCloudRuntime ? "Sources: " + cloudConnectionSourcesLabel() : "",
           payload.version,
           payload.command
         ].filter(Boolean).join("\\n");
       } else {
         codexRuntimeBadge.classList.add("missing");
-        codexRuntimeText.textContent = "Codex not detected";
+        codexRuntimeText.textContent = nsdhCloudRuntime ? "Codex: " + cloudConnectionDisplayStatus() : "Codex not detected";
         codexRuntimeBadge.title = [
           payload.message || "The app could not detect Codex on this machine.",
           nsdhCloudRuntime ? "Runtime Mode: " + cloudRuntimeModeLabel() : "",
           nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
+          nsdhCloudRuntime ? "Code: " + cloudConnectionCode() : "",
           nsdhCloudRuntime ? cloudConnectionAction(nsdhCloudConnection.status) : ""
         ].filter(Boolean).join("\\n");
       }
@@ -14507,6 +14605,20 @@ function html(response) {
       ].filter(Boolean).join(" | ");
     }
 
+    function cloudConnectionSourcesLabel(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "connected" || normalized === "codex unavailable") return "Local Codex";
+      if (normalized === "pilot codex unavailable" || normalized === "pilot tunnel unavailable") return "Pilot Codex";
+      return "None active";
+    }
+
+    function cloudConnectionChipClass(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "connected") return "ready";
+      if (normalized === "checking" || normalized === "not tested") return "warning";
+      return "error";
+    }
+
     function cloudRuntimeModeLabel() {
       if (nsdhSharedLocalPilot) return "Shared Local Pilot";
       if (nsdhLocalHelperRuntime) return "Local Helper";
@@ -14522,11 +14634,13 @@ function html(response) {
       if (normalized === "pilot auth failed") return "Pilot auth failed";
       if (normalized === "pilot timeout") return "Pilot timeout";
       if (normalized === "pilot invalid response") return "Pilot invalid response";
-      if (normalized === "helper not running") return "Helper not running";
+      if (normalized === "helper not running") return "Local Helper Not Running";
+      if (normalized === "helper auth required") return "Helper Found, Authorization Required";
       if (normalized === "helper wrong port") return "Wrong helper port";
       if (normalized === "helper cors blocked") return "Helper blocked by browser";
       if (normalized === "helper timeout") return "Helper timeout";
       if (normalized === "helper invalid response") return "Helper invalid response";
+      if (normalized === "codex unavailable") return "Helper Connected, Codex Not Available";
       if (normalized === "codex not detected") return "Codex runtime not ready";
       if (normalized === "wrong service") return "Wrong local service";
       if (normalized === "timeout") return "Local bridge timeout";
@@ -14547,10 +14661,12 @@ function html(response) {
       if (normalized === "pilot timeout") return "PILOT_TIMEOUT";
       if (normalized === "pilot invalid response") return "PILOT_INVALID_RESPONSE";
       if (normalized === "helper not running") return "HELPER_NOT_RUNNING";
+      if (normalized === "helper auth required") return "HELPER_AUTH_REQUIRED";
       if (normalized === "helper wrong port") return "HELPER_WRONG_PORT";
       if (normalized === "helper cors blocked") return "HELPER_CORS_BLOCKED";
       if (normalized === "helper timeout") return "GENERATION_TIMEOUT";
       if (normalized === "helper invalid response") return "HELPER_INVALID_RESPONSE";
+      if (normalized === "codex unavailable") return "CODEX_NOT_AVAILABLE";
       if (normalized === "codex not detected") return nsdhLocalHelperRuntime ? "CODEX_NOT_AVAILABLE" : "CODEX_LOCAL_RUNTIME_NOT_READY";
       if (normalized === "wrong service") return "CODEX_LOCAL_WRONG_SERVICE";
       if (normalized === "timeout") return "CODEX_LOCAL_TIMEOUT";
@@ -14572,10 +14688,12 @@ function html(response) {
       if (normalized === "pilot timeout") return "The pilot endpoint timed out. Check whether Desktop 2, the bridge, or the tunnel is overloaded/offline.";
       if (normalized === "pilot invalid response") return "The pilot URL responded, but not as the NetSuite Demo Helper bridge.";
       if (normalized === "helper not running") return "Download and run the Local Helper on this device, keep Codex open/signed in, then click Test Connection.";
+      if (normalized === "helper auth required") return "Restart the helper from the downloaded file and click Test Connection again.";
       if (normalized === "helper wrong port") return "The endpoint is reachable but is not the Local Helper. Confirm the helper is running on http://127.0.0.1:4173.";
       if (normalized === "helper cors blocked") return "The browser blocked the Local Helper request. Confirm the helper is running, then allow localhost/private-network access if the browser or firewall prompts.";
       if (normalized === "helper timeout") return "The Local Helper did not respond in time. Confirm it is still open and try again.";
       if (normalized === "helper invalid response") return "The endpoint responded, but not as the NS DemoHelper Local Helper.";
+      if (normalized === "codex unavailable") return "Open/sign in to Codex locally, keep the Local Helper running, then click Test Connection.";
       if (normalized === "codex not detected") return nsdhLocalHelperRuntime
         ? "The Local Helper is running, but Codex is not available. Open/sign in to Codex locally, keep the helper window open, then click Test Connection."
         : "The local bridge responded, but Codex itself is not available. Open/sign in to Codex locally, keep the bridge running, then click Test Codex Connection.";
@@ -14602,7 +14720,58 @@ function html(response) {
       if (codexRuntimeBadge && nsdhCloudRuntime) {
         codexRuntimeBadge.dataset.endpoint = cloudApiBase();
       }
-      renderLocalHelperStatus(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : ""));
+      updateCompactConnectionStatus();
+      renderLocalHelperStatus(localHelperFriendlyStatusMessage());
+      renderCodexConnectionScreen();
+    }
+
+    function updateCompactConnectionStatus() {
+      const chip = document.getElementById("prepCodexConnectionChip");
+      const summary = document.getElementById("prepCodexConnectionSummary");
+      if (!chip && !summary) return;
+      const status = nsdhCloudConnection.status || "Not tested";
+      const statusLabel = cloudConnectionDisplayStatus(status);
+      const code = cloudConnectionCode(status);
+      if (chip) {
+        chip.className = "connection-chip " + cloudConnectionChipClass(status);
+        chip.textContent = "Codex: " + statusLabel;
+        chip.title = [
+          "Active Brain: Codex",
+          "Runtime Mode: " + cloudRuntimeModeLabel(),
+          "Status: " + statusLabel,
+          "Endpoint: " + (nsdhCloudConnection.base || cloudApiBase()),
+          "Code: " + code
+        ].join("\\n");
+      }
+      if (summary) {
+        summary.textContent = status === "Connected"
+          ? "Local Helper is connected and Codex is available."
+          : "Open Codex Connection to download, start, or test the Local Helper. " + cloudConnectionAction(status);
+      }
+    }
+
+    function localHelperFriendlyStatusMessage(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      const code = cloudConnectionCode(status);
+      if (normalized === "connected") return "The Local Helper is running and Codex is available.";
+      if (normalized === "helper not running") return "Local Helper Not Running | Code: " + code + " | Action: Download and run the helper, then test again.";
+      if (normalized === "codex unavailable" || normalized === "codex not detected") return "Helper Connected, Codex Not Available | Code: CODEX_NOT_AVAILABLE | Action: Open/sign into Codex, then test again.";
+      if (normalized === "helper auth required") return "Helper Found, Authorization Required | Code: HELPER_AUTH_REQUIRED | Action: Restart the helper from the downloaded file and test again.";
+      if (normalized === "helper cors blocked") return "Helper request blocked by browser or firewall | Code: HELPER_CORS_BLOCKED | Action: Confirm the helper is running and allow localhost/private-network access if prompted.";
+      if (normalized === "helper wrong port") return "Wrong helper port | Code: HELPER_WRONG_PORT | Action: Confirm the endpoint is http://127.0.0.1:4173.";
+      if (normalized === "checking") return "Checking the Local Helper and Codex on this device...";
+      return cloudConnectionDisplayStatus(status) + " | Code: " + code + (nsdhCloudConnection.detail ? " | " + nsdhCloudConnection.detail : "");
+    }
+
+    function renderCodexConnectionScreen() {
+      const target = document.getElementById("codexConnectionBody");
+      if (!target) return;
+      target.innerHTML =
+        cloudConnectionStatusPanelHtml() +
+        localCodexBridgeSettingsHtml() +
+        localHelperInstallDetailsHtml();
+      attachCodexBridgeControls();
+      attachLocalHelperControls();
     }
 
     function cloudConnectionStatusPanelHtml() {
@@ -14617,11 +14786,13 @@ function html(response) {
         "<div class='codex-status-grid'>" +
           codexStatusRow("Active Brain", "Codex") +
           codexStatusRow("Runtime Mode", cloudRuntimeModeLabel()) +
+          codexStatusRow("Status", cloudConnectionDisplayStatus(status)) +
           (nsdhSharedLocalPilot ? codexStatusRow("Host", nsdhPilotHostLabel) : "") +
           (nsdhLocalHelperRuntime ? codexStatusRow("Host", nsdhLocalHelperHostLabel) : "") +
           codexStatusRow("Endpoint", endpoint) +
+          codexStatusRow("Sources", cloudConnectionSourcesLabel(status)) +
           codexStatusRow("Last Check Time", formatCloudCheckTime()) +
-          codexStatusRow("Code", cloudConnectionCode(status)) +
+          codexStatusRow("Error Code", cloudConnectionCode(status)) +
         "</div>" +
         "<div class='codex-status-detail'>" +
           "<p><strong>Reason:</strong> " + escapeClientHtml(reason) + "</p>" +
@@ -14700,8 +14871,8 @@ function html(response) {
           "</div>" +
           "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
           "<details><summary>Setup guidance</summary>" +
-            "<p><strong>macOS:</strong> download the helper zip, save it to Desktop, unzip it, right-click Open if macOS blocks the command file, keep Codex open/signed in, then test the connection.</p>" +
-            "<p><strong>Windows:</strong> download the helper zip, save it to Desktop, unzip it, run the batch file, allow local/private browser access if your policy permits it, keep Codex open/signed in, then test the connection.</p>" +
+            "<p><strong>macOS:</strong> download the helper zip, save it to Desktop, unzip it, then right-click Open the command file if macOS blocks the first run. The helper installs a user-level LaunchAgent so it can restart automatically on login.</p>" +
+            "<p><strong>Windows:</strong> download the helper zip, save it to Desktop, unzip it, then double-click the batch file. The helper creates a user Startup entry so it can restart automatically on login.</p>" +
             "<p>The helper listens on 127.0.0.1 only and does not expose a public port.</p>" +
           "</details></div>";
       }
@@ -14723,6 +14894,21 @@ function html(response) {
           "<p><strong>macOS:</strong> open the NetSuite Demo Helper project, run <code>npm run mvp</code>, keep Codex open/signed in, then test this connection.</p>" +
           "<p><strong>Windows:</strong> open the NetSuite Demo Helper project, run <code>npm run mvp</code>, allow localhost/private-network access if prompted by the browser or firewall, then test this connection.</p>" +
           "<p>If your bridge uses another port, enter the full localhost or 127.0.0.1 URL above. Do not enter another person's machine name or shared tunnel unless a secure hosted bridge is intentionally configured.</p>" +
+        "</details></div>";
+    }
+
+    function localHelperInstallDetailsHtml() {
+      if (!nsdhLocalHelperRuntime) return "";
+      return "<div class='codex-info-card'><strong>One-time helper setup</strong>" +
+        "<div class='codex-info-grid'>" +
+          codexInfoCard("macOS", "helper-mac.command", "Runs without admin rights, copies itself into ~/Library/Application Support/NSDemoHelper, and registers a user LaunchAgent. If macOS cannot verify it, right-click the file and choose Open. The helper remains localhost-only.") +
+          codexInfoCard("Windows", "helper-windows.bat", "Runs without admin rights, copies itself into %LOCALAPPDATA%\\\\NSDemoHelper, and creates a Startup shortcut. If SmartScreen appears, only continue when the file was downloaded from this APEX app and your policy allows it.") +
+          codexInfoCard("Stop / uninstall", "Included in instructions", "macOS supports --stop and --uninstall from the installed command file. Windows supports --stop and --uninstall from the installed batch file.") +
+          codexInfoCard("Security", "Local device only", "The helper binds to 127.0.0.1, restricts CORS to Oracle APEX and localhost, and does not expose files, API keys, or a public network port.") +
+        "</div>" +
+        "<details><summary>Technical details</summary>" +
+          "<p>Default endpoint: <code>http://127.0.0.1:4173</code>. The APEX app stores any endpoint override in this browser only.</p>" +
+          "<p>Error handling: HELPER_NOT_RUNNING means the helper is unavailable, CODEX_NOT_AVAILABLE means the helper is running but Codex is not ready, and HELPER_AUTH_REQUIRED means the helper responded but rejected the request.</p>" +
         "</details></div>";
     }
 
@@ -14803,7 +14989,7 @@ function html(response) {
 
     function renderLocalHelperStatus(message) {
       document.querySelectorAll("[data-local-helper-status]").forEach((target) => {
-        target.textContent = message || cloudConnectionStatusText();
+        target.textContent = message || localHelperFriendlyStatusMessage();
       });
     }
 
@@ -14824,7 +15010,7 @@ function html(response) {
           try {
             const result = await detectLocalCodexEndpoint({ force: true, preferred: nsdhDefaultLocalApiBase });
             renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
-            renderLocalHelperStatus(cloudConnectionStatusText() + (result.detail ? " - " + result.detail : ""));
+            renderLocalHelperStatus(localHelperFriendlyStatusMessage(result.status));
             await refreshPlatformStatus();
           } catch (error) {
             renderLocalHelperStatus("HELPER_NOT_RUNNING - " + error.message);
@@ -14962,7 +15148,7 @@ function html(response) {
 
     document.addEventListener("focusout", hideButtonHelp);
     document.addEventListener("scroll", hideButtonHelp, true);
-    codexInfoButton.onclick = openCodexInfo;
+    codexInfoButton.onclick = () => activateTab("codex-connection");
     codexInfoClose.onclick = closeCodexInfo;
     stopCodexActionButton.onclick = async () => {
       try {
@@ -16751,6 +16937,10 @@ function html(response) {
         document.getElementById("screen-" + button.dataset.tab).classList.add("active");
         sessionStorage.setItem("nsdhActiveTab", button.dataset.tab);
       if (options.skipAutoLoad) return;
+      if (button.dataset.tab === "codex-connection") {
+        renderCodexConnectionScreen();
+        attachLocalHelperControls();
+      }
       if (button.dataset.tab === "admin") await loadCmsStatus();
       if (button.dataset.tab === "intelligence" && prepDirtyForIntelligence) await loadIntelligence();
       if (button.dataset.tab === "pre-demo-intelligence" && (prepDirtyForPreDemoIntelligence || !latestPreDemoIntelligence)) await loadPreDemoIntelligence();
@@ -16799,6 +16989,11 @@ function html(response) {
       if (heatmapTab) {
         activeHeatmapTab = heatmapTab.dataset.heatmapTab || "discovery";
         if (latestIntelligence) renderIntelligenceHeatmap(latestIntelligence);
+        return;
+      }
+      const codexConnectionButton = event.target.closest("[data-open-codex-connection]");
+      if (codexConnectionButton) {
+        activateTab("codex-connection");
         return;
       }
       const button = event.target.closest("[data-heatmap-key]");
@@ -17624,6 +17819,7 @@ function html(response) {
         updateStrategyIndustryHints();
         updateManifestDemoModeHint();
         syncVoiceProviderSettings();
+        renderCodexConnectionScreen();
         attachLocalHelperControls();
         await loadVoices();
         renderStakeholderPersonas();
