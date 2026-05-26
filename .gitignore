@@ -25,6 +25,8 @@ artifacts/sc-guides/
 artifacts/session-db/
 artifacts/apex-official-cloud-current/
 artifacts/apex-official-cloud-downloads/
+artifacts/apex-admin-login-*/
+artifacts/apex-side-by-side-*/
 artifacts/*.md
 artifacts/*.docx
 artifacts/*.pdf

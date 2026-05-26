@@ -1,5 +1,6 @@
 import http from "node:http";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
@@ -45,10 +46,32 @@ const aiProvidersPath = path.join(platformConfigDir, "ai-providers.json");
 const knowledgeSourcesPath = path.join(platformConfigDir, "knowledge-sources.json");
 const tenantConfigPath = path.join(platformConfigDir, "tenant-config.json");
 const buttonInstructionsDir = path.join(projectRoot, "artifacts/button-api-instructions");
+const pilotRequestLogPath = path.join(projectRoot, "artifacts/runtime/pilot-requests.jsonl");
+const localHelperDir = path.join(projectRoot, "helpers/local-helper");
+const localHelperFiles = {
+  mac: {
+    fileName: "helper-mac.command",
+    path: path.join(localHelperDir, "helper-mac.command")
+  },
+  windows: {
+    fileName: "helper-windows.bat",
+    path: path.join(localHelperDir, "helper-windows.bat")
+  },
+  readme: {
+    fileName: "README.md",
+    path: path.join(localHelperDir, "README.md")
+  }
+};
 const cmsAdminPath = path.join(projectRoot, ".auth/cms-admin.json");
 const cmsSessionsPath = path.join(projectRoot, ".auth/cms-sessions.json");
 const port = Number(process.env.PORT || 4173);
 const scryptAsync = promisify(scryptCallback);
+const pilotModeEnabled = process.env.NSDH_PILOT_MODE === "true" || process.env.NSDH_APEX_RUNTIME_MODE === "shared-local-pilot";
+const pilotSharedSecret = String(process.env.NSDH_PILOT_SHARED_SECRET || "");
+const requirePilotSharedSecret = process.env.NSDH_REQUIRE_PILOT_SECRET === "true";
+const pilotRateLimitWindowMs = Math.max(1000, Number(process.env.NSDH_PILOT_RATE_LIMIT_WINDOW_MS || 60000));
+const pilotRateLimitMax = Math.max(1, Number(process.env.NSDH_PILOT_RATE_LIMIT_MAX || 120));
+const pilotRateLimitBuckets = new Map();
 let currentRun = null;
 let currentCodexOperator = null;
 let defaultScInstructionsOverride = "";
@@ -872,6 +895,8 @@ const server = http.createServer(async (request, response) => {
       response.end();
       return;
     }
+    const pilotGuard = await guardPilotApiRequest(request);
+    if (pilotGuard) return json(response, pilotGuard.payload, pilotGuard.status);
     if (request.method === "GET" && request.url === "/") return html(response);
     if (request.method === "GET" && request.url?.startsWith("/assets/")) {
       const fileName = decodeURIComponent(path.basename(request.url.replace("/assets/", "")));
@@ -9034,6 +9059,90 @@ function json(response, payload, status = 200, headers = {}) {
   response.end(JSON.stringify(payload));
 }
 
+async function guardPilotApiRequest(request) {
+  if (!pilotModeEnabled || !request.url?.startsWith("/api/")) return null;
+  const ip = requestIp(request);
+  if (requirePilotSharedSecret && !validPilotSecret(request)) {
+    await logPilotRequest(request, { status: "blocked", reason: "invalid-secret" });
+    return {
+      status: 401,
+      payload: {
+        ok: false,
+        error: "Shared Local Pilot authentication failed.",
+        code: "PILOT_AUTH_FAILED"
+      }
+    };
+  }
+  if (!consumePilotRateLimit(ip)) {
+    await logPilotRequest(request, { status: "blocked", reason: "rate-limit" });
+    return {
+      status: 429,
+      payload: {
+        ok: false,
+        error: "Shared Local Pilot rate limit exceeded. Please wait a moment and retry.",
+        code: "PILOT_RATE_LIMITED"
+      }
+    };
+  }
+  await logPilotRequest(request, { status: "accepted" });
+  return null;
+}
+
+function validPilotSecret(request) {
+  if (!pilotSharedSecret) return false;
+  const provided = String(request.headers["x-demo-helper-pilot-secret"] || "").trim();
+  const bearer = String(request.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+  return timingSafeStringEqual(provided, pilotSharedSecret) || timingSafeStringEqual(bearer, pilotSharedSecret);
+}
+
+function timingSafeStringEqual(left, right) {
+  const a = Buffer.from(String(left || ""));
+  const b = Buffer.from(String(right || ""));
+  return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
+}
+
+function consumePilotRateLimit(ip) {
+  const now = Date.now();
+  const bucket = pilotRateLimitBuckets.get(ip) || { windowStart: now, count: 0 };
+  if (now - bucket.windowStart >= pilotRateLimitWindowMs) {
+    bucket.windowStart = now;
+    bucket.count = 0;
+  }
+  bucket.count += 1;
+  pilotRateLimitBuckets.set(ip, bucket);
+  return bucket.count <= pilotRateLimitMax;
+}
+
+function requestIp(request) {
+  const forwarded = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || request.socket.remoteAddress || "unknown";
+}
+
+function safeRequestPath(requestUrl = "") {
+  try {
+    return new URL(requestUrl, "http://localhost").pathname;
+  } catch {
+    return String(requestUrl || "").split("?")[0] || "/";
+  }
+}
+
+async function logPilotRequest(request, details = {}) {
+  try {
+    await mkdir(path.dirname(pilotRequestLogPath), { recursive: true });
+    await appendFile(pilotRequestLogPath, `${JSON.stringify({
+      at: new Date().toISOString(),
+      method: request.method,
+      path: safeRequestPath(request.url),
+      ip: requestIp(request),
+      origin: request.headers.origin || "",
+      status: details.status || "observed",
+      reason: details.reason || ""
+    })}\n`, "utf8");
+  } catch {
+    // Pilot logging should never block the MVP flow.
+  }
+}
+
 function applyCorsHeaders(request, response) {
   const origin = request.headers.origin;
   if (!origin) return;
@@ -9046,7 +9155,7 @@ function applyCorsHeaders(request, response) {
   response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   response.setHeader(
     "Access-Control-Allow-Headers",
-    request.headers["access-control-request-headers"] || "content-type, x-demo-helper-session-id, x-demo-helper-anonymous-user-id, x-demo-helper-admin-session"
+    request.headers["access-control-request-headers"] || "content-type, authorization, x-demo-helper-session-id, x-demo-helper-anonymous-user-id, x-demo-helper-admin-session, x-demo-helper-pilot-secret"
   );
   response.setHeader("Access-Control-Allow-Private-Network", "true");
   response.setHeader("Vary", "Origin, Access-Control-Request-Headers, Access-Control-Request-Private-Network");
@@ -9118,10 +9227,29 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;");
 }
 
+function localHelperDownloadPayload() {
+  const payload = {};
+  for (const [key, file] of Object.entries(localHelperFiles)) {
+    try {
+      payload[key] = {
+        fileName: file.fileName,
+        content: readFileSync(file.path, "utf8")
+      };
+    } catch {
+      payload[key] = {
+        fileName: file.fileName,
+        content: ""
+      };
+    }
+  }
+  return payload;
+}
+
 function html(response) {
   const defaultPrepData = defaultTestPrepData();
   const appDisplayName = appProfile === "whitelabel" ? "Demo Intelligence Platform" : "NetSuite Demo Helper";
   const productCategoryOptions = productCategories.map((category) => ({ id: category.value, label: category.label }));
+  const localHelperDownloads = localHelperDownloadPayload();
   response.writeHead(200, { "content-type": "text/html" });
   response.end(`<!doctype html>
 <html lang="en">
@@ -10830,6 +10958,7 @@ function html(response) {
     .prep-grid {
       grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr);
       grid-template-areas:
+        "helper helper"
         "scope scope"
         "audience audience"
         "actions actions"
@@ -10839,6 +10968,7 @@ function html(response) {
         "how how";
       align-items: start;
     }
+    .prep-helper { grid-area: helper; }
     .prep-instructions { grid-area: instructions; }
     .prep-scope { grid-area: scope; }
     .prep-audience { grid-area: audience; }
@@ -10858,6 +10988,34 @@ function html(response) {
       align-items: start;
     }
     .field-full { grid-column: 1 / -1; }
+    .local-helper-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .local-helper-card h2 { margin-bottom: 6px; }
+    .helper-download-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .helper-status {
+      border-left: 4px solid var(--ocean);
+      background: var(--soft);
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .helper-steps {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .helper-steps li { margin: 3px 0; }
     .panel {
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -11587,6 +11745,7 @@ function html(response) {
       .prep-grid {
         grid-template-columns: 1fr;
         grid-template-areas:
+          "helper"
           "scope"
           "audience"
           "actions"
@@ -11597,6 +11756,7 @@ function html(response) {
       }
       .field-grid { grid-template-columns: 1fr; }
       .scope-grid { grid-template-columns: 1fr; }
+      .local-helper-card { grid-template-columns: 1fr; }
       .session-controls { grid-template-columns: 1fr; }
       .intelligence-overview-grid,
       .intel-summary,
@@ -11672,6 +11832,29 @@ function html(response) {
         </div>
       </div>`}
       <div class="grid prep-grid">
+        <div class="panel prep-helper local-helper-card">
+          <div>
+            <h2>Connect Codex Locally</h2>
+            <p class="hint">Use the lightweight helper when the MVP is opened from Oracle APEX and Codex should run on the current user's own Mac or Windows device.</p>
+            <div class="helper-download-grid">
+              <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper script. Save it to Desktop, run it, keep Codex open, then test the connection.">Download Helper for macOS</button>
+              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper script. Save it to Desktop, run it, keep Codex open, then test the connection.">Download Helper for Windows</button>
+              <button class="secondary" type="button" data-local-helper-download="readme" data-help="Downloads the helper setup notes and troubleshooting guide.">Download Instructions</button>
+            </div>
+            <div class="row">
+              <button class="secondary" type="button" data-test-local-helper data-help="Checks whether the local helper and Codex are available on this device.">Test Connection</button>
+            </div>
+          </div>
+          <div>
+            <p class="helper-status" data-local-helper-status>Local helper not checked yet.</p>
+            <ol class="helper-steps">
+              <li>Download the helper for your operating system.</li>
+              <li>Save it to Desktop and run it.</li>
+              <li>Keep Codex open and signed in.</li>
+              <li>Click Test Connection, then use the MVP.</li>
+            </ol>
+          </div>
+        </div>
         <div class="panel prep-scope">
           <h2>Demo Scope</h2>
           <div class="scope-grid">
@@ -12773,7 +12956,14 @@ function html(response) {
     let prepDirtyForIntelligence = false;
     let prepDirtyForPreDemoIntelligence = false;
     let liveDemoFunctionalityEnabled = ${JSON.stringify(liveDemoFunctionalityEnabled)};
+    const localHelperDownloads = ${JSON.stringify(localHelperDownloads).replace(/</g, "\\u003c")};
     const nsdhCloudRuntime = false;
+    const nsdhRuntimeConfig = Object.freeze(window.NSDH_RUNTIME_CONFIG || {});
+    const nsdhRuntimeMode = nsdhCloudRuntime ? (nsdhRuntimeConfig.runtimeMode || "user-local") : "local-development";
+    const nsdhSharedLocalPilot = nsdhCloudRuntime && nsdhRuntimeMode === "shared-local-pilot";
+    const nsdhLocalHelperRuntime = nsdhCloudRuntime && nsdhRuntimeMode === "local-helper";
+    const nsdhPilotHostLabel = nsdhRuntimeConfig.pilotHostLabel || "Wiljan's Desktop 2 Codex bridge";
+    const nsdhLocalHelperHostLabel = nsdhRuntimeConfig.localHelperHostLabel || "Current user's Local Helper";
     const nsdhDefaultLocalApiBase = "http://127.0.0.1:4173";
     const nsdhLocalApiCandidateBases = [
       "http://127.0.0.1:4173",
@@ -12791,7 +12981,11 @@ function html(response) {
       status: nsdhCloudRuntime ? "Not tested" : "Local mode",
       base: nsdhCloudRuntime ? "" : "same-origin",
       detail: nsdhCloudRuntime
-        ? "The APEX page has not checked this user's local Codex bridge yet."
+        ? (nsdhSharedLocalPilot
+          ? "The APEX page has not checked the Shared Local Pilot bridge yet."
+          : nsdhLocalHelperRuntime
+            ? "The APEX page has not checked this user's Local Helper yet."
+          : "The APEX page has not checked this user's local Codex bridge yet.")
         : "Local MVP mode uses same-origin API calls.",
       testedAt: ""
     };
@@ -12812,29 +13006,42 @@ function html(response) {
     const demoHelperAnonymousUserId = browserSessionId("nsdhAnonymousUserId", "user");
     let demoHelperAdminSessionToken = sessionStorage.getItem("nsdhAdminSessionToken") || "";
 
-    function normalizeLocalApiBase(value) {
+    function normalizeApiBase(value, options = {}) {
       const raw = String(value || "").trim().replace(new RegExp("/+$"), "");
       if (!raw) return "";
       try {
         const parsed = new URL(raw);
         const localHost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "::1" || parsed.hostname === "[::1]";
         const localProtocol = parsed.protocol === "http:" || parsed.protocol === "https:";
-        return localHost && localProtocol ? parsed.origin : "";
+        if (localHost && localProtocol) return parsed.origin;
+        if (options.allowRemoteHttps && parsed.protocol === "https:") return parsed.origin;
+        return "";
       } catch {
         return "";
       }
     }
 
+    function normalizeLocalApiBase(value) {
+      return normalizeApiBase(value);
+    }
+
+    function normalizePilotApiBase(value) {
+      return normalizeApiBase(value, { allowRemoteHttps: true });
+    }
+
     function configuredCloudApiBase() {
+      if (nsdhSharedLocalPilot) return normalizePilotApiBase(nsdhRuntimeConfig.pilotApiBaseUrl);
       return normalizeLocalApiBase(localStorage.getItem(nsdhCloudApiBaseStorageKey));
     }
 
     function detectedCloudApiBase() {
+      if (nsdhSharedLocalPilot) return "";
       return normalizeLocalApiBase(localStorage.getItem(nsdhDetectedCloudApiBaseStorageKey));
     }
 
     function cloudApiBase() {
       if (!nsdhCloudRuntime) return "";
+      if (nsdhSharedLocalPilot) return normalizePilotApiBase(nsdhRuntimeConfig.pilotApiBaseUrl);
       if (
         (nsdhCloudConnection.status === "Connected" || nsdhCloudConnection.status === "Codex not detected") &&
         normalizeLocalApiBase(nsdhCloudConnection.base)
@@ -12851,6 +13058,12 @@ function html(response) {
     }
 
     function cloudApiCandidateBases(preferred = "") {
+      if (nsdhSharedLocalPilot) {
+        return Array.from(new Set([
+          normalizePilotApiBase(preferred),
+          normalizePilotApiBase(nsdhRuntimeConfig.pilotApiBaseUrl)
+        ].filter(Boolean)));
+      }
       return Array.from(new Set([
         normalizeLocalApiBase(preferred),
         configuredCloudApiBase(),
@@ -12867,6 +13080,7 @@ function html(response) {
         ...extraHeaders
       };
       if (demoHelperAdminSessionToken) headers["x-demo-helper-admin-session"] = demoHelperAdminSessionToken;
+      if (nsdhSharedLocalPilot && nsdhRuntimeConfig.pilotSharedSecret) headers["x-demo-helper-pilot-secret"] = nsdhRuntimeConfig.pilotSharedSecret;
       return headers;
     }
 
@@ -12882,6 +13096,18 @@ function html(response) {
     }
 
     async function probeCloudApiBase(base) {
+      if (!base) {
+        return {
+          ok: false,
+          base: "",
+          status: nsdhSharedLocalPilot ? "Pilot tunnel unavailable" : nsdhLocalHelperRuntime ? "Helper not running" : "Not detected",
+          detail: nsdhSharedLocalPilot
+            ? "No Shared Local Pilot API URL is configured for this APEX package."
+            : nsdhLocalHelperRuntime
+              ? "No Local Helper endpoint is configured."
+            : "No local bridge endpoint is configured."
+        };
+      }
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 2500);
       try {
@@ -12897,10 +13123,31 @@ function html(response) {
           payload = null;
         }
         if (!response.ok) {
-          return { ok: false, base, status: "Wrong service", detail: "HTTP " + response.status + " from " + base + "." };
+          const authFailed = response.status === 401 || response.status === 403;
+          return {
+            ok: false,
+            base,
+            status: nsdhSharedLocalPilot && authFailed ? "Pilot auth failed" : nsdhLocalHelperRuntime ? "Helper wrong port" : "Wrong service",
+            detail: (nsdhSharedLocalPilot && authFailed ? "Shared Local Pilot authentication failed. " : "") + "HTTP " + response.status + " from " + base + "."
+          };
         }
         if (!payload || typeof payload.available !== "boolean") {
-          return { ok: false, base, status: "Wrong service", detail: "The endpoint responded, but not like NetSuite Demo Helper." };
+          return { ok: false, base, status: nsdhSharedLocalPilot ? "Pilot invalid response" : nsdhLocalHelperRuntime ? "Helper invalid response" : "Wrong service", detail: "The endpoint responded, but not like NetSuite Demo Helper." };
+        }
+        if (nsdhLocalHelperRuntime) {
+          try {
+            const helperResponse = await fetch(base + "/api/helper/status", {
+              method: "GET",
+              headers: demoHelperHeaders(),
+              signal: controller.signal
+            });
+            const helperPayload = await helperResponse.json();
+            if (!helperResponse.ok || !helperPayload?.ok || !helperPayload?.helper) {
+              return { ok: false, base, status: "Helper invalid response", detail: "The endpoint answered Codex status, but it is not the NS DemoHelper Local Helper." };
+            }
+          } catch {
+            return { ok: false, base, status: "Helper invalid response", detail: "The endpoint answered Codex status, but it does not expose the Local Helper status API." };
+          }
         }
         let platformPayload = null;
         try {
@@ -12911,28 +13158,41 @@ function html(response) {
           });
           platformPayload = await platformResponse.json();
           if (!platformResponse.ok || !platformPayload?.ok || !platformPayload?.runtime) {
-            return { ok: false, base, status: "Wrong service", detail: "The endpoint answered Codex status, but it is not the NetSuite Demo Helper bridge." };
+            return { ok: false, base, status: nsdhSharedLocalPilot ? "Pilot invalid response" : nsdhLocalHelperRuntime ? "Helper invalid response" : "Wrong service", detail: "The endpoint answered Codex status, but it is not the NetSuite Demo Helper bridge." };
           }
         } catch {
-          return { ok: false, base, status: "Wrong service", detail: "The endpoint answered Codex status, but it does not expose the NetSuite Demo Helper platform API." };
+          return { ok: false, base, status: nsdhSharedLocalPilot ? "Pilot invalid response" : nsdhLocalHelperRuntime ? "Helper invalid response" : "Wrong service", detail: "The endpoint answered Codex status, but it does not expose the NetSuite Demo Helper platform API." };
         }
         return {
           ok: true,
           base,
-          status: payload.available ? "Connected" : "Codex not detected",
-          detail: payload.message || (payload.available ? "Local Codex bridge responded." : "The bridge responded but Codex was not detected."),
+          status: payload.available ? "Connected" : nsdhSharedLocalPilot ? "Pilot Codex unavailable" : "Codex not detected",
+          detail: payload.message || (payload.available ? "Codex bridge responded." : "The bridge responded but Codex was not detected."),
           payload,
           platformPayload
         };
       } catch (error) {
         const aborted = error.name === "AbortError";
+        const message = error.message || String(error);
+        const localHelperBrowserBlock = nsdhLocalHelperRuntime && /failed to fetch|networkerror|load failed/i.test(message);
+        const blockedHint = /failed to fetch|networkerror|load failed/i.test(message)
+          ? " If the bridge is running, the browser, firewall, CORS, or private-network policy may be blocking localhost access."
+          : "";
         return {
           ok: false,
           base,
-          status: aborted ? "Timeout" : "Not detected",
+          status: nsdhSharedLocalPilot
+            ? (aborted ? "Pilot timeout" : "Pilot tunnel unavailable")
+            : nsdhLocalHelperRuntime
+              ? (aborted ? "Helper timeout" : localHelperBrowserBlock ? "Helper CORS blocked" : "Helper not running")
+            : (aborted ? "Timeout" : "Not detected"),
           detail: aborted
             ? "Timed out checking " + base + "."
-            : "Could not reach " + base + ". The local bridge may be stopped, blocked by CORS/firewall, or running on another port."
+            : "Could not reach " + base + ". " + (nsdhSharedLocalPilot
+              ? "The tunnel, proxy, host machine, or bridge may be offline."
+              : nsdhLocalHelperRuntime
+                ? "The Local Helper may be stopped, blocked by the browser/firewall, or running on another port."
+              : "The local bridge may be stopped or running on another port.") + blockedHint
         };
       } finally {
         clearTimeout(timer);
@@ -12956,18 +13216,22 @@ function html(response) {
       nsdhCloudDetectionPromise = (async () => {
         nsdhLastCloudDetectionAt = Date.now();
         nsdhCloudConnection = {
-          status: "Checking",
-          base: options.preferred || cloudApiBase(),
-          detail: "Checking this browser user's local Codex bridge.",
-          testedAt: new Date().toISOString()
-        };
+        status: "Checking",
+        base: options.preferred || cloudApiBase(),
+        detail: nsdhSharedLocalPilot
+          ? "Checking the Shared Local Pilot bridge."
+          : nsdhLocalHelperRuntime
+            ? "Checking this browser user's Local Helper."
+            : "Checking this browser user's local Codex bridge.",
+        testedAt: new Date().toISOString()
+      };
         renderCloudConnectionStatus();
         const attempts = [];
         for (const base of cloudApiCandidateBases(options.preferred)) {
           const result = await probeCloudApiBase(base);
           attempts.push(result);
           if (result.ok) {
-            localStorage.setItem(nsdhDetectedCloudApiBaseStorageKey, base);
+            if (!nsdhSharedLocalPilot) localStorage.setItem(nsdhDetectedCloudApiBaseStorageKey, base);
             nsdhCloudConnection = {
               status: result.status,
               base,
@@ -12980,14 +13244,20 @@ function html(response) {
             return nsdhCloudConnection;
           }
         }
-        localStorage.removeItem(nsdhDetectedCloudApiBaseStorageKey);
+        if (!nsdhSharedLocalPilot) localStorage.removeItem(nsdhDetectedCloudApiBaseStorageKey);
         const first = attempts[0] || {};
         const wrongService = attempts.find((attempt) => attempt.status === "Wrong service");
         const timeout = attempts.find((attempt) => attempt.status === "Timeout");
+        const pilotFailure = attempts.find((attempt) => String(attempt.status || "").startsWith("Pilot "));
+        const helperFailure = attempts.find((attempt) => String(attempt.status || "").startsWith("Helper "));
         nsdhCloudConnection = {
-          status: wrongService ? "Wrong service" : timeout ? "Timeout" : "Not detected",
-          base: configuredCloudApiBase() || nsdhDefaultLocalApiBase,
-          detail: wrongService?.detail || timeout?.detail || first.detail || "No local NetSuite Demo Helper bridge was detected on this device.",
+          status: pilotFailure?.status || helperFailure?.status || (wrongService ? "Wrong service" : timeout ? "Timeout" : "Not detected"),
+          base: configuredCloudApiBase() || (nsdhSharedLocalPilot ? "" : nsdhDefaultLocalApiBase),
+          detail: pilotFailure?.detail || helperFailure?.detail || wrongService?.detail || timeout?.detail || first.detail || (nsdhSharedLocalPilot
+            ? "The Shared Local Pilot bridge is not available."
+            : nsdhLocalHelperRuntime
+              ? "The Local Helper is not available on this device."
+            : "No local NetSuite Demo Helper bridge was detected on this device."),
           testedAt: new Date().toISOString(),
           attempts
         };
@@ -13004,7 +13274,7 @@ function html(response) {
     async function ensureCloudApiEndpoint(path) {
       if (!nsdhCloudRuntime || !String(path || "").startsWith("/api/")) return;
       const detection = await detectLocalCodexEndpoint();
-      if (detection.status !== "Connected" && detection.status !== "Codex not detected") {
+      if (detection.status !== "Connected" && detection.status !== "Codex not detected" && detection.status !== "Pilot Codex unavailable") {
         throw new Error(detection.status + ": " + detection.detail);
       }
     }
@@ -13448,17 +13718,29 @@ function html(response) {
     async function refreshPlatformStatus() {
       try {
         await ensureCloudApiEndpoint("/api/platform/status");
-        const payload = await api("/api/platform/status");
-        renderPlatformStatus(payload);
-      } catch (error) {
-        activeBrainBadge.classList.remove("ready", "missing", "checking");
-        activeBrainBadge.classList.add("missing");
-        activeBrainText.textContent = nsdhCloudRuntime
-          ? "Active Brain: Codex | Local device | Not detected"
-          : "Active Brain: Unknown";
+      const payload = await api("/api/platform/status");
+      renderPlatformStatus(payload);
+    } catch (error) {
+      activeBrainBadge.classList.remove("ready", "missing", "checking");
+      activeBrainBadge.classList.add("missing");
+      if (nsdhCloudRuntime) {
+        activeBrainText.textContent = "Active Brain: Codex | " + cloudRuntimeModeLabel() + " | " + cloudConnectionDisplayStatus() + " | " + cloudConnectionCode();
+        activeBrainBadge.title = [
+          "Provider: Codex",
+          "Runtime mode: " + cloudRuntimeModeLabel(),
+          nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
+          "Endpoint: " + cloudApiBase(),
+          "Status: " + cloudConnectionDisplayStatus(),
+          "Code: " + cloudConnectionCode(),
+          "Reason: " + (nsdhCloudConnection.detail || error.message),
+          "Action: " + cloudConnectionAction()
+        ].filter(Boolean).join("\\n");
+      } else {
+        activeBrainText.textContent = "Active Brain: Unknown";
         activeBrainBadge.title = error.message;
       }
     }
+  }
 
     function renderPlatformStatus(payload = {}) {
       const provider = payload.activeProvider || {};
@@ -13466,11 +13748,13 @@ function html(response) {
       activeBrainBadge.classList.remove("ready", "missing", "checking");
       activeBrainBadge.classList.add(runtime.available ? "ready" : "missing");
       const sourceText = (payload.activeKnowledgeSourceCount || 0) + " source" + (payload.activeKnowledgeSourceCount === 1 ? "" : "s");
-      const cloudConnection = nsdhCloudRuntime ? " | Local device" : "";
+      const cloudConnection = nsdhCloudRuntime ? " | " + cloudRuntimeModeLabel() : "";
       activeBrainText.textContent = "Active Brain: " + (provider.name || "Not configured") + cloudConnection + " | " + (runtime.runtimeStatus || "Unknown") + " | " + sourceText;
       activeBrainBadge.title = [
         "Provider: " + (provider.name || "Not configured"),
         "Model: " + (provider.defaultModel || "Not configured"),
+        nsdhCloudRuntime ? "Runtime mode: " + cloudRuntimeModeLabel() : "",
+        nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
         nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
         "Connection: " + (runtime.connectionStatus || "Unknown"),
         "Runtime: " + (runtime.runtimeStatus || "Unknown"),
@@ -13542,7 +13826,7 @@ function html(response) {
     function providerStatusClass(status = "") {
       const text = String(status || "").toLowerCase();
       if (/connected|running|success|registered|ready|healthy|active/.test(text)) return "strong";
-      if (/invalid|missing|timeout|unreachable|disconnected|failure|not detected/.test(text)) return "critical";
+      if (/invalid|missing|timeout|unreachable|unavailable|disconnected|failure|not detected|auth failed/.test(text)) return "critical";
       if (/planned|standby|unknown|not tested/.test(text)) return "advisory";
       return "warning";
     }
@@ -14183,7 +14467,7 @@ function html(response) {
         codexRuntimeText.textContent = "Codex active";
         codexRuntimeBadge.title = [
           payload.message,
-          nsdhCloudRuntime ? "Connection: Local device" : "",
+          nsdhCloudRuntime ? "Runtime Mode: " + cloudRuntimeModeLabel() : "",
           nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
           payload.version,
           payload.command
@@ -14193,8 +14477,9 @@ function html(response) {
         codexRuntimeText.textContent = "Codex not detected";
         codexRuntimeBadge.title = [
           payload.message || "The app could not detect Codex on this machine.",
+          nsdhCloudRuntime ? "Runtime Mode: " + cloudRuntimeModeLabel() : "",
           nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
-          nsdhCloudRuntime ? "Use Backbone > Test Connection after starting the local bridge." : ""
+          nsdhCloudRuntime ? cloudConnectionAction(nsdhCloudConnection.status) : ""
         ].filter(Boolean).join("\\n");
       }
       renderCloudConnectionStatus();
@@ -14204,16 +14489,59 @@ function html(response) {
     function cloudConnectionStatusText() {
       if (!nsdhCloudRuntime) return "Local MVP mode: same-origin API";
       return [
-        "Connection: Local device",
-        "Status: " + (nsdhCloudConnection.status || "Not tested"),
+        "Runtime Mode: " + cloudRuntimeModeLabel(),
+        "Status: " + cloudConnectionDisplayStatus(),
+        nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
+        nsdhLocalHelperRuntime ? "Host: " + nsdhLocalHelperHostLabel : "",
         "Endpoint: " + (nsdhCloudConnection.base || cloudApiBase())
-      ].join(" | ");
+      ].filter(Boolean).join(" | ");
+    }
+
+    function cloudRuntimeModeLabel() {
+      if (nsdhSharedLocalPilot) return "Shared Local Pilot";
+      if (nsdhLocalHelperRuntime) return "Local Helper";
+      if (nsdhCloudRuntime) return "Local Device";
+      return "Local Development";
+    }
+
+    function cloudConnectionDisplayStatus(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "connected") return "Connected";
+      if (normalized === "pilot codex unavailable") return "Pilot Codex unavailable";
+      if (normalized === "pilot tunnel unavailable") return "Pilot bridge unavailable";
+      if (normalized === "pilot auth failed") return "Pilot auth failed";
+      if (normalized === "pilot timeout") return "Pilot timeout";
+      if (normalized === "pilot invalid response") return "Pilot invalid response";
+      if (normalized === "helper not running") return "Helper not running";
+      if (normalized === "helper wrong port") return "Wrong helper port";
+      if (normalized === "helper cors blocked") return "Helper blocked by browser";
+      if (normalized === "helper timeout") return "Helper timeout";
+      if (normalized === "helper invalid response") return "Helper invalid response";
+      if (normalized === "codex not detected") return "Codex runtime not ready";
+      if (normalized === "wrong service") return "Wrong local service";
+      if (normalized === "timeout") return "Local bridge timeout";
+      if (normalized === "not detected") return "Local bridge not running";
+      if (normalized === "invalid endpoint") return "Invalid endpoint";
+      if (normalized === "checking") return "Checking local bridge";
+      if (normalized === "local mode") return "Local mode";
+      if (normalized === "not tested") return "Not checked yet";
+      return status || "Unknown";
     }
 
     function cloudConnectionCode(status = nsdhCloudConnection.status) {
       const normalized = String(status || "").toLowerCase();
       if (normalized === "connected") return "CODEX_LOCAL_CONNECTED";
-      if (normalized === "codex not detected") return "CODEX_LOCAL_RUNTIME_NOT_READY";
+      if (normalized === "pilot codex unavailable") return "PILOT_CODEX_UNAVAILABLE";
+      if (normalized === "pilot tunnel unavailable") return "PILOT_TUNNEL_UNAVAILABLE";
+      if (normalized === "pilot auth failed") return "PILOT_AUTH_FAILED";
+      if (normalized === "pilot timeout") return "PILOT_TIMEOUT";
+      if (normalized === "pilot invalid response") return "PILOT_INVALID_RESPONSE";
+      if (normalized === "helper not running") return "HELPER_NOT_RUNNING";
+      if (normalized === "helper wrong port") return "HELPER_WRONG_PORT";
+      if (normalized === "helper cors blocked") return "HELPER_CORS_BLOCKED";
+      if (normalized === "helper timeout") return "GENERATION_TIMEOUT";
+      if (normalized === "helper invalid response") return "HELPER_INVALID_RESPONSE";
+      if (normalized === "codex not detected") return nsdhLocalHelperRuntime ? "CODEX_NOT_AVAILABLE" : "CODEX_LOCAL_RUNTIME_NOT_READY";
       if (normalized === "wrong service") return "CODEX_LOCAL_WRONG_SERVICE";
       if (normalized === "timeout") return "CODEX_LOCAL_TIMEOUT";
       if (normalized === "not detected") return "CODEX_LOCAL_NOT_FOUND";
@@ -14225,14 +14553,28 @@ function html(response) {
 
     function cloudConnectionAction(status = nsdhCloudConnection.status) {
       const normalized = String(status || "").toLowerCase();
-      if (normalized === "connected") return "You can run Codex-backed generation from this cloud page.";
-      if (normalized === "codex not detected") return "Start Codex locally, keep the local bridge running, then click Test Codex Connection.";
+      if (normalized === "connected") return nsdhSharedLocalPilot
+        ? "You can run Codex-backed generation through the Shared Local Pilot bridge."
+        : "You can run Codex-backed generation from this cloud page.";
+      if (normalized === "pilot codex unavailable") return "Ask Wiljan to open/sign in to Codex on Desktop 2 and retry.";
+      if (normalized === "pilot tunnel unavailable") return "Ask Wiljan to start the tunnel/proxy, local MVP bridge, and Codex on Desktop 2.";
+      if (normalized === "pilot auth failed") return "The pilot endpoint rejected the request. Check the tunnel/ORDS proxy authentication setup.";
+      if (normalized === "pilot timeout") return "The pilot endpoint timed out. Check whether Desktop 2, the bridge, or the tunnel is overloaded/offline.";
+      if (normalized === "pilot invalid response") return "The pilot URL responded, but not as the NetSuite Demo Helper bridge.";
+      if (normalized === "helper not running") return "Download and run the Local Helper on this device, keep Codex open/signed in, then click Test Connection.";
+      if (normalized === "helper wrong port") return "The endpoint is reachable but is not the Local Helper. Confirm the helper is running on http://127.0.0.1:4173.";
+      if (normalized === "helper cors blocked") return "The browser blocked the Local Helper request. Confirm the helper is running, then allow localhost/private-network access if the browser or firewall prompts.";
+      if (normalized === "helper timeout") return "The Local Helper did not respond in time. Confirm it is still open and try again.";
+      if (normalized === "helper invalid response") return "The endpoint responded, but not as the NS DemoHelper Local Helper.";
+      if (normalized === "codex not detected") return nsdhLocalHelperRuntime
+        ? "The Local Helper is running, but Codex is not available. Open/sign in to Codex locally, keep the helper window open, then click Test Connection."
+        : "The local bridge responded, but Codex itself is not available. Open/sign in to Codex locally, keep the bridge running, then click Test Codex Connection.";
       if (normalized === "wrong service") return "Check that the endpoint points to NetSuite Demo Helper, not another local service.";
       if (normalized === "timeout") return "Confirm the bridge is running and the browser or firewall is not blocking localhost/private-network access.";
       if (normalized === "invalid endpoint") return "Use a browser-local URL only, such as http://127.0.0.1:4173 or http://localhost:4173.";
       if (normalized === "checking") return "Wait for the local bridge check to finish.";
       if (normalized === "local mode") return "No cloud bridge is needed because the MVP is running locally.";
-      return "Start the local bridge on this machine and click Test Codex Connection.";
+      return "Start the local NetSuite Demo Helper bridge on this machine with npm run mvp, then click Test Codex Connection.";
     }
 
     function formatCloudCheckTime(value = nsdhCloudConnection.testedAt) {
@@ -14250,6 +14592,7 @@ function html(response) {
       if (codexRuntimeBadge && nsdhCloudRuntime) {
         codexRuntimeBadge.dataset.endpoint = cloudApiBase();
       }
+      renderLocalHelperStatus(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : ""));
     }
 
     function cloudConnectionStatusPanelHtml() {
@@ -14257,13 +14600,15 @@ function html(response) {
       const statusClass = providerStatusClass(status);
       const endpoint = nsdhCloudRuntime ? (nsdhCloudConnection.base || cloudApiBase()) : "same-origin";
       const reason = nsdhCloudConnection.detail || (status === "Connected"
-        ? "Local Codex bridge responded successfully."
+        ? "Codex bridge responded successfully."
         : "No local Codex bridge check has completed yet.");
       return "<div class='codex-info-card codex-status-panel'>" +
-        "<div class='card-title-row'><strong>Codex Connection Status</strong><span class='status-badge " + escapeClientHtml(statusClass) + "'>" + escapeClientHtml(status) + "</span></div>" +
+        "<div class='card-title-row'><strong>Codex Connection Status</strong><span class='status-badge " + escapeClientHtml(statusClass) + "'>" + escapeClientHtml(cloudConnectionDisplayStatus(status)) + "</span></div>" +
         "<div class='codex-status-grid'>" +
           codexStatusRow("Active Brain", "Codex") +
-          codexStatusRow("Connection Type", nsdhCloudRuntime ? "Local Device" : "Same-Origin Local MVP") +
+          codexStatusRow("Runtime Mode", cloudRuntimeModeLabel()) +
+          (nsdhSharedLocalPilot ? codexStatusRow("Host", nsdhPilotHostLabel) : "") +
+          (nsdhLocalHelperRuntime ? codexStatusRow("Host", nsdhLocalHelperHostLabel) : "") +
           codexStatusRow("Endpoint", endpoint) +
           codexStatusRow("Last Check Time", formatCloudCheckTime()) +
           codexStatusRow("Code", cloudConnectionCode(status)) +
@@ -14271,6 +14616,7 @@ function html(response) {
         "<div class='codex-status-detail'>" +
           "<p><strong>Reason:</strong> " + escapeClientHtml(reason) + "</p>" +
           "<p><strong>Action:</strong> " + escapeClientHtml(cloudConnectionAction(status)) + "</p>" +
+          (nsdhSharedLocalPilot ? "<p><strong>Warning:</strong> Shared Local Pilot is for controlled internal testing only. It requires Wiljan's Desktop 2, the bridge, tunnel/proxy, and Codex to remain online.</p>" : "") +
         "</div>" +
       "</div>";
     }
@@ -14288,7 +14634,7 @@ function html(response) {
         cloudConnectionStatusPanelHtml() +
         "<div class='codex-info-grid'>" +
           codexInfoCard("Runtime", active, status.message || "") +
-          codexInfoCard("Connection", nsdhCloudRuntime ? "Local device bridge" : "Same-origin local MVP", nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "Running directly from localhost.") +
+          codexInfoCard("Connection", cloudRuntimeModeLabel(), nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "Running directly from localhost.") +
           codexInfoCard("Version", status.version || "-", status.command || "") +
           codexInfoCard("Visible Intelligence Source", intelligenceSource === "codex-structured-json" ? "Codex structured JSON" : intelligenceSource, "This is what drives the visible Intelligence dashboard.") +
           codexInfoCard("Latest Intelligence Task", operator.sessionTitle || "Not run yet", operator.cachedAt ? "Cached: " + operator.cachedAt : "") +
@@ -14306,9 +14652,49 @@ function html(response) {
         "</ul></div>" +
         (operator.analysis ? "<div class='codex-info-card'><strong>Latest Codex Intelligence Output</strong><pre class='operator-output'>" + escapeClientHtml(operator.analysis) + "</pre></div>" : "");
       attachCodexBridgeControls();
+      attachLocalHelperControls();
     }
 
     function localCodexBridgeSettingsHtml() {
+      if (nsdhSharedLocalPilot) {
+        return "<div class='codex-info-card'><strong>Shared Local Pilot</strong>" +
+          "<p class='hint'>The APEX UI is hosted in Oracle APEX. Codex-backed actions route through the configured pilot endpoint to Wiljan's Desktop 2 Codex bridge. Colleagues do not need to install Node, run npm, or configure localhost.</p>" +
+          "<div class='codex-status-grid'>" +
+            codexStatusRow("Runtime Mode", "Shared Local Pilot") +
+            codexStatusRow("Host", nsdhPilotHostLabel) +
+            codexStatusRow("Pilot API", cloudApiBase() || "Not configured") +
+          "</div>" +
+          "<div class='row'>" +
+            "<button class='secondary' id='testLocalCodexEndpoint' type='button'>Test Connection</button>" +
+          "</div>" +
+          "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
+          "<details><summary>Pilot limitations</summary>" +
+            "<p>This is a controlled internal pilot only. It depends on Wiljan's Desktop 2, the tunnel/proxy, the local MVP bridge, and Codex staying online.</p>" +
+            "<p>If the pilot bridge is unavailable, ask Wiljan to restart the bridge/tunnel/Codex and then click Test Connection.</p>" +
+          "</details></div>";
+      }
+      if (nsdhLocalHelperRuntime) {
+        return "<div class='codex-info-card'><strong>Local Helper</strong>" +
+          "<p class='hint'>The APEX UI is hosted in Oracle APEX. Codex-backed actions call the helper running on this user's own Mac or Windows device. No repo clone or npm command is needed for normal users.</p>" +
+          "<div class='helper-download-grid'>" +
+            "<button class='secondary' type='button' data-local-helper-download='mac'>Download Helper for macOS</button>" +
+            "<button class='secondary' type='button' data-local-helper-download='windows'>Download Helper for Windows</button>" +
+            "<button class='secondary' type='button' data-local-helper-download='readme'>Download Instructions</button>" +
+          "</div>" +
+          "<label for='localCodexEndpointInput'>Local Helper endpoint for this browser</label>" +
+          "<input id='localCodexEndpointInput' type='text' value='" + escapeClientHtml(cloudApiBase() || nsdhDefaultLocalApiBase) + "' placeholder='http://127.0.0.1:4173'>" +
+          "<div class='row'>" +
+            "<button class='secondary' id='testLocalCodexEndpoint' type='button'>Test Connection</button>" +
+            "<button class='secondary' id='saveLocalCodexEndpoint' type='button'>Save For This Browser</button>" +
+            "<button class='secondary' id='resetLocalCodexEndpoint' type='button'>Auto Detect</button>" +
+          "</div>" +
+          "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
+          "<details><summary>Setup guidance</summary>" +
+            "<p><strong>macOS:</strong> download the helper, save it to Desktop, right-click Open if macOS blocks it, keep Codex open/signed in, then test the connection.</p>" +
+            "<p><strong>Windows:</strong> download the helper, save it to Desktop, run it, allow local/private browser access if your policy permits it, keep Codex open/signed in, then test the connection.</p>" +
+            "<p>The helper listens on 127.0.0.1 only and does not expose a public port.</p>" +
+          "</details></div>";
+      }
       const cloudOnlyNote = nsdhCloudRuntime
         ? "This setting is saved only in this browser. Each colleague should use their own localhost or 127.0.0.1 endpoint."
         : "This setting is only needed from the Oracle APEX cloud page.";
@@ -14324,8 +14710,8 @@ function html(response) {
         "</div>" +
         "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
         "<details><summary>Startup guidance</summary>" +
-          "<p><strong>macOS:</strong> start the NetSuite Demo Helper local bridge with the documented MVP command, keep Codex open, then test this connection.</p>" +
-          "<p><strong>Windows:</strong> start the local bridge on the same port, allow localhost/private network access if prompted by the browser or firewall, then test this connection.</p>" +
+          "<p><strong>macOS:</strong> open the NetSuite Demo Helper project, run <code>npm run mvp</code>, keep Codex open/signed in, then test this connection.</p>" +
+          "<p><strong>Windows:</strong> open the NetSuite Demo Helper project, run <code>npm run mvp</code>, allow localhost/private-network access if prompted by the browser or firewall, then test this connection.</p>" +
           "<p>If your bridge uses another port, enter the full localhost or 127.0.0.1 URL above. Do not enter another person's machine name or shared tunnel unless a secure hosted bridge is intentionally configured.</p>" +
         "</details></div>";
     }
@@ -14335,6 +14721,15 @@ function html(response) {
       const testButton = document.getElementById("testLocalCodexEndpoint");
       const saveButton = document.getElementById("saveLocalCodexEndpoint");
       const resetButton = document.getElementById("resetLocalCodexEndpoint");
+      if (nsdhSharedLocalPilot) {
+        if (!testButton) return;
+        testButton.onclick = async () => {
+          const result = await detectLocalCodexEndpoint({ force: true });
+          renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
+          await refreshPlatformStatus();
+        };
+        return;
+      }
       if (!input || !testButton || !saveButton || !resetButton) return;
       testButton.onclick = async () => {
         const value = normalizeLocalApiBase(input.value);
@@ -14368,6 +14763,60 @@ function html(response) {
         renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
         await refreshPlatformStatus();
       };
+    }
+
+    function downloadLocalHelper(kind) {
+      const file = localHelperDownloads[kind];
+      if (!file?.content) {
+        setStatus("The requested Local Helper file is not available in this build.");
+        return;
+      }
+      const blob = new Blob([file.content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = file.fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setStatus("Downloaded " + file.fileName + ". Save it to Desktop, run it, keep Codex open, then click Test Connection.");
+    }
+
+    function renderLocalHelperStatus(message) {
+      document.querySelectorAll("[data-local-helper-status]").forEach((target) => {
+        target.textContent = message || cloudConnectionStatusText();
+      });
+    }
+
+    function attachLocalHelperControls() {
+      document.querySelectorAll("[data-local-helper-download]").forEach((button) => {
+        if (button.dataset.helperAttached === "true") return;
+        button.dataset.helperAttached = "true";
+        button.addEventListener("click", () => downloadLocalHelper(button.dataset.localHelperDownload));
+      });
+      document.querySelectorAll("[data-test-local-helper]").forEach((button) => {
+        if (button.dataset.helperAttached === "true") return;
+        button.dataset.helperAttached = "true";
+        button.addEventListener("click", async () => {
+          const previous = button.textContent;
+          button.disabled = true;
+          button.textContent = "Testing...";
+          renderLocalHelperStatus("Checking the Local Helper and Codex on this device...");
+          try {
+            const result = await detectLocalCodexEndpoint({ force: true, preferred: nsdhDefaultLocalApiBase });
+            renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
+            renderLocalHelperStatus(cloudConnectionStatusText() + (result.detail ? " - " + result.detail : ""));
+            await refreshPlatformStatus();
+          } catch (error) {
+            renderLocalHelperStatus("HELPER_NOT_RUNNING - " + error.message);
+            setStatus(error.message);
+          } finally {
+            button.disabled = false;
+            button.textContent = previous;
+          }
+        });
+      });
     }
 
     function codexInfoCard(label, value, detail = "") {
@@ -17157,6 +17606,7 @@ function html(response) {
         updateStrategyIndustryHints();
         updateManifestDemoModeHint();
         syncVoiceProviderSettings();
+        attachLocalHelperControls();
         await loadVoices();
         renderStakeholderPersonas();
         await load("App load");

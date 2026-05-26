@@ -7,7 +7,7 @@ This folder contains the Oracle APEX shell package for the NetSuite Demo Helper 
 - Cloud APEX workspace: `EMEAWJ`
 - Cloud APEX application ID: `56174`
 - Cloud APEX application alias: `nsdemohelper`
-- Local MVP runtime/bridge: user-local, normally `http://127.0.0.1:4173`
+- Local MVP runtime/bridge: Local Helper or user-local bridge, normally `http://127.0.0.1:4173`
 
 ## Current Architecture
 
@@ -17,16 +17,100 @@ Application `56174` is now a cloud-hosted MVP runtime:
 2. Page 1 is public.
 3. Page 1 redirects to the APEX-hosted static application file `nsdemohelper-cloud.html`.
 4. The UI renders from Oracle APEX cloud static files, including the full MVP HTML/CSS/JavaScript and the ribbon asset.
-5. Browser API calls to relative `/api/...` endpoints are routed to the current browser user's local bridge, defaulting to `http://127.0.0.1:4173`.
-6. The local bridge handles Codex-backed generation, session logging, exports, narrator state, and other MVP API behavior.
+5. Browser API calls to relative `/api/...` endpoints are routed to the current browser user's Local Helper or local bridge, defaulting to `http://127.0.0.1:4173`.
+6. The Local Helper/local bridge handles Codex-backed generation and returns generated outputs to the APEX page.
 
 The cloud runtime no longer redirects to `localhost` for frontend rendering, routing, or static assets.
 
 The full local Node MVP remains available for local Codex-backed generation and desktop demo automation. The APEX cloud UI provides the internal browser-hosted experience while using the local bridge only for API/Codex-backed operations.
 
+## Local Helper Mode
+
+`local-helper` is the recommended lightweight colleague testing mode. Users do not clone the repo or run `npm`. They open the APEX app, download the helper for macOS or Windows, run it locally, keep Codex open/signed in, and select **Test Connection**.
+
+```text
+APEX Cloud App
+-> http://127.0.0.1:4173 on the user's device
+-> NS DemoHelper Local Helper
+-> local Codex session
+```
+
+Build the APEX package for Local Helper mode with:
+
+```bash
+NSDH_APEX_RUNTIME_MODE=local-helper \
+NSDH_LOCAL_HELPER_HOST_LABEL="Current user's Local Helper" \
+npm run apex:package
+```
+
+The helper files are embedded in the APEX page as browser downloads:
+
+```text
+helpers/local-helper/helper-mac.command
+helpers/local-helper/helper-windows.bat
+helpers/local-helper/README.md
+```
+
+The helper listens only on `127.0.0.1`, restricts CORS to `https://apex.oraclecorp.com` and local development origins, and exposes the MVP-compatible endpoints needed by the APEX page.
+
+Local Helper endpoints:
+
+- `GET /api/helper/status`
+- `GET /api/codex/status`
+- `POST /api/generate`
+- `POST /api/pre-demo-score`
+- `POST /api/demo-runbook`
+- `POST /api/ppt-prompt`
+- `POST /api/dataset-enhancement`
+
+Compatibility endpoints:
+
+- `GET /api/platform/status`
+- `GET /api/manifest`
+- `GET /api/sc-guide`
+- `GET /api/setup-prompt`
+- `POST /api/pre-demo-intelligence`
+- `POST /api/learn`
+- `POST /api/dataset-analysis`
+
+Local Helper is still a pilot bridge. The long-term architecture should move generation into an approved hosted/internal backend so colleagues do not need any local helper at all.
+
+## Shared Local Pilot Mode
+
+For short-term colleague testing, the APEX runtime can be packaged in `shared-local-pilot` mode. In that mode, colleagues do not run a local bridge. The cloud UI calls a configured HTTPS pilot API/tunnel/proxy URL, which routes back to Wiljan's Desktop 2 local MVP/Codex bridge.
+
+```text
+APEX Cloud App
+-> secure pilot API/tunnel/proxy URL
+-> Wiljan's Desktop 2 local bridge
+-> local Codex session
+```
+
+Build the APEX package for this pilot mode with:
+
+```bash
+NSDH_APEX_RUNTIME_MODE=shared-local-pilot \
+NSDH_PILOT_API_BASE_URL=https://<secure-pilot-url> \
+NSDH_PILOT_HOST_LABEL="Wiljan's Desktop 2 Codex bridge" \
+npm run apex:package
+```
+
+The local bridge can be started with optional pilot guardrails:
+
+```bash
+NSDH_PILOT_MODE=true \
+NSDH_REQUIRE_PILOT_SECRET=true \
+NSDH_PILOT_SHARED_SECRET=<shared-secret> \
+npm run mvp
+```
+
+Prefer an APEX/ORDS proxy or tunnel-level auth so secrets stay out of browser JavaScript. Browser-direct pilot secrets are visible in DevTools and should only be used for short internal tests.
+
+Shared Local Pilot is not the production architecture. It requires Wiljan's Desktop 2, the tunnel/proxy, the local bridge, and Codex to remain online.
+
 ## User-Local Codex Bridge
 
-The APEX app must not point to one shared laptop, hostname, or tunnel. Each browser session discovers or stores its own local bridge endpoint:
+In the default user-local runtime mode, the APEX app must not point to one shared laptop, hostname, or tunnel. Each browser session discovers or stores its own local bridge endpoint:
 
 - Default candidates: `http://127.0.0.1:4173`, `http://localhost:4173`, `http://127.0.0.1:4181`, `http://localhost:4181`, `http://127.0.0.1:4182`, `http://localhost:4182`, `http://127.0.0.1:4192`, `http://localhost:4192`.
 - Manual override: open `Backbone` in the app, enter a local endpoint, and select `Save For This Browser`.

@@ -1705,6 +1705,7 @@
     .prep-grid {
       grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr);
       grid-template-areas:
+        "helper helper"
         "scope scope"
         "audience audience"
         "actions actions"
@@ -1714,6 +1715,7 @@
         "how how";
       align-items: start;
     }
+    .prep-helper { grid-area: helper; }
     .prep-instructions { grid-area: instructions; }
     .prep-scope { grid-area: scope; }
     .prep-audience { grid-area: audience; }
@@ -1733,6 +1735,34 @@
       align-items: start;
     }
     .field-full { grid-column: 1 / -1; }
+    .local-helper-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .local-helper-card h2 { margin-bottom: 6px; }
+    .helper-download-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .helper-status {
+      border-left: 4px solid var(--ocean);
+      background: var(--soft);
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .helper-steps {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .helper-steps li { margin: 3px 0; }
     .panel {
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -2462,6 +2492,7 @@
       .prep-grid {
         grid-template-columns: 1fr;
         grid-template-areas:
+          "helper"
           "scope"
           "audience"
           "actions"
@@ -2472,6 +2503,7 @@
       }
       .field-grid { grid-template-columns: 1fr; }
       .scope-grid { grid-template-columns: 1fr; }
+      .local-helper-card { grid-template-columns: 1fr; }
       .session-controls { grid-template-columns: 1fr; }
       .intelligence-overview-grid,
       .intel-summary,
@@ -2483,6 +2515,7 @@
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
     }
   </style>
+<script>window.NSDH_RUNTIME_CONFIG = {"runtimeMode":"user-local"};</script>
 </head>
   <body class="live-demo-disabled profile-mvp">
     <div class="ribbon-strip" aria-hidden="true"></div>
@@ -2538,6 +2571,29 @@ Profile: mvp">
         </div>
       </div>
       <div class="grid prep-grid">
+        <div class="panel prep-helper local-helper-card">
+          <div>
+            <h2>Connect Codex Locally</h2>
+            <p class="hint">Use the lightweight helper when the MVP is opened from Oracle APEX and Codex should run on the current user's own Mac or Windows device.</p>
+            <div class="helper-download-grid">
+              <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper script. Save it to Desktop, run it, keep Codex open, then test the connection.">Download Helper for macOS</button>
+              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper script. Save it to Desktop, run it, keep Codex open, then test the connection.">Download Helper for Windows</button>
+              <button class="secondary" type="button" data-local-helper-download="readme" data-help="Downloads the helper setup notes and troubleshooting guide.">Download Instructions</button>
+            </div>
+            <div class="row">
+              <button class="secondary" type="button" data-test-local-helper data-help="Checks whether the local helper and Codex are available on this device.">Test Connection</button>
+            </div>
+          </div>
+          <div>
+            <p class="helper-status" data-local-helper-status>Local helper not checked yet.</p>
+            <ol class="helper-steps">
+              <li>Download the helper for your operating system.</li>
+              <li>Save it to Desktop and run it.</li>
+              <li>Keep Codex open and signed in.</li>
+              <li>Click Test Connection, then use the MVP.</li>
+            </ol>
+          </div>
+        </div>
         <div class="panel prep-scope">
           <h2>Demo Scope</h2>
           <div class="scope-grid">
@@ -4043,7 +4099,14 @@ If a page takes time to load, narrate the business reason for the next step inst
     let prepDirtyForIntelligence = false;
     let prepDirtyForPreDemoIntelligence = false;
     let liveDemoFunctionalityEnabled = false;
+    const localHelperDownloads = {"mac":{"fileName":"helper-mac.command","content":"#!/bin/bash\nset -euo pipefail\n\nPORT=\"${NSDH_HELPER_PORT:-4173}\"\nAPEX_ORIGIN=\"${NSDH_APEX_ORIGIN:-https://apex.oraclecorp.com}\"\nHELPER_FILE=\"${TMPDIR:-/tmp}/nsdemohelper-local-helper.py\"\n\ncat > \"$HELPER_FILE\" \u003c\u003c'PY_HELPER'\n#!/usr/bin/env python3\nimport json\nimport os\nimport re\nimport shutil\nimport subprocess\nimport sys\nimport tempfile\nimport time\nfrom http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\n\nPORT = int(os.environ.get(\"NSDH_HELPER_PORT\", \"4173\"))\nAPEX_ORIGIN = os.environ.get(\"NSDH_APEX_ORIGIN\", \"https://apex.oraclecorp.com\")\nSTATE = {\n    \"guide\": \"\",\n    \"scRunbook\": \"\",\n    \"assetGenerationPrompt\": \"\",\n    \"setupPrompt\": \"\",\n    \"dryRunCreationPrompt\": \"\",\n    \"preDemoIntelligence\": None,\n    \"demoIntelligence\": None,\n    \"lastGeneratedAt\": \"\"\n}\n\nERRORS = {\n    \"helper_not_running\": \"HELPER_NOT_RUNNING\",\n    \"codex_not_available\": \"CODEX_NOT_AVAILABLE\",\n    \"generation_timeout\": \"GENERATION_TIMEOUT\",\n    \"invalid_response\": \"HELPER_INVALID_RESPONSE\"\n}\n\n\ndef allowed_origin(origin):\n    if not origin:\n        return APEX_ORIGIN\n    if origin == APEX_ORIGIN:\n        return origin\n    if re.match(r\"^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$\", origin):\n        return origin\n    return APEX_ORIGIN\n\n\ndef codex_command():\n    explicit = os.environ.get(\"CODEX_BIN\", \"\").strip()\n    candidates = [explicit] if explicit else []\n    candidates.extend([\n        \"/Applications/Codex.app/Contents/Resources/codex\",\n        shutil.which(\"codex\") or \"\"\n    ])\n    for candidate in candidates:\n        if candidate and os.path.exists(candidate):\n            return candidate\n    if shutil.which(\"codex\"):\n        return \"codex\"\n    return \"\"\n\n\ndef codex_status():\n    command = codex_command()\n    if not command:\n        return {\n            \"ok\": True,\n            \"available\": False,\n            \"code\": \"CODEX_NOT_AVAILABLE\",\n            \"message\": \"Codex was not found. Open Codex or add it to PATH, then test again.\"\n        }\n    try:\n        result = subprocess.run([command, \"--version\"], text=True, capture_output=True, timeout=8)\n        available = result.returncode == 0\n        return {\n            \"ok\": True,\n            \"available\": available,\n            \"command\": command,\n            \"version\": (result.stdout or result.stderr).strip(),\n            \"message\": \"Codex is available.\" if available else \"Codex responded with a non-zero status.\",\n            \"code\": \"CODEX_LOCAL_CONNECTED\" if available else \"CODEX_NOT_AVAILABLE\"\n        }\n    except Exception as error:\n        return {\n            \"ok\": True,\n            \"available\": False,\n            \"command\": command,\n            \"code\": \"CODEX_NOT_AVAILABLE\",\n            \"message\": str(error)\n        }\n\n\ndef extract_json(text):\n    text = (text or \"\").strip()\n    if not text:\n        return None\n    try:\n        return json.loads(text)\n    except Exception:\n        pass\n    match = re.search(r\"\\{[\\s\\S]*\\}\", text)\n    if match:\n        try:\n            return json.loads(match.group(0))\n        except Exception:\n            return None\n    return None\n\n\ndef run_codex(prompt, timeout=240):\n    status = codex_status()\n    if not status.get(\"available\"):\n        return {\n            \"ok\": False,\n            \"error\": status.get(\"message\", \"Codex is not available.\"),\n            \"code\": \"CODEX_NOT_AVAILABLE\"\n        }\n    command = status[\"command\"]\n    with tempfile.TemporaryDirectory(prefix=\"nsdh-helper-\") as work_dir:\n        output_file = os.path.join(work_dir, \"codex-output.txt\")\n        args = [\n            command,\n            \"--ask-for-approval\", \"never\",\n            \"exec\",\n            \"-C\", work_dir,\n            \"--sandbox\", \"read-only\",\n            \"--skip-git-repo-check\",\n            \"--output-last-message\", output_file,\n            \"-\"\n        ]\n        try:\n            proc = subprocess.run(args, input=prompt, text=True, capture_output=True, timeout=timeout)\n        except subprocess.TimeoutExpired:\n            return {\n                \"ok\": False,\n                \"error\": \"Codex generation timed out.\",\n                \"code\": \"GENERATION_TIMEOUT\"\n            }\n        except Exception as error:\n            return {\n                \"ok\": False,\n                \"error\": str(error),\n                \"code\": \"HELPER_INVALID_RESPONSE\"\n            }\n        output = \"\"\n        if os.path.exists(output_file):\n            with open(output_file, \"r\", encoding=\"utf-8\", errors=\"replace\") as handle:\n                output = handle.read()\n        if not output:\n            output = (proc.stdout or proc.stderr or \"\").strip()\n        if proc.returncode != 0 and not output:\n            return {\n                \"ok\": False,\n                \"error\": \"Codex exited without returning output.\",\n                \"code\": \"HELPER_INVALID_RESPONSE\"\n            }\n        return {\n            \"ok\": True,\n            \"text\": output.strip(),\n            \"json\": extract_json(output)\n        }\n\n\ndef input_context(body):\n    return {\n        \"companyName\": body.get(\"companyName\") or body.get(\"customerName\") or body.get(\"company\") or \"\",\n        \"website\": body.get(\"companyUrl\") or body.get(\"website\") or \"\",\n        \"audience\": body.get(\"audience\") or body.get(\"audienceType\") or \"\",\n        \"segment\": body.get(\"marketSegment\") or body.get(\"targetSegment\") or \"\",\n        \"industry\": body.get(\"industry\") or \"\",\n        \"strategy\": body.get(\"demoStrategy\") or \"\",\n        \"language\": body.get(\"outputLanguage\") or \"English\",\n        \"competition\": body.get(\"competition\") or \"\",\n        \"demoScope\": body.get(\"demoScope\") or \"\",\n        \"demoRequest\": body.get(\"topic\") or body.get(\"demoRequest\") or \"\",\n        \"preDemoNotes\": body.get(\"preDemoNotes\") or \"\"\n    }\n\n\ndef codex_json_task(task, schema, body):\n    context = input_context(body)\n    prompt = (\n        \"You are the Codex backbone for NS DemoHelper. Use the provided customer/demo context. \"\n        \"Return ONLY valid JSON. Do not include markdown fences.\\n\\n\"\n        f\"Task: {task}\\n\\n\"\n        f\"Required JSON shape:\\n{json.dumps(schema, indent=2)}\\n\\n\"\n        f\"Context:\\n{json.dumps(context, indent=2)}\"\n    )\n    result = run_codex(prompt)\n    if not result.get(\"ok\"):\n        return result\n    return {\"ok\": True, \"json\": result.get(\"json\") or {}, \"text\": result.get(\"text\", \"\")}\n\n\ndef pre_demo_score(body):\n    schema = {\n        \"score\": 0,\n        \"readinessLabel\": \"Healthy / Medium / At risk\",\n        \"summary\": \"short SC-readable summary\",\n        \"strengths\": [\"list\"],\n        \"missingDiscovery\": [\"list\"],\n        \"risks\": [\"list\"],\n        \"recommendedFollowUpQuestions\": [\"list\"],\n        \"websiteSummary\": {\"summary\": \"\", \"interestingPoints\": [], \"contradictions\": []},\n        \"recommendations\": [\"list\"]\n    }\n    result = codex_json_task(\"Score pre-demo discovery quality and identify what is missing before a proper demo can be created.\", schema, body)\n    payload = result.get(\"json\") if result.get(\"ok\") else {}\n    payload = payload if isinstance(payload, dict) else {}\n    website = payload.get(\"website_context\") or payload.get(\"websiteSummary\") or {}\n    payload = {\n        **payload,\n        \"overall_score\": payload.get(\"overall_score\") or payload.get(\"score\") or 0,\n        \"readiness_label\": payload.get(\"readiness_label\") or payload.get(\"readinessLabel\") or \"Not checked\",\n        \"strongest_area\": payload.get(\"strongest_area\") or (payload.get(\"strengths\") or [\"\"])[0],\n        \"biggest_risk\": payload.get(\"biggest_risk\") or (payload.get(\"risks\") or [\"\"])[0],\n        \"next_best_question\": payload.get(\"next_best_question\") or (payload.get(\"recommendedFollowUpQuestions\") or [\"\"])[0],\n        \"missing_discovery_items\": payload.get(\"missing_discovery_items\") or payload.get(\"missingDiscovery\") or [],\n        \"recommended_follow_up_questions\": payload.get(\"recommended_follow_up_questions\") or payload.get(\"recommendedFollowUpQuestions\") or [],\n        \"website_context\": website,\n        \"heatmap\": payload.get(\"heatmap\") or [\n            {\"label\": \"Discovery quality\", \"score\": payload.get(\"score\") or payload.get(\"overall_score\") or 0, \"status\": payload.get(\"readinessLabel\") or payload.get(\"readiness_label\") or \"Not checked\"},\n            {\"label\": \"Missing context\", \"score\": max(0, 100 - (len(payload.get(\"missingDiscovery\") or payload.get(\"missing_discovery_items\") or []) * 12)), \"status\": \"Review gaps\"}\n        ],\n        \"metadata\": {\n            \"customer_name\": input_context(body).get(\"companyName\") or \"Current prospect\",\n            \"audience_type\": input_context(body).get(\"audience\"),\n            \"target_segment\": input_context(body).get(\"segment\"),\n            \"industry\": input_context(body).get(\"industry\"),\n            \"demo_strategy\": input_context(body).get(\"strategy\")\n        }\n    }\n    output = {\n        \"ok\": True,\n        \"source\": \"local-helper-codex\",\n        \"preDemoIntelligence\": payload,\n        \"score\": payload.get(\"overall_score\"),\n        \"summary\": payload.get(\"summary\"),\n        \"error\": result.get(\"error\") if not result.get(\"ok\") else None,\n        \"code\": result.get(\"code\") if not result.get(\"ok\") else None\n    }\n    STATE[\"preDemoIntelligence\"] = payload\n    STATE[\"lastGeneratedAt\"] = time.strftime(\"%Y-%m-%dT%H:%M:%SZ\", time.gmtime())\n    return output\n\n\ndef demo_runbook(body):\n    schema = {\n        \"guide\": \"complete SC playbook in markdown\",\n        \"scRunbook\": \"personalized demo story and talk track in markdown\",\n        \"assetGenerationPrompt\": \"PowerPoint/demo asset generation prompt\",\n        \"setupPrompt\": \"NetSuite/setup prompt or neutral setup prompt\",\n        \"dryRunCreationPrompt\": \"instructions for creating a dry-run manifest\",\n        \"preDemoIntelligence\": {},\n        \"demoIntelligence\": {}\n    }\n    result = codex_json_task(\"Create the demo playbook, story/runbook, setup prompt, asset prompt, dry-run prompt, and intelligence summaries.\", schema, body)\n    data = result.get(\"json\") if result.get(\"ok\") else {}\n    data = data if isinstance(data, dict) else {}\n    guide = data.get(\"guide\") or data.get(\"scRunbook\") or result.get(\"text\") or \"\"\n    context = input_context(body)\n    STATE.update({\n        \"guide\": guide,\n        \"scRunbook\": data.get(\"scRunbook\") or guide,\n        \"assetGenerationPrompt\": data.get(\"assetGenerationPrompt\") or \"\",\n        \"setupPrompt\": data.get(\"setupPrompt\") or \"\",\n        \"dryRunCreationPrompt\": data.get(\"dryRunCreationPrompt\") or \"\",\n        \"preDemoIntelligence\": data.get(\"preDemoIntelligence\") or STATE.get(\"preDemoIntelligence\"),\n        \"demoIntelligence\": data.get(\"demoIntelligence\") or {},\n        \"lastGeneratedAt\": time.strftime(\"%Y-%m-%dT%H:%M:%SZ\", time.gmtime())\n    })\n    return {\n        \"ok\": True,\n        \"source\": \"local-helper-codex\",\n        \"manifest\": {\n            \"title\": context.get(\"companyName\") or \"NS DemoHelper Local Helper Demo\",\n            \"context\": context,\n            \"segments\": [],\n            \"defaults\": {\"demoStrategy\": context.get(\"strategy\"), \"industry\": context.get(\"industry\")}\n        },\n        \"guide\": STATE[\"guide\"],\n        \"guideOutputs\": {\n            \"scRunbook\": STATE[\"scRunbook\"],\n            \"assetGenerationPrompt\": STATE[\"assetGenerationPrompt\"],\n            \"dryRunCreationPrompt\": STATE[\"dryRunCreationPrompt\"],\n            \"liveDemoFunctionality\": False\n        },\n        \"setupPrompt\": {\n            \"prompt\": STATE[\"setupPrompt\"],\n            \"promptSource\": \"local-helper-codex\",\n            \"account\": {},\n            \"setupPlan\": {\"items\": []}\n        },\n        \"preDemoIntelligence\": STATE[\"preDemoIntelligence\"],\n        \"intelligence\": STATE[\"demoIntelligence\"],\n        \"operator\": {\"sessionTitle\": \"Local Helper Codex run\", \"cachedAt\": STATE[\"lastGeneratedAt\"]},\n        \"error\": result.get(\"error\") if not result.get(\"ok\") else None,\n        \"code\": result.get(\"code\") if not result.get(\"ok\") else None\n    }\n\n\ndef simple_prompt(body, label):\n    schema = {\"title\": label, \"prompt\": \"usable prompt/content in markdown\", \"notes\": [\"list\"]}\n    result = codex_json_task(f\"Create {label} for the demo context.\", schema, body)\n    data = result.get(\"json\") if result.get(\"ok\") else {}\n    if not isinstance(data, dict):\n        data = {}\n    return {\n        \"ok\": True,\n        \"source\": \"local-helper-codex\",\n        \"title\": data.get(\"title\") or label,\n        \"prompt\": data.get(\"prompt\") or result.get(\"text\") or \"\",\n        \"notes\": data.get(\"notes\") or [],\n        \"error\": result.get(\"error\") if not result.get(\"ok\") else None,\n        \"code\": result.get(\"code\") if not result.get(\"ok\") else None\n    }\n\n\ndef manifest_payload():\n    return {\n        \"ok\": True,\n        \"featureFlags\": {\"liveDemoFunctionality\": False},\n        \"appVersion\": \"local-helper-prototype\",\n        \"buildMetadata\": {\"version\": \"local-helper-prototype\", \"environment\": \"local-helper\", \"profile\": \"mvp\"},\n        \"manifest\": {\"title\": \"NS DemoHelper Local Helper\", \"segments\": [], \"context\": {}, \"defaults\": {}},\n        \"versions\": [],\n        \"guide\": STATE[\"guide\"],\n        \"guideOutputs\": {\n            \"scRunbook\": STATE[\"scRunbook\"],\n            \"assetGenerationPrompt\": STATE[\"assetGenerationPrompt\"],\n            \"dryRunCreationPrompt\": STATE[\"dryRunCreationPrompt\"],\n            \"liveDemoFunctionality\": False\n        },\n        \"setupPrompt\": {\"prompt\": STATE[\"setupPrompt\"], \"account\": {}, \"setupPlan\": {\"items\": []}},\n        \"preDemoIntelligence\": STATE[\"preDemoIntelligence\"],\n        \"intelligence\": STATE[\"demoIntelligence\"]\n    }\n\n\nclass Handler(BaseHTTPRequestHandler):\n    server_version = \"NSDemoHelperLocalHelper/0.1\"\n\n    def end_headers(self):\n        origin = allowed_origin(self.headers.get(\"Origin\", \"\"))\n        self.send_header(\"Access-Control-Allow-Origin\", origin)\n        self.send_header(\"Access-Control-Allow-Methods\", \"GET, POST, OPTIONS\")\n        self.send_header(\"Access-Control-Allow-Headers\", \"content-type, x-demo-helper-session-id, x-demo-helper-anonymous-user-id, x-demo-helper-admin-session\")\n        self.send_header(\"Access-Control-Allow-Private-Network\", \"true\")\n        self.send_header(\"Vary\", \"Origin\")\n        super().end_headers()\n\n    def log_message(self, fmt, *args):\n        sys.stdout.write(\"[%s] %s\\n\" % (time.strftime(\"%H:%M:%S\"), fmt % args))\n\n    def json_response(self, payload, status=200):\n        raw = json.dumps(payload).encode(\"utf-8\")\n        self.send_response(status)\n        self.send_header(\"Content-Type\", \"application/json\")\n        self.send_header(\"Content-Length\", str(len(raw)))\n        self.end_headers()\n        self.wfile.write(raw)\n\n    def read_json(self):\n        length = int(self.headers.get(\"Content-Length\", \"0\") or \"0\")\n        if not length:\n            return {}\n        raw = self.rfile.read(length).decode(\"utf-8\", errors=\"replace\")\n        try:\n            return json.loads(raw)\n        except Exception:\n            return {}\n\n    def do_OPTIONS(self):\n        self.send_response(204)\n        self.end_headers()\n\n    def do_GET(self):\n        if self.path.startswith(\"/api/helper/status\"):\n            return self.json_response({\n                \"ok\": True,\n                \"helper\": {\"name\": \"NS DemoHelper Local Helper\", \"mode\": \"local-helper\", \"port\": PORT},\n                \"runtime\": {\"environment\": \"local-helper\", \"profile\": \"mvp\"},\n                \"message\": \"Local helper is running.\"\n            })\n        if self.path.startswith(\"/api/platform/status\"):\n            return self.json_response({\n                \"ok\": True,\n                \"runtime\": {\"environment\": \"local-helper\", \"profile\": \"mvp\", \"appVersion\": \"local-helper-prototype\"},\n                \"provider\": {\"active\": \"Codex\", \"mode\": \"Local Helper\"}\n            })\n        if self.path.startswith(\"/api/codex/status\"):\n            return self.json_response(codex_status())\n        if self.path.startswith(\"/api/manifest\"):\n            return self.json_response(manifest_payload())\n        if self.path.startswith(\"/api/sc-guide\"):\n            return self.json_response({\"ok\": True, \"guide\": STATE[\"guide\"], \"guideOutputs\": manifest_payload()[\"guideOutputs\"]})\n        if self.path.startswith(\"/api/setup-prompt\"):\n            return self.json_response({\"ok\": True, \"setupPrompt\": manifest_payload()[\"setupPrompt\"]})\n        return self.json_response({\"ok\": False, \"error\": \"Unknown helper endpoint.\", \"code\": \"HELPER_INVALID_RESPONSE\"}, 404)\n\n    def do_POST(self):\n        body = self.read_json()\n        if self.path.startswith(\"/api/pre-demo-score\") or self.path.startswith(\"/api/pre-demo-intelligence\"):\n            return self.json_response(pre_demo_score(body))\n        if self.path.startswith(\"/api/demo-runbook\") or self.path.startswith(\"/api/learn\"):\n            return self.json_response(demo_runbook(body))\n        if self.path.startswith(\"/api/ppt-prompt\"):\n            return self.json_response(simple_prompt(body, \"Demo asset / PowerPoint prompt\"))\n        if self.path.startswith(\"/api/dataset-enhancement\") or self.path.startswith(\"/api/dataset-analysis\"):\n            return self.json_response(simple_prompt(body, \"Dataset enhancement prompt\"))\n        if self.path.startswith(\"/api/generate\"):\n            return self.json_response(simple_prompt(body, \"General generation output\"))\n        if self.path.startswith(\"/api/codex/stop\"):\n            return self.json_response({\"ok\": True, \"message\": \"No active helper request to stop.\"})\n        return self.json_response({\"ok\": False, \"error\": \"Unknown helper endpoint.\", \"code\": \"HELPER_INVALID_RESPONSE\"}, 404)\n\n\ndef main():\n    status = codex_status()\n    print(\"NS DemoHelper Local Helper\")\n    print(f\"Listening on http://127.0.0.1:{PORT}\")\n    print(f\"APEX origin allowed: {APEX_ORIGIN}\")\n    print(\"Codex status:\", status.get(\"message\"))\n    print(\"Keep this window open while using the APEX app. Press Ctrl+C to stop.\")\n    server = ThreadingHTTPServer((\"127.0.0.1\", PORT), Handler)\n    try:\n        server.serve_forever()\n    except KeyboardInterrupt:\n        print(\"\\nHelper stopped.\")\n\n\nif __name__ == \"__main__\":\n    main()\nPY_HELPER\n\nchmod 700 \"$HELPER_FILE\"\necho \"Starting NS DemoHelper Local Helper on http://127.0.0.1:${PORT}\"\necho \"Keep this window open while using the APEX app.\"\nNSDH_HELPER_PORT=\"$PORT\" NSDH_APEX_ORIGIN=\"$APEX_ORIGIN\" /usr/bin/python3 \"$HELPER_FILE\"\n"},"windows":{"fileName":"helper-windows.bat","content":"@echo off\nsetlocal\n\nif \"%NSDH_HELPER_PORT%\"==\"\" set NSDH_HELPER_PORT=4173\nif \"%NSDH_APEX_ORIGIN%\"==\"\" set NSDH_APEX_ORIGIN=https://apex.oraclecorp.com\n\nset \"PS_HELPER=%TEMP%\\nsdemohelper-local-helper.ps1\"\n\npowershell -NoProfile -ExecutionPolicy Bypass -Command ^\n  \"$content = Get-Content -Raw -LiteralPath '%~f0';\" ^\n  \"$script = ($content -split '### POWERSHELL_HELPER_BELOW ###', 2)[1];\" ^\n  \"Set-Content -LiteralPath '%PS_HELPER%' -Value $script -Encoding UTF8\"\n\necho Starting NS DemoHelper Local Helper on http://127.0.0.1:%NSDH_HELPER_PORT%\necho Keep this window open while using the APEX app.\npowershell -NoProfile -ExecutionPolicy Bypass -File \"%PS_HELPER%\"\nexit /b %ERRORLEVEL%\n\n### POWERSHELL_HELPER_BELOW ###\n$ErrorActionPreference = \"Stop\"\n$Port = [int]($env:NSDH_HELPER_PORT)\nif (-not $Port) { $Port = 4173 }\n$ApexOrigin = $env:NSDH_APEX_ORIGIN\nif (-not $ApexOrigin) { $ApexOrigin = \"https://apex.oraclecorp.com\" }\n$State = @{\n  guide = \"\"\n  scRunbook = \"\"\n  assetGenerationPrompt = \"\"\n  setupPrompt = \"\"\n  dryRunCreationPrompt = \"\"\n  preDemoIntelligence = $null\n  demoIntelligence = $null\n  lastGeneratedAt = \"\"\n}\n\nfunction Find-Codex {\n  if ($env:CODEX_BIN -and (Test-Path $env:CODEX_BIN)) { return $env:CODEX_BIN }\n  $cmd = Get-Command codex -ErrorAction SilentlyContinue\n  if ($cmd) { return $cmd.Source }\n  $cmdExe = Get-Command codex.exe -ErrorAction SilentlyContinue\n  if ($cmdExe) { return $cmdExe.Source }\n  return $null\n}\n\nfunction Get-CodexStatus {\n  $cmd = Find-Codex\n  if (-not $cmd) {\n    return @{\n      ok = $true\n      available = $false\n      code = \"CODEX_NOT_AVAILABLE\"\n      message = \"Codex was not found. Open Codex or add it to PATH, then test again.\"\n    }\n  }\n  try {\n    $version = & $cmd --version 2>&1\n    return @{\n      ok = $true\n      available = ($LASTEXITCODE -eq 0)\n      command = $cmd\n      version = ($version -join \"`n\")\n      code = $(if ($LASTEXITCODE -eq 0) { \"CODEX_LOCAL_CONNECTED\" } else { \"CODEX_NOT_AVAILABLE\" })\n      message = $(if ($LASTEXITCODE -eq 0) { \"Codex is available.\" } else { \"Codex responded with a non-zero status.\" })\n    }\n  } catch {\n    return @{\n      ok = $true\n      available = $false\n      command = $cmd\n      code = \"CODEX_NOT_AVAILABLE\"\n      message = $_.Exception.Message\n    }\n  }\n}\n\nfunction ConvertTo-JsonSafe($value) {\n  return ($value | ConvertTo-Json -Depth 20 -Compress)\n}\n\nfunction Write-Json($Context, $Payload, $StatusCode = 200) {\n  $origin = $Context.Request.Headers[\"Origin\"]\n  if (-not $origin) { $origin = $ApexOrigin }\n  if (($origin -ne $ApexOrigin) -and ($origin -notmatch \"^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$\")) {\n    $origin = $ApexOrigin\n  }\n  $Context.Response.StatusCode = $StatusCode\n  $Context.Response.ContentType = \"application/json\"\n  $Context.Response.Headers.Add(\"Access-Control-Allow-Origin\", $origin)\n  $Context.Response.Headers.Add(\"Access-Control-Allow-Methods\", \"GET, POST, OPTIONS\")\n  $Context.Response.Headers.Add(\"Access-Control-Allow-Headers\", \"content-type, x-demo-helper-session-id, x-demo-helper-anonymous-user-id, x-demo-helper-admin-session\")\n  $Context.Response.Headers.Add(\"Access-Control-Allow-Private-Network\", \"true\")\n  $Context.Response.Headers.Add(\"Vary\", \"Origin\")\n  $bytes = [Text.Encoding]::UTF8.GetBytes((ConvertTo-JsonSafe $Payload))\n  $Context.Response.ContentLength64 = $bytes.Length\n  $Context.Response.OutputStream.Write($bytes, 0, $bytes.Length)\n  $Context.Response.Close()\n}\n\nfunction Read-BodyJson($Context) {\n  if ($Context.Request.HasEntityBody -eq $false) { return @{} }\n  $reader = New-Object IO.StreamReader($Context.Request.InputStream, $Context.Request.ContentEncoding)\n  $raw = $reader.ReadToEnd()\n  if (-not $raw) { return @{} }\n  try { return ($raw | ConvertFrom-Json -Depth 20) } catch { return @{} }\n}\n\nfunction Get-InputContext($Body) {\n  return @{\n    companyName = $Body.companyName\n    website = $(if ($Body.companyUrl) { $Body.companyUrl } else { $Body.website })\n    audience = $(if ($Body.audience) { $Body.audience } else { $Body.audienceType })\n    segment = $(if ($Body.marketSegment) { $Body.marketSegment } else { $Body.targetSegment })\n    industry = $Body.industry\n    strategy = $Body.demoStrategy\n    language = $(if ($Body.outputLanguage) { $Body.outputLanguage } else { \"English\" })\n    competition = $Body.competition\n    demoScope = $Body.demoScope\n    demoRequest = $(if ($Body.topic) { $Body.topic } else { $Body.demoRequest })\n    preDemoNotes = $Body.preDemoNotes\n  }\n}\n\nfunction Invoke-CodexText($Prompt) {\n  $status = Get-CodexStatus\n  if (-not $status.available) {\n    return @{ ok = $false; code = \"CODEX_NOT_AVAILABLE\"; error = $status.message }\n  }\n  $workDir = Join-Path $env:TEMP (\"nsdh-helper-\" + [Guid]::NewGuid().ToString(\"N\"))\n  New-Item -ItemType Directory -Path $workDir | Out-Null\n  $outFile = Join-Path $workDir \"codex-output.txt\"\n  $args = @(\n    \"--ask-for-approval\", \"never\",\n    \"exec\",\n    \"-C\", $workDir,\n    \"--sandbox\", \"read-only\",\n    \"--skip-git-repo-check\",\n    \"--output-last-message\", $outFile,\n    \"-\"\n  )\n  try {\n    $psi = New-Object Diagnostics.ProcessStartInfo\n    $psi.FileName = $status.command\n    foreach ($arg in $args) { [void]$psi.ArgumentList.Add($arg) }\n    $psi.RedirectStandardInput = $true\n    $psi.RedirectStandardOutput = $true\n    $psi.RedirectStandardError = $true\n    $psi.UseShellExecute = $false\n    $proc = New-Object Diagnostics.Process\n    $proc.StartInfo = $psi\n    [void]$proc.Start()\n    $proc.StandardInput.Write($Prompt)\n    $proc.StandardInput.Close()\n    if (-not $proc.WaitForExit(240000)) {\n      try { $proc.Kill() } catch {}\n      return @{ ok = $false; code = \"GENERATION_TIMEOUT\"; error = \"Codex generation timed out.\" }\n    }\n    $text = \"\"\n    if (Test-Path $outFile) { $text = Get-Content -Raw -LiteralPath $outFile }\n    if (-not $text) { $text = $proc.StandardOutput.ReadToEnd() + $proc.StandardError.ReadToEnd() }\n    return @{ ok = $true; text = $text }\n  } catch {\n    return @{ ok = $false; code = \"HELPER_INVALID_RESPONSE\"; error = $_.Exception.Message }\n  } finally {\n    Remove-Item -Recurse -Force $workDir -ErrorAction SilentlyContinue\n  }\n}\n\nfunction Invoke-HelperTask($Body, $Task, $Title) {\n  $context = Get-InputContext $Body\n  $prompt = \"You are the Codex backbone for NS DemoHelper. Return concise markdown or valid JSON where useful.`nTask: $Task`nContext:`n$($context | ConvertTo-Json -Depth 20)\"\n  $result = Invoke-CodexText $prompt\n  if (-not $result.ok) { return @{ ok = $true; source = \"local-helper-codex\"; title = $Title; prompt = \"\"; error = $result.error; code = $result.code } }\n  return @{ ok = $true; source = \"local-helper-codex\"; title = $Title; prompt = $result.text; guide = $result.text }\n}\n\nfunction Get-ManifestPayload {\n  return @{\n    ok = $true\n    featureFlags = @{ liveDemoFunctionality = $false }\n    appVersion = \"local-helper-prototype\"\n    buildMetadata = @{ version = \"local-helper-prototype\"; environment = \"local-helper\"; profile = \"mvp\" }\n    manifest = @{ title = \"NS DemoHelper Local Helper\"; segments = @(); context = @{}; defaults = @{} }\n    versions = @()\n    guide = $State.guide\n    guideOutputs = @{\n      scRunbook = $State.scRunbook\n      assetGenerationPrompt = $State.assetGenerationPrompt\n      dryRunCreationPrompt = $State.dryRunCreationPrompt\n      liveDemoFunctionality = $false\n    }\n    setupPrompt = @{ prompt = $State.setupPrompt; account = @{}; setupPlan = @{ items = @() } }\n    preDemoIntelligence = $State.preDemoIntelligence\n    intelligence = $State.demoIntelligence\n  }\n}\n\n$listener = [Net.HttpListener]::new()\n$prefix = \"http://127.0.0.1:$Port/\"\n$listener.Prefixes.Add($prefix)\n$listener.Start()\nWrite-Host \"NS DemoHelper Local Helper\"\nWrite-Host \"Listening on $prefix\"\nWrite-Host \"APEX origin allowed: $ApexOrigin\"\nWrite-Host (\"Codex status: \" + (Get-CodexStatus).message)\nWrite-Host \"Keep this window open while using the APEX app. Press Ctrl+C to stop.\"\n\nwhile ($listener.IsListening) {\n  $ctx = $listener.GetContext()\n  $path = $ctx.Request.Url.AbsolutePath\n  if ($ctx.Request.HttpMethod -eq \"OPTIONS\") {\n    Write-Json $ctx @{ ok = $true } 204\n    continue\n  }\n  try {\n    if ($ctx.Request.HttpMethod -eq \"GET\") {\n      switch -Regex ($path) {\n        \"^/api/helper/status\" { Write-Json $ctx @{ ok = $true; helper = @{ name = \"NS DemoHelper Local Helper\"; mode = \"local-helper\"; port = $Port }; runtime = @{ environment = \"local-helper\"; profile = \"mvp\" }; message = \"Local helper is running.\" }; continue }\n        \"^/api/platform/status\" { Write-Json $ctx @{ ok = $true; runtime = @{ environment = \"local-helper\"; profile = \"mvp\"; appVersion = \"local-helper-prototype\" }; provider = @{ active = \"Codex\"; mode = \"Local Helper\" } }; continue }\n        \"^/api/codex/status\" { Write-Json $ctx (Get-CodexStatus); continue }\n        \"^/api/manifest\" { Write-Json $ctx (Get-ManifestPayload); continue }\n        \"^/api/sc-guide\" { Write-Json $ctx @{ ok = $true; guide = $State.guide; guideOutputs = (Get-ManifestPayload).guideOutputs }; continue }\n        \"^/api/setup-prompt\" { Write-Json $ctx @{ ok = $true; setupPrompt = (Get-ManifestPayload).setupPrompt }; continue }\n      }\n    }\n    if ($ctx.Request.HttpMethod -eq \"POST\") {\n      $body = Read-BodyJson $ctx\n      switch -Regex ($path) {\n        \"^/api/(pre-demo-score|pre-demo-intelligence)\" {\n          $result = Invoke-HelperTask $body \"Score pre-demo discovery quality and return gaps, risks, recommendations, and follow-up questions.\" \"Pre-demo intelligence\"\n          $inputContext = Get-InputContext $body\n          $State.preDemoIntelligence = @{\n            overall_score = 0\n            readiness_label = \"Review needed\"\n            summary = $result.prompt\n            strongest_area = \"\"\n            biggest_risk = \"\"\n            next_best_question = \"\"\n            missing_discovery_items = @()\n            recommended_follow_up_questions = @()\n            recommendations = @()\n            heatmap = @()\n            website_context = @{ summary = \"\"; interesting_points = @(); contradictions = @() }\n            metadata = @{\n              customer_name = $(if ($inputContext.companyName) { $inputContext.companyName } else { \"Current prospect\" })\n              audience_type = $inputContext.audience\n              target_segment = $inputContext.segment\n              industry = $inputContext.industry\n              demo_strategy = $inputContext.strategy\n            }\n          }\n          Write-Json $ctx @{ ok = $true; source = \"local-helper-codex\"; preDemoIntelligence = $State.preDemoIntelligence; summary = $result.prompt; error = $result.error; code = $result.code }\n          continue\n        }\n        \"^/api/(demo-runbook|learn)\" {\n          $result = Invoke-HelperTask $body \"Create the demo playbook, story/runbook, setup prompt, asset prompt, dry-run prompt, and intelligence summary.\" \"Demo runbook\"\n          $State.guide = $result.prompt\n          $State.scRunbook = $result.prompt\n          Write-Json $ctx (Get-ManifestPayload)\n          continue\n        }\n        \"^/api/ppt-prompt\" { Write-Json $ctx (Invoke-HelperTask $body \"Create a PowerPoint/demo asset generation prompt.\" \"Demo asset / PowerPoint prompt\"); continue }\n        \"^/api/(dataset-enhancement|dataset-analysis)\" { Write-Json $ctx (Invoke-HelperTask $body \"Create a dataset enhancement prompt.\" \"Dataset enhancement prompt\"); continue }\n        \"^/api/generate\" { Write-Json $ctx (Invoke-HelperTask $body \"Create the requested demo helper output.\" \"Generation output\"); continue }\n        \"^/api/codex/stop\" { Write-Json $ctx @{ ok = $true; message = \"No active helper request to stop.\" }; continue }\n      }\n    }\n    Write-Json $ctx @{ ok = $false; error = \"Unknown helper endpoint.\"; code = \"HELPER_INVALID_RESPONSE\" } 404\n  } catch {\n    Write-Json $ctx @{ ok = $false; error = $_.Exception.Message; code = \"HELPER_INVALID_RESPONSE\" } 500\n  }\n}\n"},"readme":{"fileName":"README.md","content":"# NS DemoHelper Local Helper\n\nThe Local Helper is a lightweight pilot bridge for the MVP Oracle APEX app.\n\nIt lets a user open the APEX MVP, run a small helper locally, and let the cloud-hosted page call Codex on that user's own machine.\n\n## User Flow\n\n1. Open the NS DemoHelper APEX link.\n2. Download the helper for your operating system.\n3. Save it to your Desktop.\n4. Run the helper and keep the helper window open.\n5. Keep Codex open and signed in.\n6. In the APEX app, click **Test Connection**.\n7. Use the MVP.\n\n## macOS\n\nDownload `helper-mac.command`, save it to Desktop, then double-click it.\n\nIf macOS blocks the first run, right-click the file and choose **Open**.\n\nThe helper uses the built-in `/usr/bin/python3` runtime and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\n## Windows\n\nDownload `helper-windows.bat`, save it to Desktop, then double-click it.\n\nThe script launches a temporary PowerShell helper and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\nIf Windows Defender Firewall asks for access, only allow local/private access if your security policy permits it. The helper is intended to bind to localhost only.\n\n## API\n\nThe helper exposes:\n\n- `GET /api/helper/status`\n- `GET /api/codex/status`\n- `POST /api/generate`\n- `POST /api/pre-demo-score`\n- `POST /api/demo-runbook`\n- `POST /api/ppt-prompt`\n- `POST /api/dataset-enhancement`\n\nFor MVP compatibility it also exposes:\n\n- `GET /api/platform/status`\n- `GET /api/manifest`\n- `GET /api/sc-guide`\n- `GET /api/setup-prompt`\n- `POST /api/pre-demo-intelligence`\n- `POST /api/learn`\n- `POST /api/dataset-analysis`\n\n## Security Notes\n\n- The helper binds to `127.0.0.1` only.\n- It does not expose a public network port.\n- It restricts browser access to `https://apex.oraclecorp.com` and localhost development origins.\n- It does not log API keys, passwords, request bodies, or local files.\n- It is a pilot helper, not a production hosted backend.\n\n## Troubleshooting\n\n`HELPER_NOT_RUNNING`: start the helper and keep the helper window open.\n\n`HELPER_WRONG_PORT`: confirm the app is checking `http://127.0.0.1:4173`.\n\n`HELPER_CORS_BLOCKED`: confirm the APEX app is running from `https://apex.oraclecorp.com` and the helper was not modified.\n\n`CODEX_NOT_AVAILABLE`: open Codex, sign in, and make sure the `codex` command is available.\n\n`GENERATION_TIMEOUT`: Codex did not return in time. Try again with a smaller request.\n\n`HELPER_INVALID_RESPONSE`: the endpoint responded, but not as NS DemoHelper expects.\n"}};
     const nsdhCloudRuntime = location.hostname === "apex.oraclecorp.com";
+    const nsdhRuntimeConfig = Object.freeze(window.NSDH_RUNTIME_CONFIG || {});
+    const nsdhRuntimeMode = nsdhCloudRuntime ? (nsdhRuntimeConfig.runtimeMode || "user-local") : "local-development";
+    const nsdhSharedLocalPilot = nsdhCloudRuntime && nsdhRuntimeMode === "shared-local-pilot";
+    const nsdhLocalHelperRuntime = nsdhCloudRuntime && nsdhRuntimeMode === "local-helper";
+    const nsdhPilotHostLabel = nsdhRuntimeConfig.pilotHostLabel || "Wiljan's Desktop 2 Codex bridge";
+    const nsdhLocalHelperHostLabel = nsdhRuntimeConfig.localHelperHostLabel || "Current user's Local Helper";
     const nsdhDefaultLocalApiBase = "http://127.0.0.1:4173";
     const nsdhLocalApiCandidateBases = [
       "http://127.0.0.1:4173",
@@ -4061,7 +4124,11 @@ If a page takes time to load, narrate the business reason for the next step inst
       status: nsdhCloudRuntime ? "Not tested" : "Local mode",
       base: nsdhCloudRuntime ? "" : "same-origin",
       detail: nsdhCloudRuntime
-        ? "The APEX page has not checked this user's local Codex bridge yet."
+        ? (nsdhSharedLocalPilot
+          ? "The APEX page has not checked the Shared Local Pilot bridge yet."
+          : nsdhLocalHelperRuntime
+            ? "The APEX page has not checked this user's Local Helper yet."
+          : "The APEX page has not checked this user's local Codex bridge yet.")
         : "Local MVP mode uses same-origin API calls.",
       testedAt: ""
     };
@@ -4082,29 +4149,42 @@ If a page takes time to load, narrate the business reason for the next step inst
     const demoHelperAnonymousUserId = browserSessionId("nsdhAnonymousUserId", "user");
     let demoHelperAdminSessionToken = sessionStorage.getItem("nsdhAdminSessionToken") || "";
 
-    function normalizeLocalApiBase(value) {
+    function normalizeApiBase(value, options = {}) {
       const raw = String(value || "").trim().replace(new RegExp("/+$"), "");
       if (!raw) return "";
       try {
         const parsed = new URL(raw);
         const localHost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "::1" || parsed.hostname === "[::1]";
         const localProtocol = parsed.protocol === "http:" || parsed.protocol === "https:";
-        return localHost && localProtocol ? parsed.origin : "";
+        if (localHost && localProtocol) return parsed.origin;
+        if (options.allowRemoteHttps && parsed.protocol === "https:") return parsed.origin;
+        return "";
       } catch {
         return "";
       }
     }
 
+    function normalizeLocalApiBase(value) {
+      return normalizeApiBase(value);
+    }
+
+    function normalizePilotApiBase(value) {
+      return normalizeApiBase(value, { allowRemoteHttps: true });
+    }
+
     function configuredCloudApiBase() {
+      if (nsdhSharedLocalPilot) return normalizePilotApiBase(nsdhRuntimeConfig.pilotApiBaseUrl);
       return normalizeLocalApiBase(localStorage.getItem(nsdhCloudApiBaseStorageKey));
     }
 
     function detectedCloudApiBase() {
+      if (nsdhSharedLocalPilot) return "";
       return normalizeLocalApiBase(localStorage.getItem(nsdhDetectedCloudApiBaseStorageKey));
     }
 
     function cloudApiBase() {
       if (!nsdhCloudRuntime) return "";
+      if (nsdhSharedLocalPilot) return normalizePilotApiBase(nsdhRuntimeConfig.pilotApiBaseUrl);
       if (
         (nsdhCloudConnection.status === "Connected" || nsdhCloudConnection.status === "Codex not detected") &&
         normalizeLocalApiBase(nsdhCloudConnection.base)
@@ -4121,6 +4201,12 @@ If a page takes time to load, narrate the business reason for the next step inst
     }
 
     function cloudApiCandidateBases(preferred = "") {
+      if (nsdhSharedLocalPilot) {
+        return Array.from(new Set([
+          normalizePilotApiBase(preferred),
+          normalizePilotApiBase(nsdhRuntimeConfig.pilotApiBaseUrl)
+        ].filter(Boolean)));
+      }
       return Array.from(new Set([
         normalizeLocalApiBase(preferred),
         configuredCloudApiBase(),
@@ -4137,6 +4223,7 @@ If a page takes time to load, narrate the business reason for the next step inst
         ...extraHeaders
       };
       if (demoHelperAdminSessionToken) headers["x-demo-helper-admin-session"] = demoHelperAdminSessionToken;
+      if (nsdhSharedLocalPilot && nsdhRuntimeConfig.pilotSharedSecret) headers["x-demo-helper-pilot-secret"] = nsdhRuntimeConfig.pilotSharedSecret;
       return headers;
     }
 
@@ -4152,6 +4239,18 @@ If a page takes time to load, narrate the business reason for the next step inst
     }
 
     async function probeCloudApiBase(base) {
+      if (!base) {
+        return {
+          ok: false,
+          base: "",
+          status: nsdhSharedLocalPilot ? "Pilot tunnel unavailable" : nsdhLocalHelperRuntime ? "Helper not running" : "Not detected",
+          detail: nsdhSharedLocalPilot
+            ? "No Shared Local Pilot API URL is configured for this APEX package."
+            : nsdhLocalHelperRuntime
+              ? "No Local Helper endpoint is configured."
+            : "No local bridge endpoint is configured."
+        };
+      }
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 2500);
       try {
@@ -4167,10 +4266,31 @@ If a page takes time to load, narrate the business reason for the next step inst
           payload = null;
         }
         if (!response.ok) {
-          return { ok: false, base, status: "Wrong service", detail: "HTTP " + response.status + " from " + base + "." };
+          const authFailed = response.status === 401 || response.status === 403;
+          return {
+            ok: false,
+            base,
+            status: nsdhSharedLocalPilot && authFailed ? "Pilot auth failed" : nsdhLocalHelperRuntime ? "Helper wrong port" : "Wrong service",
+            detail: (nsdhSharedLocalPilot && authFailed ? "Shared Local Pilot authentication failed. " : "") + "HTTP " + response.status + " from " + base + "."
+          };
         }
         if (!payload || typeof payload.available !== "boolean") {
-          return { ok: false, base, status: "Wrong service", detail: "The endpoint responded, but not like NetSuite Demo Helper." };
+          return { ok: false, base, status: nsdhSharedLocalPilot ? "Pilot invalid response" : nsdhLocalHelperRuntime ? "Helper invalid response" : "Wrong service", detail: "The endpoint responded, but not like NetSuite Demo Helper." };
+        }
+        if (nsdhLocalHelperRuntime) {
+          try {
+            const helperResponse = await fetch(base + "/api/helper/status", {
+              method: "GET",
+              headers: demoHelperHeaders(),
+              signal: controller.signal
+            });
+            const helperPayload = await helperResponse.json();
+            if (!helperResponse.ok || !helperPayload?.ok || !helperPayload?.helper) {
+              return { ok: false, base, status: "Helper invalid response", detail: "The endpoint answered Codex status, but it is not the NS DemoHelper Local Helper." };
+            }
+          } catch {
+            return { ok: false, base, status: "Helper invalid response", detail: "The endpoint answered Codex status, but it does not expose the Local Helper status API." };
+          }
         }
         let platformPayload = null;
         try {
@@ -4181,28 +4301,41 @@ If a page takes time to load, narrate the business reason for the next step inst
           });
           platformPayload = await platformResponse.json();
           if (!platformResponse.ok || !platformPayload?.ok || !platformPayload?.runtime) {
-            return { ok: false, base, status: "Wrong service", detail: "The endpoint answered Codex status, but it is not the NetSuite Demo Helper bridge." };
+            return { ok: false, base, status: nsdhSharedLocalPilot ? "Pilot invalid response" : nsdhLocalHelperRuntime ? "Helper invalid response" : "Wrong service", detail: "The endpoint answered Codex status, but it is not the NetSuite Demo Helper bridge." };
           }
         } catch {
-          return { ok: false, base, status: "Wrong service", detail: "The endpoint answered Codex status, but it does not expose the NetSuite Demo Helper platform API." };
+          return { ok: false, base, status: nsdhSharedLocalPilot ? "Pilot invalid response" : nsdhLocalHelperRuntime ? "Helper invalid response" : "Wrong service", detail: "The endpoint answered Codex status, but it does not expose the NetSuite Demo Helper platform API." };
         }
         return {
           ok: true,
           base,
-          status: payload.available ? "Connected" : "Codex not detected",
-          detail: payload.message || (payload.available ? "Local Codex bridge responded." : "The bridge responded but Codex was not detected."),
+          status: payload.available ? "Connected" : nsdhSharedLocalPilot ? "Pilot Codex unavailable" : "Codex not detected",
+          detail: payload.message || (payload.available ? "Codex bridge responded." : "The bridge responded but Codex was not detected."),
           payload,
           platformPayload
         };
       } catch (error) {
         const aborted = error.name === "AbortError";
+        const message = error.message || String(error);
+        const localHelperBrowserBlock = nsdhLocalHelperRuntime && /failed to fetch|networkerror|load failed/i.test(message);
+        const blockedHint = /failed to fetch|networkerror|load failed/i.test(message)
+          ? " If the bridge is running, the browser, firewall, CORS, or private-network policy may be blocking localhost access."
+          : "";
         return {
           ok: false,
           base,
-          status: aborted ? "Timeout" : "Not detected",
+          status: nsdhSharedLocalPilot
+            ? (aborted ? "Pilot timeout" : "Pilot tunnel unavailable")
+            : nsdhLocalHelperRuntime
+              ? (aborted ? "Helper timeout" : localHelperBrowserBlock ? "Helper CORS blocked" : "Helper not running")
+            : (aborted ? "Timeout" : "Not detected"),
           detail: aborted
             ? "Timed out checking " + base + "."
-            : "Could not reach " + base + ". The local bridge may be stopped, blocked by CORS/firewall, or running on another port."
+            : "Could not reach " + base + ". " + (nsdhSharedLocalPilot
+              ? "The tunnel, proxy, host machine, or bridge may be offline."
+              : nsdhLocalHelperRuntime
+                ? "The Local Helper may be stopped, blocked by the browser/firewall, or running on another port."
+              : "The local bridge may be stopped or running on another port.") + blockedHint
         };
       } finally {
         clearTimeout(timer);
@@ -4226,18 +4359,22 @@ If a page takes time to load, narrate the business reason for the next step inst
       nsdhCloudDetectionPromise = (async () => {
         nsdhLastCloudDetectionAt = Date.now();
         nsdhCloudConnection = {
-          status: "Checking",
-          base: options.preferred || cloudApiBase(),
-          detail: "Checking this browser user's local Codex bridge.",
-          testedAt: new Date().toISOString()
-        };
+        status: "Checking",
+        base: options.preferred || cloudApiBase(),
+        detail: nsdhSharedLocalPilot
+          ? "Checking the Shared Local Pilot bridge."
+          : nsdhLocalHelperRuntime
+            ? "Checking this browser user's Local Helper."
+            : "Checking this browser user's local Codex bridge.",
+        testedAt: new Date().toISOString()
+      };
         renderCloudConnectionStatus();
         const attempts = [];
         for (const base of cloudApiCandidateBases(options.preferred)) {
           const result = await probeCloudApiBase(base);
           attempts.push(result);
           if (result.ok) {
-            localStorage.setItem(nsdhDetectedCloudApiBaseStorageKey, base);
+            if (!nsdhSharedLocalPilot) localStorage.setItem(nsdhDetectedCloudApiBaseStorageKey, base);
             nsdhCloudConnection = {
               status: result.status,
               base,
@@ -4250,14 +4387,20 @@ If a page takes time to load, narrate the business reason for the next step inst
             return nsdhCloudConnection;
           }
         }
-        localStorage.removeItem(nsdhDetectedCloudApiBaseStorageKey);
+        if (!nsdhSharedLocalPilot) localStorage.removeItem(nsdhDetectedCloudApiBaseStorageKey);
         const first = attempts[0] || {};
         const wrongService = attempts.find((attempt) => attempt.status === "Wrong service");
         const timeout = attempts.find((attempt) => attempt.status === "Timeout");
+        const pilotFailure = attempts.find((attempt) => String(attempt.status || "").startsWith("Pilot "));
+        const helperFailure = attempts.find((attempt) => String(attempt.status || "").startsWith("Helper "));
         nsdhCloudConnection = {
-          status: wrongService ? "Wrong service" : timeout ? "Timeout" : "Not detected",
-          base: configuredCloudApiBase() || nsdhDefaultLocalApiBase,
-          detail: wrongService?.detail || timeout?.detail || first.detail || "No local NetSuite Demo Helper bridge was detected on this device.",
+          status: pilotFailure?.status || helperFailure?.status || (wrongService ? "Wrong service" : timeout ? "Timeout" : "Not detected"),
+          base: configuredCloudApiBase() || (nsdhSharedLocalPilot ? "" : nsdhDefaultLocalApiBase),
+          detail: pilotFailure?.detail || helperFailure?.detail || wrongService?.detail || timeout?.detail || first.detail || (nsdhSharedLocalPilot
+            ? "The Shared Local Pilot bridge is not available."
+            : nsdhLocalHelperRuntime
+              ? "The Local Helper is not available on this device."
+            : "No local NetSuite Demo Helper bridge was detected on this device."),
           testedAt: new Date().toISOString(),
           attempts
         };
@@ -4274,7 +4417,7 @@ If a page takes time to load, narrate the business reason for the next step inst
     async function ensureCloudApiEndpoint(path) {
       if (!nsdhCloudRuntime || !String(path || "").startsWith("/api/")) return;
       const detection = await detectLocalCodexEndpoint();
-      if (detection.status !== "Connected" && detection.status !== "Codex not detected") {
+      if (detection.status !== "Connected" && detection.status !== "Codex not detected" && detection.status !== "Pilot Codex unavailable") {
         throw new Error(detection.status + ": " + detection.detail);
       }
     }
@@ -4718,17 +4861,29 @@ If a page takes time to load, narrate the business reason for the next step inst
     async function refreshPlatformStatus() {
       try {
         await ensureCloudApiEndpoint("/api/platform/status");
-        const payload = await api("/api/platform/status");
-        renderPlatformStatus(payload);
-      } catch (error) {
-        activeBrainBadge.classList.remove("ready", "missing", "checking");
-        activeBrainBadge.classList.add("missing");
-        activeBrainText.textContent = nsdhCloudRuntime
-          ? "Active Brain: Codex | Local device | Not detected"
-          : "Active Brain: Unknown";
+      const payload = await api("/api/platform/status");
+      renderPlatformStatus(payload);
+    } catch (error) {
+      activeBrainBadge.classList.remove("ready", "missing", "checking");
+      activeBrainBadge.classList.add("missing");
+      if (nsdhCloudRuntime) {
+        activeBrainText.textContent = "Active Brain: Codex | " + cloudRuntimeModeLabel() + " | " + cloudConnectionDisplayStatus() + " | " + cloudConnectionCode();
+        activeBrainBadge.title = [
+          "Provider: Codex",
+          "Runtime mode: " + cloudRuntimeModeLabel(),
+          nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
+          "Endpoint: " + cloudApiBase(),
+          "Status: " + cloudConnectionDisplayStatus(),
+          "Code: " + cloudConnectionCode(),
+          "Reason: " + (nsdhCloudConnection.detail || error.message),
+          "Action: " + cloudConnectionAction()
+        ].filter(Boolean).join("\n");
+      } else {
+        activeBrainText.textContent = "Active Brain: Unknown";
         activeBrainBadge.title = error.message;
       }
     }
+  }
 
     function renderPlatformStatus(payload = {}) {
       const provider = payload.activeProvider || {};
@@ -4736,11 +4891,13 @@ If a page takes time to load, narrate the business reason for the next step inst
       activeBrainBadge.classList.remove("ready", "missing", "checking");
       activeBrainBadge.classList.add(runtime.available ? "ready" : "missing");
       const sourceText = (payload.activeKnowledgeSourceCount || 0) + " source" + (payload.activeKnowledgeSourceCount === 1 ? "" : "s");
-      const cloudConnection = nsdhCloudRuntime ? " | Local device" : "";
+      const cloudConnection = nsdhCloudRuntime ? " | " + cloudRuntimeModeLabel() : "";
       activeBrainText.textContent = "Active Brain: " + (provider.name || "Not configured") + cloudConnection + " | " + (runtime.runtimeStatus || "Unknown") + " | " + sourceText;
       activeBrainBadge.title = [
         "Provider: " + (provider.name || "Not configured"),
         "Model: " + (provider.defaultModel || "Not configured"),
+        nsdhCloudRuntime ? "Runtime mode: " + cloudRuntimeModeLabel() : "",
+        nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
         nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
         "Connection: " + (runtime.connectionStatus || "Unknown"),
         "Runtime: " + (runtime.runtimeStatus || "Unknown"),
@@ -4812,7 +4969,7 @@ If a page takes time to load, narrate the business reason for the next step inst
     function providerStatusClass(status = "") {
       const text = String(status || "").toLowerCase();
       if (/connected|running|success|registered|ready|healthy|active/.test(text)) return "strong";
-      if (/invalid|missing|timeout|unreachable|disconnected|failure|not detected/.test(text)) return "critical";
+      if (/invalid|missing|timeout|unreachable|unavailable|disconnected|failure|not detected|auth failed/.test(text)) return "critical";
       if (/planned|standby|unknown|not tested/.test(text)) return "advisory";
       return "warning";
     }
@@ -5453,7 +5610,7 @@ If a page takes time to load, narrate the business reason for the next step inst
         codexRuntimeText.textContent = "Codex active";
         codexRuntimeBadge.title = [
           payload.message,
-          nsdhCloudRuntime ? "Connection: Local device" : "",
+          nsdhCloudRuntime ? "Runtime Mode: " + cloudRuntimeModeLabel() : "",
           nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
           payload.version,
           payload.command
@@ -5463,8 +5620,9 @@ If a page takes time to load, narrate the business reason for the next step inst
         codexRuntimeText.textContent = "Codex not detected";
         codexRuntimeBadge.title = [
           payload.message || "The app could not detect Codex on this machine.",
+          nsdhCloudRuntime ? "Runtime Mode: " + cloudRuntimeModeLabel() : "",
           nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "",
-          nsdhCloudRuntime ? "Use Backbone > Test Connection after starting the local bridge." : ""
+          nsdhCloudRuntime ? cloudConnectionAction(nsdhCloudConnection.status) : ""
         ].filter(Boolean).join("\n");
       }
       renderCloudConnectionStatus();
@@ -5474,16 +5632,59 @@ If a page takes time to load, narrate the business reason for the next step inst
     function cloudConnectionStatusText() {
       if (!nsdhCloudRuntime) return "Local MVP mode: same-origin API";
       return [
-        "Connection: Local device",
-        "Status: " + (nsdhCloudConnection.status || "Not tested"),
+        "Runtime Mode: " + cloudRuntimeModeLabel(),
+        "Status: " + cloudConnectionDisplayStatus(),
+        nsdhSharedLocalPilot ? "Host: " + nsdhPilotHostLabel : "",
+        nsdhLocalHelperRuntime ? "Host: " + nsdhLocalHelperHostLabel : "",
         "Endpoint: " + (nsdhCloudConnection.base || cloudApiBase())
-      ].join(" | ");
+      ].filter(Boolean).join(" | ");
+    }
+
+    function cloudRuntimeModeLabel() {
+      if (nsdhSharedLocalPilot) return "Shared Local Pilot";
+      if (nsdhLocalHelperRuntime) return "Local Helper";
+      if (nsdhCloudRuntime) return "Local Device";
+      return "Local Development";
+    }
+
+    function cloudConnectionDisplayStatus(status = nsdhCloudConnection.status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "connected") return "Connected";
+      if (normalized === "pilot codex unavailable") return "Pilot Codex unavailable";
+      if (normalized === "pilot tunnel unavailable") return "Pilot bridge unavailable";
+      if (normalized === "pilot auth failed") return "Pilot auth failed";
+      if (normalized === "pilot timeout") return "Pilot timeout";
+      if (normalized === "pilot invalid response") return "Pilot invalid response";
+      if (normalized === "helper not running") return "Helper not running";
+      if (normalized === "helper wrong port") return "Wrong helper port";
+      if (normalized === "helper cors blocked") return "Helper blocked by browser";
+      if (normalized === "helper timeout") return "Helper timeout";
+      if (normalized === "helper invalid response") return "Helper invalid response";
+      if (normalized === "codex not detected") return "Codex runtime not ready";
+      if (normalized === "wrong service") return "Wrong local service";
+      if (normalized === "timeout") return "Local bridge timeout";
+      if (normalized === "not detected") return "Local bridge not running";
+      if (normalized === "invalid endpoint") return "Invalid endpoint";
+      if (normalized === "checking") return "Checking local bridge";
+      if (normalized === "local mode") return "Local mode";
+      if (normalized === "not tested") return "Not checked yet";
+      return status || "Unknown";
     }
 
     function cloudConnectionCode(status = nsdhCloudConnection.status) {
       const normalized = String(status || "").toLowerCase();
       if (normalized === "connected") return "CODEX_LOCAL_CONNECTED";
-      if (normalized === "codex not detected") return "CODEX_LOCAL_RUNTIME_NOT_READY";
+      if (normalized === "pilot codex unavailable") return "PILOT_CODEX_UNAVAILABLE";
+      if (normalized === "pilot tunnel unavailable") return "PILOT_TUNNEL_UNAVAILABLE";
+      if (normalized === "pilot auth failed") return "PILOT_AUTH_FAILED";
+      if (normalized === "pilot timeout") return "PILOT_TIMEOUT";
+      if (normalized === "pilot invalid response") return "PILOT_INVALID_RESPONSE";
+      if (normalized === "helper not running") return "HELPER_NOT_RUNNING";
+      if (normalized === "helper wrong port") return "HELPER_WRONG_PORT";
+      if (normalized === "helper cors blocked") return "HELPER_CORS_BLOCKED";
+      if (normalized === "helper timeout") return "GENERATION_TIMEOUT";
+      if (normalized === "helper invalid response") return "HELPER_INVALID_RESPONSE";
+      if (normalized === "codex not detected") return nsdhLocalHelperRuntime ? "CODEX_NOT_AVAILABLE" : "CODEX_LOCAL_RUNTIME_NOT_READY";
       if (normalized === "wrong service") return "CODEX_LOCAL_WRONG_SERVICE";
       if (normalized === "timeout") return "CODEX_LOCAL_TIMEOUT";
       if (normalized === "not detected") return "CODEX_LOCAL_NOT_FOUND";
@@ -5495,14 +5696,28 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     function cloudConnectionAction(status = nsdhCloudConnection.status) {
       const normalized = String(status || "").toLowerCase();
-      if (normalized === "connected") return "You can run Codex-backed generation from this cloud page.";
-      if (normalized === "codex not detected") return "Start Codex locally, keep the local bridge running, then click Test Codex Connection.";
+      if (normalized === "connected") return nsdhSharedLocalPilot
+        ? "You can run Codex-backed generation through the Shared Local Pilot bridge."
+        : "You can run Codex-backed generation from this cloud page.";
+      if (normalized === "pilot codex unavailable") return "Ask Wiljan to open/sign in to Codex on Desktop 2 and retry.";
+      if (normalized === "pilot tunnel unavailable") return "Ask Wiljan to start the tunnel/proxy, local MVP bridge, and Codex on Desktop 2.";
+      if (normalized === "pilot auth failed") return "The pilot endpoint rejected the request. Check the tunnel/ORDS proxy authentication setup.";
+      if (normalized === "pilot timeout") return "The pilot endpoint timed out. Check whether Desktop 2, the bridge, or the tunnel is overloaded/offline.";
+      if (normalized === "pilot invalid response") return "The pilot URL responded, but not as the NetSuite Demo Helper bridge.";
+      if (normalized === "helper not running") return "Download and run the Local Helper on this device, keep Codex open/signed in, then click Test Connection.";
+      if (normalized === "helper wrong port") return "The endpoint is reachable but is not the Local Helper. Confirm the helper is running on http://127.0.0.1:4173.";
+      if (normalized === "helper cors blocked") return "The browser blocked the Local Helper request. Confirm the helper is running, then allow localhost/private-network access if the browser or firewall prompts.";
+      if (normalized === "helper timeout") return "The Local Helper did not respond in time. Confirm it is still open and try again.";
+      if (normalized === "helper invalid response") return "The endpoint responded, but not as the NS DemoHelper Local Helper.";
+      if (normalized === "codex not detected") return nsdhLocalHelperRuntime
+        ? "The Local Helper is running, but Codex is not available. Open/sign in to Codex locally, keep the helper window open, then click Test Connection."
+        : "The local bridge responded, but Codex itself is not available. Open/sign in to Codex locally, keep the bridge running, then click Test Codex Connection.";
       if (normalized === "wrong service") return "Check that the endpoint points to NetSuite Demo Helper, not another local service.";
       if (normalized === "timeout") return "Confirm the bridge is running and the browser or firewall is not blocking localhost/private-network access.";
       if (normalized === "invalid endpoint") return "Use a browser-local URL only, such as http://127.0.0.1:4173 or http://localhost:4173.";
       if (normalized === "checking") return "Wait for the local bridge check to finish.";
       if (normalized === "local mode") return "No cloud bridge is needed because the MVP is running locally.";
-      return "Start the local bridge on this machine and click Test Codex Connection.";
+      return "Start the local NetSuite Demo Helper bridge on this machine with npm run mvp, then click Test Codex Connection.";
     }
 
     function formatCloudCheckTime(value = nsdhCloudConnection.testedAt) {
@@ -5520,6 +5735,7 @@ If a page takes time to load, narrate the business reason for the next step inst
       if (codexRuntimeBadge && nsdhCloudRuntime) {
         codexRuntimeBadge.dataset.endpoint = cloudApiBase();
       }
+      renderLocalHelperStatus(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : ""));
     }
 
     function cloudConnectionStatusPanelHtml() {
@@ -5527,13 +5743,15 @@ If a page takes time to load, narrate the business reason for the next step inst
       const statusClass = providerStatusClass(status);
       const endpoint = nsdhCloudRuntime ? (nsdhCloudConnection.base || cloudApiBase()) : "same-origin";
       const reason = nsdhCloudConnection.detail || (status === "Connected"
-        ? "Local Codex bridge responded successfully."
+        ? "Codex bridge responded successfully."
         : "No local Codex bridge check has completed yet.");
       return "<div class='codex-info-card codex-status-panel'>" +
-        "<div class='card-title-row'><strong>Codex Connection Status</strong><span class='status-badge " + escapeClientHtml(statusClass) + "'>" + escapeClientHtml(status) + "</span></div>" +
+        "<div class='card-title-row'><strong>Codex Connection Status</strong><span class='status-badge " + escapeClientHtml(statusClass) + "'>" + escapeClientHtml(cloudConnectionDisplayStatus(status)) + "</span></div>" +
         "<div class='codex-status-grid'>" +
           codexStatusRow("Active Brain", "Codex") +
-          codexStatusRow("Connection Type", nsdhCloudRuntime ? "Local Device" : "Same-Origin Local MVP") +
+          codexStatusRow("Runtime Mode", cloudRuntimeModeLabel()) +
+          (nsdhSharedLocalPilot ? codexStatusRow("Host", nsdhPilotHostLabel) : "") +
+          (nsdhLocalHelperRuntime ? codexStatusRow("Host", nsdhLocalHelperHostLabel) : "") +
           codexStatusRow("Endpoint", endpoint) +
           codexStatusRow("Last Check Time", formatCloudCheckTime()) +
           codexStatusRow("Code", cloudConnectionCode(status)) +
@@ -5541,6 +5759,7 @@ If a page takes time to load, narrate the business reason for the next step inst
         "<div class='codex-status-detail'>" +
           "<p><strong>Reason:</strong> " + escapeClientHtml(reason) + "</p>" +
           "<p><strong>Action:</strong> " + escapeClientHtml(cloudConnectionAction(status)) + "</p>" +
+          (nsdhSharedLocalPilot ? "<p><strong>Warning:</strong> Shared Local Pilot is for controlled internal testing only. It requires Wiljan's Desktop 2, the bridge, tunnel/proxy, and Codex to remain online.</p>" : "") +
         "</div>" +
       "</div>";
     }
@@ -5558,7 +5777,7 @@ If a page takes time to load, narrate the business reason for the next step inst
         cloudConnectionStatusPanelHtml() +
         "<div class='codex-info-grid'>" +
           codexInfoCard("Runtime", active, status.message || "") +
-          codexInfoCard("Connection", nsdhCloudRuntime ? "Local device bridge" : "Same-origin local MVP", nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "Running directly from localhost.") +
+          codexInfoCard("Connection", cloudRuntimeModeLabel(), nsdhCloudRuntime ? "Endpoint: " + cloudApiBase() : "Running directly from localhost.") +
           codexInfoCard("Version", status.version || "-", status.command || "") +
           codexInfoCard("Visible Intelligence Source", intelligenceSource === "codex-structured-json" ? "Codex structured JSON" : intelligenceSource, "This is what drives the visible Intelligence dashboard.") +
           codexInfoCard("Latest Intelligence Task", operator.sessionTitle || "Not run yet", operator.cachedAt ? "Cached: " + operator.cachedAt : "") +
@@ -5576,9 +5795,49 @@ If a page takes time to load, narrate the business reason for the next step inst
         "</ul></div>" +
         (operator.analysis ? "<div class='codex-info-card'><strong>Latest Codex Intelligence Output</strong><pre class='operator-output'>" + escapeClientHtml(operator.analysis) + "</pre></div>" : "");
       attachCodexBridgeControls();
+      attachLocalHelperControls();
     }
 
     function localCodexBridgeSettingsHtml() {
+      if (nsdhSharedLocalPilot) {
+        return "<div class='codex-info-card'><strong>Shared Local Pilot</strong>" +
+          "<p class='hint'>The APEX UI is hosted in Oracle APEX. Codex-backed actions route through the configured pilot endpoint to Wiljan's Desktop 2 Codex bridge. Colleagues do not need to install Node, run npm, or configure localhost.</p>" +
+          "<div class='codex-status-grid'>" +
+            codexStatusRow("Runtime Mode", "Shared Local Pilot") +
+            codexStatusRow("Host", nsdhPilotHostLabel) +
+            codexStatusRow("Pilot API", cloudApiBase() || "Not configured") +
+          "</div>" +
+          "<div class='row'>" +
+            "<button class='secondary' id='testLocalCodexEndpoint' type='button'>Test Connection</button>" +
+          "</div>" +
+          "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
+          "<details><summary>Pilot limitations</summary>" +
+            "<p>This is a controlled internal pilot only. It depends on Wiljan's Desktop 2, the tunnel/proxy, the local MVP bridge, and Codex staying online.</p>" +
+            "<p>If the pilot bridge is unavailable, ask Wiljan to restart the bridge/tunnel/Codex and then click Test Connection.</p>" +
+          "</details></div>";
+      }
+      if (nsdhLocalHelperRuntime) {
+        return "<div class='codex-info-card'><strong>Local Helper</strong>" +
+          "<p class='hint'>The APEX UI is hosted in Oracle APEX. Codex-backed actions call the helper running on this user's own Mac or Windows device. No repo clone or npm command is needed for normal users.</p>" +
+          "<div class='helper-download-grid'>" +
+            "<button class='secondary' type='button' data-local-helper-download='mac'>Download Helper for macOS</button>" +
+            "<button class='secondary' type='button' data-local-helper-download='windows'>Download Helper for Windows</button>" +
+            "<button class='secondary' type='button' data-local-helper-download='readme'>Download Instructions</button>" +
+          "</div>" +
+          "<label for='localCodexEndpointInput'>Local Helper endpoint for this browser</label>" +
+          "<input id='localCodexEndpointInput' type='text' value='" + escapeClientHtml(cloudApiBase() || nsdhDefaultLocalApiBase) + "' placeholder='http://127.0.0.1:4173'>" +
+          "<div class='row'>" +
+            "<button class='secondary' id='testLocalCodexEndpoint' type='button'>Test Connection</button>" +
+            "<button class='secondary' id='saveLocalCodexEndpoint' type='button'>Save For This Browser</button>" +
+            "<button class='secondary' id='resetLocalCodexEndpoint' type='button'>Auto Detect</button>" +
+          "</div>" +
+          "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
+          "<details><summary>Setup guidance</summary>" +
+            "<p><strong>macOS:</strong> download the helper, save it to Desktop, right-click Open if macOS blocks it, keep Codex open/signed in, then test the connection.</p>" +
+            "<p><strong>Windows:</strong> download the helper, save it to Desktop, run it, allow local/private browser access if your policy permits it, keep Codex open/signed in, then test the connection.</p>" +
+            "<p>The helper listens on 127.0.0.1 only and does not expose a public port.</p>" +
+          "</details></div>";
+      }
       const cloudOnlyNote = nsdhCloudRuntime
         ? "This setting is saved only in this browser. Each colleague should use their own localhost or 127.0.0.1 endpoint."
         : "This setting is only needed from the Oracle APEX cloud page.";
@@ -5594,8 +5853,8 @@ If a page takes time to load, narrate the business reason for the next step inst
         "</div>" +
         "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
         "<details><summary>Startup guidance</summary>" +
-          "<p><strong>macOS:</strong> start the NetSuite Demo Helper local bridge with the documented MVP command, keep Codex open, then test this connection.</p>" +
-          "<p><strong>Windows:</strong> start the local bridge on the same port, allow localhost/private network access if prompted by the browser or firewall, then test this connection.</p>" +
+          "<p><strong>macOS:</strong> open the NetSuite Demo Helper project, run <code>npm run mvp</code>, keep Codex open/signed in, then test this connection.</p>" +
+          "<p><strong>Windows:</strong> open the NetSuite Demo Helper project, run <code>npm run mvp</code>, allow localhost/private-network access if prompted by the browser or firewall, then test this connection.</p>" +
           "<p>If your bridge uses another port, enter the full localhost or 127.0.0.1 URL above. Do not enter another person's machine name or shared tunnel unless a secure hosted bridge is intentionally configured.</p>" +
         "</details></div>";
     }
@@ -5605,6 +5864,15 @@ If a page takes time to load, narrate the business reason for the next step inst
       const testButton = document.getElementById("testLocalCodexEndpoint");
       const saveButton = document.getElementById("saveLocalCodexEndpoint");
       const resetButton = document.getElementById("resetLocalCodexEndpoint");
+      if (nsdhSharedLocalPilot) {
+        if (!testButton) return;
+        testButton.onclick = async () => {
+          const result = await detectLocalCodexEndpoint({ force: true });
+          renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
+          await refreshPlatformStatus();
+        };
+        return;
+      }
       if (!input || !testButton || !saveButton || !resetButton) return;
       testButton.onclick = async () => {
         const value = normalizeLocalApiBase(input.value);
@@ -5638,6 +5906,60 @@ If a page takes time to load, narrate the business reason for the next step inst
         renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
         await refreshPlatformStatus();
       };
+    }
+
+    function downloadLocalHelper(kind) {
+      const file = localHelperDownloads[kind];
+      if (!file?.content) {
+        setStatus("The requested Local Helper file is not available in this build.");
+        return;
+      }
+      const blob = new Blob([file.content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = file.fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setStatus("Downloaded " + file.fileName + ". Save it to Desktop, run it, keep Codex open, then click Test Connection.");
+    }
+
+    function renderLocalHelperStatus(message) {
+      document.querySelectorAll("[data-local-helper-status]").forEach((target) => {
+        target.textContent = message || cloudConnectionStatusText();
+      });
+    }
+
+    function attachLocalHelperControls() {
+      document.querySelectorAll("[data-local-helper-download]").forEach((button) => {
+        if (button.dataset.helperAttached === "true") return;
+        button.dataset.helperAttached = "true";
+        button.addEventListener("click", () => downloadLocalHelper(button.dataset.localHelperDownload));
+      });
+      document.querySelectorAll("[data-test-local-helper]").forEach((button) => {
+        if (button.dataset.helperAttached === "true") return;
+        button.dataset.helperAttached = "true";
+        button.addEventListener("click", async () => {
+          const previous = button.textContent;
+          button.disabled = true;
+          button.textContent = "Testing...";
+          renderLocalHelperStatus("Checking the Local Helper and Codex on this device...");
+          try {
+            const result = await detectLocalCodexEndpoint({ force: true, preferred: nsdhDefaultLocalApiBase });
+            renderCodexStatus(result.payload || { available: false, message: result.detail, cloudConnection: result });
+            renderLocalHelperStatus(cloudConnectionStatusText() + (result.detail ? " - " + result.detail : ""));
+            await refreshPlatformStatus();
+          } catch (error) {
+            renderLocalHelperStatus("HELPER_NOT_RUNNING - " + error.message);
+            setStatus(error.message);
+          } finally {
+            button.disabled = false;
+            button.textContent = previous;
+          }
+        });
+      });
     }
 
     function codexInfoCard(label, value, detail = "") {
@@ -8427,6 +8749,7 @@ If a page takes time to load, narrate the business reason for the next step inst
         updateStrategyIndustryHints();
         updateManifestDemoModeHint();
         syncVoiceProviderSettings();
+        attachLocalHelperControls();
         await loadVoices();
         renderStakeholderPersonas();
         await load("App load");
