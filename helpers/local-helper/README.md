@@ -16,7 +16,7 @@ It lets a user open the APEX MVP, run a small helper locally, and let the cloud-
 
 ## macOS
 
-Download `helper-mac.command`, save it to Desktop, then double-click it.
+Download `helper-mac.zip`, save it to Desktop, unzip it, then double-click `helper-mac.command`.
 
 If macOS blocks the first run, right-click the file and choose **Open**.
 
@@ -28,7 +28,7 @@ http://127.0.0.1:4173
 
 ## Windows
 
-Download `helper-windows.bat`, save it to Desktop, then double-click it.
+Download `helper-windows.zip`, save it to Desktop, unzip it, then double-click `helper-windows.bat`.
 
 The script launches a temporary PowerShell helper and listens only on:
 

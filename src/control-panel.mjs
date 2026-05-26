@@ -50,16 +50,21 @@ const pilotRequestLogPath = path.join(projectRoot, "artifacts/runtime/pilot-requ
 const localHelperDir = path.join(projectRoot, "helpers/local-helper");
 const localHelperFiles = {
   mac: {
-    fileName: "helper-mac.command",
-    path: path.join(localHelperDir, "helper-mac.command")
+    fileName: "helper-mac.zip",
+    path: path.join(localHelperDir, "helper-mac.zip"),
+    binary: true,
+    mimeType: "application/zip"
   },
   windows: {
-    fileName: "helper-windows.bat",
-    path: path.join(localHelperDir, "helper-windows.bat")
+    fileName: "helper-windows.zip",
+    path: path.join(localHelperDir, "helper-windows.zip"),
+    binary: true,
+    mimeType: "application/zip"
   },
   readme: {
     fileName: "README.md",
-    path: path.join(localHelperDir, "README.md")
+    path: path.join(localHelperDir, "README.md"),
+    mimeType: "text/markdown"
   }
 };
 const cmsAdminPath = path.join(projectRoot, ".auth/cms-admin.json");
@@ -9231,13 +9236,18 @@ function localHelperDownloadPayload() {
   const payload = {};
   for (const [key, file] of Object.entries(localHelperFiles)) {
     try {
+      const content = readFileSync(file.path);
       payload[key] = {
         fileName: file.fileName,
-        content: readFileSync(file.path, "utf8")
+        mimeType: file.mimeType || (file.binary ? "application/octet-stream" : "text/plain"),
+        encoding: file.binary ? "base64" : "utf8",
+        content: file.binary ? content.toString("base64") : content.toString("utf8")
       };
     } catch {
       payload[key] = {
         fileName: file.fileName,
+        mimeType: file.mimeType || "text/plain",
+        encoding: file.binary ? "base64" : "utf8",
         content: ""
       };
     }
@@ -11837,8 +11847,8 @@ function html(response) {
             <h2>Connect Codex Locally</h2>
             <p class="hint">Use the lightweight helper when the MVP is opened from Oracle APEX and Codex should run on the current user's own Mac or Windows device.</p>
             <div class="helper-download-grid">
-              <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper script. Save it to Desktop, run it, keep Codex open, then test the connection.">Download Helper for macOS</button>
-              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper script. Save it to Desktop, run it, keep Codex open, then test the connection.">Download Helper for Windows</button>
+              <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper zip. Save it to Desktop, unzip it, run it, keep Codex open, then test the connection.">Download Helper for macOS</button>
+              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper zip. Save it to Desktop, unzip it, run it, keep Codex open, then test the connection.">Download Helper for Windows</button>
               <button class="secondary" type="button" data-local-helper-download="readme" data-help="Downloads the helper setup notes and troubleshooting guide.">Download Instructions</button>
             </div>
             <div class="row">
@@ -11849,7 +11859,7 @@ function html(response) {
             <p class="helper-status" data-local-helper-status>Local helper not checked yet.</p>
             <ol class="helper-steps">
               <li>Download the helper for your operating system.</li>
-              <li>Save it to Desktop and run it.</li>
+              <li>Save it to Desktop, unzip it, and run it.</li>
               <li>Keep Codex open and signed in.</li>
               <li>Click Test Connection, then use the MVP.</li>
             </ol>
@@ -14690,8 +14700,8 @@ function html(response) {
           "</div>" +
           "<p class='hint' id='cloudCodexBridgeStatus'>" + escapeClientHtml(cloudConnectionStatusText() + (nsdhCloudConnection.detail ? " - " + nsdhCloudConnection.detail : "")) + "</p>" +
           "<details><summary>Setup guidance</summary>" +
-            "<p><strong>macOS:</strong> download the helper, save it to Desktop, right-click Open if macOS blocks it, keep Codex open/signed in, then test the connection.</p>" +
-            "<p><strong>Windows:</strong> download the helper, save it to Desktop, run it, allow local/private browser access if your policy permits it, keep Codex open/signed in, then test the connection.</p>" +
+            "<p><strong>macOS:</strong> download the helper zip, save it to Desktop, unzip it, right-click Open if macOS blocks the command file, keep Codex open/signed in, then test the connection.</p>" +
+            "<p><strong>Windows:</strong> download the helper zip, save it to Desktop, unzip it, run the batch file, allow local/private browser access if your policy permits it, keep Codex open/signed in, then test the connection.</p>" +
             "<p>The helper listens on 127.0.0.1 only and does not expose a public port.</p>" +
           "</details></div>";
       }
@@ -14771,7 +14781,15 @@ function html(response) {
         setStatus("The requested Local Helper file is not available in this build.");
         return;
       }
-      const blob = new Blob([file.content], { type: "text/plain" });
+      let blob;
+      if (file.encoding === "base64") {
+        const binary = atob(file.content);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+        blob = new Blob([bytes], { type: file.mimeType || "application/octet-stream" });
+      } else {
+        blob = new Blob([file.content], { type: file.mimeType || "text/plain" });
+      }
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
