@@ -63,6 +63,7 @@ describe("NetSuite Demo Helper control panel", () => {
     for (const expected of [
       "NetSuite Demo Helper",
       ">Discovery & Prep<",
+      ">Discovery Prep<",
       ">Playbook<",
       ">Demo Intelligence<",
       ">Pre-Demo Intelligence<",
@@ -71,6 +72,8 @@ describe("NetSuite Demo Helper control panel", () => {
       ">Run<",
       ">Admin<",
       "Pre-demo scoring",
+      "Additional Context",
+      "Ready to prepare discovery questions",
       "Last loaded: not yet",
       "Button/API JSON Instructions",
       "Platform Foundation",
@@ -87,6 +90,7 @@ describe("NetSuite Demo Helper control panel", () => {
     }
 
     assert.doesNotMatch(html, /Refresh Guide/);
+    assert.doesNotMatch(html, /Prepare the story before the screen share starts/);
     assert.doesNotMatch(html, /Open NetSuite Browser/);
     assert.doesNotMatch(html, /Rehearse \+ Prep Account/);
     assert.ok(html.indexOf(">Pre-Demo Intelligence<") < html.indexOf(">Demo Intelligence<"));
@@ -153,6 +157,24 @@ describe("NetSuite Demo Helper control panel", () => {
     assert.ok(Number.isFinite(payload.preDemoIntelligence.overall_score));
     assert.ok(Array.isArray(payload.preDemoIntelligence.heatmap));
     assert.ok(Array.isArray(payload.preDemoIntelligence.recommended_follow_up_questions));
+  });
+
+  it("generates Discovery Prep questions without creating a playbook", async () => {
+    const payload = await requestJson(server, "/api/discovery-prep", {
+      method: "POST",
+      body: JSON.stringify(draftPrepPayload({
+        preDemoNotes: "Discovery notes mention finance consolidation, integration uncertainty, and missing success metrics.",
+        additionalContext: "Bridge call excerpt: CFO wants to understand what should be validated before any demo story is finalized."
+      }))
+    });
+
+    assert.equal(payload.ok, true);
+    assert.equal(payload.draft, true);
+    assert.match(payload.discoveryPrep.markdown, /# Discovery Prep/);
+    assert.match(payload.discoveryPrep.markdown, /Priority Discovery Questions/);
+    assert.equal(payload.discoveryPrep.source, "codex-background-operator");
+    assert.ok(!payload.guide);
+    assert.ok(!payload.guideOutputs);
   });
 
   it("protects and exposes the admin session database viewer", async () => {
@@ -239,6 +261,7 @@ describe("NetSuite Demo Helper control panel", () => {
     const catalog = await requestJson(server, "/api/button-instructions");
     assert.equal(catalog.ok, true);
     assert.ok(catalog.buttons.length > 20);
+    assert.ok(catalog.buttons.some((button) => button.id === "discovery-prep"));
     assert.ok(catalog.buttons.some((button) => button.id === "learn-create-demo"));
     assert.ok(catalog.buttons.some((button) => button.id === "refresh-pre-demo-scoring"));
     assert.ok(catalog.buttons.some((button) => button.id === "export-discovery-followups"));
@@ -301,6 +324,12 @@ describe("NetSuite Demo Helper control panel", () => {
 
   it("loads and validates future AI providers and knowledge sources in Admin", async () => {
     const cookie = await ensureCmsCookie();
+    const cms = await requestJson(server, "/api/cms", {
+      headers: { cookie }
+    });
+    assert.equal(cms.ok, true);
+    assert.ok(cms.blocks.some((block) => block.id === "discoveryPrepGuidance"));
+    assert.ok(cms.blocks.some((block) => block.label === "Discovery Prep Prompt"));
 
     const providers = await requestJson(server, "/api/platform/ai-providers", {
       headers: { cookie }

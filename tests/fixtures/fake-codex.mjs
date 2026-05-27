@@ -37,6 +37,7 @@ function readStdin() {
 function chooseOutput(prompt) {
   if (prompt.includes("Return VALID JSON ONLY")) return JSON.stringify(intelligencePayload(), null, 2);
   if (prompt.includes("Create 10 to 14 questions")) return discoveryQuestions();
+  if (prompt.includes("Discovery Prep question set")) return discoveryPrep();
   if (prompt.includes("Output exactly as Markdown with these sections") || prompt.includes("complete updated SC guide")) {
     return scGuide();
   }
@@ -44,6 +45,44 @@ function chooseOutput(prompt) {
     return prepAnalysis();
   }
   return "Fake Codex response for automated tests.";
+}
+
+function discoveryPrep() {
+  return `# Discovery Prep
+
+## Executive Summary
+The opportunity has enough finance-led context to plan discovery, but success metrics and integration boundaries need confirmation.
+
+## Priority Discovery Questions
+1. What business outcome must the demo prove for the executive sponsor?
+2. Which current reporting or close process causes the most risk today?
+3. What would make the team confident that the demo scope is right-sized?
+
+## Questions By Topic
+### Finance
+- Which finance process needs the clearest before-and-after story?
+
+### Reporting
+- Which reports are most trusted today, and which ones require manual reconciliation?
+
+## Stakeholder-Specific Questions
+- CFO: What metric would make this initiative worth prioritizing now?
+- IT Director: Which integration or data dependency could slow a demo or project?
+
+## Gap Validation Questions
+- Which current system constraints have not been confirmed yet?
+
+## Demo-Relevance Questions
+- What should we avoid showing because it is out of scope or politically sensitive?
+
+## Risks / Watchouts
+- Do not assume all countries, entities, or integrations are in phase one.
+
+## Suggested Opening Question
+What must this discovery call clarify so the demo feels specific rather than generic?
+
+## Suggested Closing Question
+What should we confirm before we build the final demo story?`;
 }
 
 function prepAnalysis() {

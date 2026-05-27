@@ -85,6 +85,7 @@ let helperStepsOverride = null;
 let additionalDemoSources = [];
 let dryRunCreationGuidanceOverride = "";
 let preDemoIntelligenceGuidanceOverride = "";
+let discoveryPrepGuidanceOverride = "";
 let scStoryRunbookGuidanceOverride = "";
 let demoAssetPromptGuidanceOverride = "";
 let codexAccountSetupGuidanceOverride = "";
@@ -138,6 +139,7 @@ function defaultTestPrepData() {
     demoScope: "Financials first Services premium, including core financials, multi-entity reporting, approvals, SuiteProjects for flight or booking profitability, and Fixed Asset Management. Advanced inventory, FP&A, Payhawk or expenses, and broader procure-to-pay are discovery or phase considerations unless confirmed.",
     competition: "Known competition/status quo: SAP S/4HANA and Microsoft Dynamics are being considered alongside the current architecture of Access ERP, Jedox consolidation/planning, spreadsheets, email-heavy AP, and Payhawk/Access Expense in parts of the business.",
     companyUrl: "https://www.aircharterservice.com/",
+    additionalContext: "Extra context can include CRM notes, bridge call snippets, sales qualification notes, stakeholder comments, email summaries, internal deal risks, or competitive observations that should shape discovery questions and demo preparation.",
     preDemoNotes: `# Discovery & Demo Preparation Notes
 
 ## Current Scope & Discussion Areas
@@ -1067,6 +1069,29 @@ const server = http.createServer(async (request, response) => {
       });
       return json(response, payload);
     }
+    if (request.method === "POST" && request.url === "/api/discovery-prep") {
+      request.demoHelperAction = "Discovery Prep";
+      const body = await readBody(request);
+      const manifest = await readManifest();
+      const draftManifest = await manifestWithCurrentPrepInputsAndWebsite(manifest, body, {
+        preferStoredPreDemoWebsiteContext: true,
+        allowWebsiteScan: false
+      });
+      const discoveryPrep = await discoveryPrepPayloadWithCodex(draftManifest, body);
+      const payload = {
+        ok: true,
+        draft: true,
+        discoveryPrep,
+        generatedAt: discoveryPrep.generatedAt
+      };
+      await recordDemoSession(request, {
+        action: request.demoHelperAction,
+        status: "success",
+        input: body,
+        output: payload
+      });
+      return json(response, payload);
+    }
     if (request.method === "GET" && request.url === "/api/versions") return json(response, { versions: await listVersions() });
     if (request.method === "GET" && request.url === "/api/run-state") return json(response, runState());
     if (request.method === "GET" && request.url?.startsWith("/api/voices")) {
@@ -1383,6 +1408,7 @@ function manifestWithCurrentPrepInputs(manifest, body = {}) {
   const preDemoNotes = inputMode === "request-only"
     ? ""
     : String(body.preDemoNotes ?? next.context.preDemoNotes ?? "").trim();
+  const additionalContext = String(body.additionalContext ?? next.context.additionalContext ?? next.context.demoRequest.additionalContext ?? "").trim();
   const demoScope = String(body.demoScope ?? next.context.demoScope ?? next.context.demoRequest.demoScope ?? "").trim();
   const competition = String(body.competition ?? next.context.competition ?? next.context.demoRequest.competition ?? "").trim();
   const audience = normalizeAudience(body.audience || next.context.audience?.value || next.context.demoRequest.audience);
@@ -1394,6 +1420,7 @@ function manifestWithCurrentPrepInputs(manifest, body = {}) {
   const companyUrl = normalizeCompanyUrl(body.companyUrl || next.context.company?.url || "");
 
   next.context.preDemoNotes = preDemoNotes;
+  next.context.additionalContext = additionalContext;
   next.context.demoScope = demoScope;
   next.context.competition = competition;
   next.context.audience = audience;
@@ -1428,6 +1455,7 @@ function manifestWithCurrentPrepInputs(manifest, body = {}) {
     outputLanguage: outputLanguage.value,
     demoScope,
     competition,
+    additionalContext,
     instructions: String(body.instructions ?? next.context.demoRequest.instructions ?? "")
   };
   next.defaults.valueStatementIntensity = body.valueIntensity || next.defaults.valueStatementIntensity || "balanced";
@@ -1557,7 +1585,7 @@ function deriveCompanyNameFromWebsiteContext(websiteContext) {
 }
 
 function hasPrepPayload(body = {}) {
-  return ["topic", "inputMode", "demoScope", "competition", "audience", "marketSegment", "demoStrategy", "industry", "manifestDemoMode", "outputLanguage", "companyUrl", "preDemoNotes", "instructions"].some((key) => Object.hasOwn(body, key));
+  return ["topic", "inputMode", "demoScope", "competition", "audience", "marketSegment", "demoStrategy", "industry", "manifestDemoMode", "outputLanguage", "companyUrl", "preDemoNotes", "additionalContext", "instructions"].some((key) => Object.hasOwn(body, key));
 }
 
 async function loadCmsContentIntoRuntime() {
@@ -1905,6 +1933,7 @@ async function sessionSnapshotFromPayload(request, details = {}) {
       competition: input.competition || context.competition,
       demoRequest: input.topic || context.demoRequest?.topic,
       preDemoNotes: input.preDemoNotes || context.preDemoNotes,
+      additionalContext: input.additionalContext || context.additionalContext || context.demoRequest?.additionalContext,
       audience: input.audience || context.audience,
       targetSegment: input.marketSegment || context.targetAudience,
       industry: input.industry || context.industry,
@@ -1924,6 +1953,7 @@ async function sessionSnapshotFromPayload(request, details = {}) {
       dryRunManifest: output.manifest,
       intelligence,
       preDemoIntelligence: preDemo,
+      discoveryPrep: output.discoveryPrep,
       followUpQuestions: output.questions || preDemo.recommended_follow_up_questions,
       datasetAnalysis: output.datasetAnalysis || output.analysis || {}
     })
@@ -1999,6 +2029,7 @@ function isSessionLoggableRequest(request) {
   return [
     "/api/learn",
     "/api/pre-demo-intelligence",
+    "/api/discovery-prep",
     "/api/intelligence",
     "/api/intelligence/follow-up-questions",
     "/api/intelligence/improve-guide",
@@ -2015,6 +2046,7 @@ function sessionActionLabelForRequest(request) {
   const body = request.demoHelperBody || {};
   if (url === "/api/learn") return body.createRunnableManifest ? "Learn / Create Demo & Dry-Run" : "Learn / Create Demo";
   if (url === "/api/pre-demo-intelligence") return "Pre-demo scoring";
+  if (url === "/api/discovery-prep") return "Discovery Prep";
   if (url === "/api/intelligence/follow-up-questions") return "Generate Discovery Follow-Up Questions";
   if (url === "/api/intelligence/improve-guide") return "Apply All Recommendations To Playbook";
   if (url === "/api/intelligence/apply-action") return "Apply Edited Output To Playbook";
@@ -2346,6 +2378,7 @@ function buttonInstructionCatalog() {
     instruction: "Editable output from the AI action preview. This text is applied to the playbook only when the user clicks Apply Edited Output To Playbook."
   };
   const buttons = [
+    buttonInstruction("discovery-prep", "Discovery Prep", "Discovery & Prep", "POST", "/api/discovery-prep", prepPayload, "Generates targeted discovery call questions from the current customer, scope, notes, Additional Context, website signal when available, and Admin Discovery Prep prompt. It does not create a demo story, PPT prompt, or dataset setup prompt.", true),
     buttonInstruction("pre-demo-scoring", "Pre-demo scoring", "Discovery & Prep", "POST", "/api/pre-demo-intelligence", prepPayload, "Runs a Codex pre-demo operator to score only the pre-demo input quality. This is where the company website is scanned once and stored for reuse.", true),
     buttonInstruction("learn-create-demo", "Learn / Create Demo", "Discovery & Prep", "POST", "/api/learn", { ...prepPayload, createRunnableManifest: false }, "Runs the Codex prep operator, generates the playbook, generates Demo Intelligence once, then derives Pre-Demo Intelligence from that result.", true),
     buttonInstruction("learn-create-demo-dry-run", "Learn / Create Demo & Dry-Run", "Discovery & Prep", "POST", "/api/learn", { ...prepPayload, createRunnableManifest: true }, "Same as Learn / Create Demo, plus creates the dry-run creation prompt and builds the runnable manifest from that prompt. The browser dry-run is then started through /api/run.", true, [
@@ -2495,6 +2528,7 @@ function buttonPrepPayloadExample() {
     competition: defaults.competition,
     companyUrl: defaults.companyUrl,
     preDemoNotes: defaults.preDemoNotes,
+    additionalContext: defaults.additionalContext,
     valueIntensity: "balanced",
     voiceProvider: "say",
     voice: "Samantha"
@@ -2645,6 +2679,7 @@ function defaultCmsContent() {
       helperSteps: cmsJsonBlock("How The Helper Works Steps", "The explanation steps shown on the Prep page.", helperSteps(), now),
       additionalDemoSources: cmsJsonBlock("Additional Sources / Demo Logic", "Add internal playbooks, source notes, reusable rules, and generation logic the helper should consider when creating demos.", defaultAdditionalDemoSources(), now),
       preDemoIntelligenceGuidance: cmsTextBlock("Pre-Demo Intelligence Guidance", "Editable rules sent to Codex for scoring pre-demo notes and discovery quality.", defaultPreDemoIntelligenceGuidance(), now),
+      discoveryPrepGuidance: cmsTextBlock("Discovery Prep Prompt", "Admin-only rules sent to Codex for creating targeted discovery call questions from the current page context.", defaultDiscoveryPrepGuidance(), now),
       scStoryRunbookGuidance: cmsTextBlock("Personalized SC Story And Runbook Logic", "Admin-only rules sent to Codex for creating the Personalized Demo Story And Runbook section.", defaultScStoryRunbookGuidance(), now),
       demoAssetPromptGuidance: cmsTextBlock("Demo Asset / PowerPoint Prompt Logic", "Admin-only rules sent to Codex for creating the Demo Asset Generation Prompt section.", defaultDemoAssetPromptGuidance(), now),
       codexAccountSetupGuidance: cmsTextBlock("Codex Account Setup Prompt Logic", "Admin-only rules used after the Personalized SC Story And Runbook is completed to derive the NetSuite Prep Summary and account setup prompt.", defaultCodexAccountSetupGuidance(), now),
@@ -2755,6 +2790,7 @@ function applyCmsContentToRuntime(content) {
   helperStepsOverride = Array.isArray(blocks.helperSteps?.value) ? structuredClone(blocks.helperSteps.value) : null;
   additionalDemoSources = Array.isArray(blocks.additionalDemoSources?.value) ? structuredClone(blocks.additionalDemoSources.value) : [];
   preDemoIntelligenceGuidanceOverride = String(blocks.preDemoIntelligenceGuidance?.value || "").trim();
+  discoveryPrepGuidanceOverride = String(blocks.discoveryPrepGuidance?.value || "").trim();
   scStoryRunbookGuidanceOverride = String(blocks.scStoryRunbookGuidance?.value || "").trim();
   demoAssetPromptGuidanceOverride = String(blocks.demoAssetPromptGuidance?.value || "").trim();
   codexAccountSetupGuidanceOverride = String(blocks.codexAccountSetupGuidance?.value || "").trim();
@@ -3054,6 +3090,10 @@ function preDemoIntelligenceGuidance() {
   return preDemoIntelligenceGuidanceOverride || defaultPreDemoIntelligenceGuidance();
 }
 
+function discoveryPrepGuidance() {
+  return discoveryPrepGuidanceOverride || defaultDiscoveryPrepGuidance();
+}
+
 function defaultPreDemoIntelligenceGuidance() {
   return [
     "Score the quality of discovery notes before full demo generation.",
@@ -3061,6 +3101,18 @@ function defaultPreDemoIntelligenceGuidance() {
     "Keep this lighter than Demo Intelligence. It should help an SC decide what discovery is missing before asking Codex to build the full guide.",
     "Do not score generated demo flow, manifest pacing, rehearsal quality, or demo run behavior on this page.",
     "Make follow-up questions specific to what is missing from the notes, company website context, selected audience, target segment, strategy, industry, and scope."
+  ].join("\n");
+}
+
+function defaultDiscoveryPrepGuidance() {
+  return [
+    "Create targeted discovery call questions only. Do not generate a demo story, PowerPoint prompt, dataset setup prompt, or full runbook.",
+    "Analyze all available page context: company, website context when already available, target segment, audience type, demo strategy, industry, scope, competition/status quo, demo request, pre-demo notes, Additional Context, and Admin guidance.",
+    "Infer the business topics that are relevant to the supplied context, SKUs, scope, industry, and stakeholder mix. Include only topics that matter for this opportunity.",
+    "Group questions by topic and stakeholder. Tailor the wording to the likely role pressure and what the SC needs to learn before preparing a stronger demo.",
+    "Avoid generic discovery questions, over-asking irrelevant areas, or treating assumptions as facts. Mark assumptions clearly.",
+    "Focus on what materially changes demo scope, story, setup/data requirements, proof moments, risks, success metrics, timeline, and what should not be shown.",
+    "Keep the output practical, concise, and ready to use before or during a discovery call."
   ].join("\n");
 }
 
@@ -3147,6 +3199,7 @@ function activeAdditionalDemoSources(context = {}) {
   const searchable = [
     context.topic,
     context.preDemoNotes,
+    context.additionalContext,
     context.demoScope,
     context.audience?.label,
     context.audience?.value,
@@ -3515,6 +3568,7 @@ function applyLearningRequest(manifest, body, company) {
   const instructions = String(body.instructions || "").trim() || defaultScInstructions();
   const demoScope = String(body.demoScope || "").trim();
   const competition = String(body.competition || "").trim();
+  const additionalContext = String(body.additionalContext || "").trim();
   const rawPreDemoNotes = String(body.preDemoNotes || "").trim();
   const preDemoNotes = inputMode === "request-only" ? "" : rawPreDemoNotes;
   const rawTopic = String(body.topic || "").trim();
@@ -3533,9 +3587,9 @@ function applyLearningRequest(manifest, body, company) {
   const demoStrategy = normalizeDemoStrategy(body.demoStrategy || body.strategy);
   const industry = normalizeIndustry(body.industry);
   const flowPrinciples = demoFlowPrinciples({ demoScope, audience, marketSegment, demoStrategy, industry });
-  const adminSources = activeAdditionalDemoSources({ topic, preDemoNotes, demoScope, audience, marketSegment, demoStrategy, industry });
+  const adminSources = activeAdditionalDemoSources({ topic, preDemoNotes, additionalContext, demoScope, audience, marketSegment, demoStrategy, industry });
   const adminSourceInstruction = additionalDemoSourcesSummary(adminSources);
-  const includeCash360 = cash360RequestedFromText(topic, preDemoNotes, demoScope);
+  const includeCash360 = cash360RequestedFromText(topic, preDemoNotes, additionalContext, demoScope);
 
   const next = structuredClone(manifest);
   if (!includeCash360) {
@@ -3556,6 +3610,7 @@ function applyLearningRequest(manifest, body, company) {
   next.context.company = company;
   next.context.codexPrepAnalysis = company.codexPrepAnalysis || null;
   next.context.preDemoNotes = preDemoNotes;
+  next.context.additionalContext = additionalContext;
   next.context.demoScope = demoScope;
   next.context.competition = competition;
   next.context.audience = audience;
@@ -3571,11 +3626,12 @@ function applyLearningRequest(manifest, body, company) {
     instruction: outputLanguageInstruction(outputLanguage)
   };
   next.context.audiencePlaybook = buildAudiencePlaybook(audience, marketSegment);
-  next.context.setupPlan = inferSetupPlan({ topic, preDemoNotes, instructions, demoScope }, company, audience, marketSegment);
+  next.context.setupPlan = inferSetupPlan({ topic, preDemoNotes, additionalContext, instructions, demoScope }, company, audience, marketSegment);
   next.context.demoRequest = {
     topic,
     demoScope,
     competition,
+    additionalContext,
     audience: audience.value,
     marketSegment: marketSegment.value,
     targetAudience: marketSegment.value,
@@ -3597,7 +3653,7 @@ function applyLearningRequest(manifest, body, company) {
     instructions,
     additionalDemoSources: adminSources,
     learnedAt: new Date().toISOString(),
-    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. Start with a short general or executive NetSuite overview, then order the demo from highest-value proof moments to supporting detail. Demo scope: ${demoScope || "Use the generated request and notes as scope."} ${competition ? `Competition/status quo context to consider: ${competition}. ` : ""}${audienceExecutionInstruction(audience, marketSegment)} ${demoStrategyInstruction(demoStrategy, industry)} ${adminSourceInstruction ? `Additional Admin logic to consider: ${adminSourceInstruction}` : ""}`
+    instruction: `Use NetSuite navigation/search first, use standard reports for prospect-facing demos, and keep custom report links only as explicit fallbacks. Start with a short general or executive NetSuite overview, then order the demo from highest-value proof moments to supporting detail. Demo scope: ${demoScope || "Use the generated request and notes as scope."} ${competition ? `Competition/status quo context to consider: ${competition}. ` : ""}${additionalContext ? `Additional context to consider: ${additionalContext}. ` : ""}${audienceExecutionInstruction(audience, marketSegment)} ${demoStrategyInstruction(demoStrategy, industry)} ${adminSourceInstruction ? `Additional Admin logic to consider: ${adminSourceInstruction}` : ""}`
   };
   next.context.navigationPolicy = {
     preferred: ["NetSuite global search", "NetSuite navigation bar"],
@@ -3817,7 +3873,11 @@ function inputModeSource(inputMode) {
 }
 
 function notesForCompanyAnalysis(body) {
-  return normalizeInputMode(body.inputMode) === "request-only" ? "" : body.preDemoNotes;
+  const notes = normalizeInputMode(body.inputMode) === "request-only" ? "" : body.preDemoNotes;
+  return [
+    notes,
+    body.additionalContext ? `Additional Context:\n${body.additionalContext}` : ""
+  ].filter(Boolean).join("\n\n");
 }
 
 function normalizeVoiceProvider(value) {
@@ -4095,7 +4155,7 @@ function cash360RequestedFromText(...values) {
 }
 
 function inferSetupPlan(source, company, audience, marketSegment) {
-  const combined = `${source.topic || ""}\n${source.preDemoNotes || ""}\n${source.instructions || ""}\n${source.demoScope || ""}`.toLowerCase();
+  const combined = `${source.topic || ""}\n${source.preDemoNotes || ""}\n${source.additionalContext || ""}\n${source.instructions || ""}\n${source.demoScope || ""}`.toLowerCase();
   const requestedCreate = /(create|setup|set up|configure|build|prepare|seed|sample|demo data|test data|record|transaction|import|upload)/.test(combined);
   const excludesPurchaseOrders = /(don['’]?t operate with po|do not operate with po|no po['’]?s|no purchase orders|without purchase orders|not using purchase orders)/.test(combined);
   const items = [];
@@ -4910,6 +4970,41 @@ async function codexDiscoveryFollowUpQuestions(manifest, guide, intelligence, op
   };
 }
 
+async function discoveryPrepPayloadWithCodex(manifest, body = {}) {
+  const company = manifest.context?.company || {};
+  const sessionTitle = `created by demo helper - ${company.companyName || websiteNameSlug(company.url) || "customer"} - discovery prep`;
+  const prompt = codexDiscoveryPrepPrompt(manifest, body, sessionTitle);
+  const result = await runCachedCodexOperator({
+    cachePrefix: "discovery-prep",
+    cacheVersion: "codex-discovery-prep-v1",
+    cacheParts: {
+      manifestContext: manifest.context || {},
+      body,
+      guidance: discoveryPrepGuidance()
+    },
+    prompt,
+    sessionTitle,
+    fileStem: `${companyFileSlug(manifest)}-discovery-prep`,
+    timeoutMs: 240000
+  });
+  if (!result.ok) {
+    throw new Error(`Codex Discovery Prep operator failed: ${result.error || "No output returned"}`);
+  }
+  const markdown = result.output?.trim();
+  if (!markdown) throw new Error("Codex Discovery Prep operator did not return discovery questions.");
+  return {
+    markdown,
+    generatedAt: new Date().toISOString(),
+    source: "codex-background-operator",
+    operator: "codex-background-operator",
+    sessionTitle,
+    promptFile: result.promptFile,
+    outputFile: result.outputFile,
+    codexLog: result.log,
+    codexError: ""
+  };
+}
+
 async function codexPrepOperatorAnalysis(manifest, body, company) {
   const sessionTitle = `created by demo helper - ${company.companyName || websiteNameSlug(company.url) || "customer"}`;
   const prompt = codexPrepPrompt(manifest, body, company, sessionTitle);
@@ -5014,6 +5109,82 @@ function normalizeCodexScGuide(output, localDraft, operator) {
   return `${guide}\n\n${operatorNote}\n`;
 }
 
+function codexDiscoveryPrepPrompt(manifest, body, sessionTitle) {
+  const company = manifest.context?.company || {};
+  const source = manifest.context || {};
+  const request = source.demoRequest || {};
+  const websiteContext = normalizedWebsiteContext(company.websiteContext);
+  return `Task title: ${sessionTitle}
+
+You are a senior NetSuite Solution Consultant and discovery strategist. Create a Discovery Prep question set for the SC.
+
+This task is only for discovery call preparation. Do not create a demo story, demo runbook, PowerPoint content, dataset enhancement prompt, or account setup prompt.
+
+Admin-owned Discovery Prep Prompt:
+${discoveryPrepGuidance()}
+
+Company and opportunity context:
+${JSON.stringify({
+    company: {
+      companyName: company.companyName || "",
+      url: company.url || "",
+      title: company.title || "",
+      description: company.description || "",
+      likelyPriorities: company.likelyPriorities || [],
+      industrySignals: company.industrySignals || [],
+      websiteContext
+    },
+    audience: source.audience,
+    targetAudience: source.targetAudience || source.marketSegment,
+    demoStrategy: source.demoStrategy,
+    industry: source.industry,
+    demoScope: source.demoScope,
+    competition: source.competition || request.competition,
+    demoRequest: request,
+    preDemoNotes: source.preDemoNotes,
+    additionalContext: source.additionalContext || request.additionalContext || body.additionalContext || "",
+    additionalDemoSources: source.additionalDemoSources || []
+  }, null, 2).slice(0, 18000)}
+
+Output exactly as Markdown with these sections:
+
+# Discovery Prep
+
+## Executive Summary
+Short summary of what we know and what still needs confirmation.
+
+## Priority Discovery Questions
+The most important questions to ask first.
+
+## Questions By Topic
+Group questions under only the relevant business topics. Possible topics include Finance, Consolidation, Reporting, Projects, Procurement, Inventory, Revenue Recognition, Integrations, Tax / Localization, Approvals, Operations, IT / Architecture, Executive Priorities, Current Systems, Data / Migration, Success Metrics, Timeline / Decision Process.
+
+## Stakeholder-Specific Questions
+Questions tailored to relevant personas such as CFO, Controller, Finance Manager, IT Director, Operations Lead, Project Manager, Procurement Lead, or Sales / Commercial Lead.
+
+## Gap Validation Questions
+Questions that validate missing or weak discovery items.
+
+## Demo-Relevance Questions
+Questions that help decide what should or should not be shown later.
+
+## Risks / Watchouts
+Discovery traps, unsupported assumptions, sensitive topics, or areas where the SC should be careful.
+
+## Suggested Opening Question
+One strong opening question.
+
+## Suggested Closing Question
+One strong closing question to confirm next steps and value.
+
+Rules:
+- Make every question specific to the supplied opportunity context.
+- Include only topics that are relevant to the notes, industry, scope, SKUs/modules, stakeholders, and Additional Context.
+- Mark assumptions clearly and never present unsupported claims as facts.
+- Avoid generic questions that could apply to any prospect.
+- Prioritize questions that materially change demo scope, proof moments, setup/data needs, risk, stakeholder alignment, or success metrics.`;
+}
+
 function codexDiscoveryPrompt(manifest, guide, intelligence, sessionTitle, options = {}) {
   const company = manifest.context?.company || {};
   const metadata = intelligence.demo_metadata || {};
@@ -5049,6 +5220,9 @@ ${request.instructions || defaultScInstructions()}
 
 Pre-demo notes:
 ${source.preDemoNotes || "No pre-demo notes were provided."}
+
+Additional Context:
+${source.additionalContext || request.additionalContext || "No additional context was provided."}
 
 Additional SC comments for this question generation:
 ${additionalComments || "No additional SC comments were provided."}
@@ -6717,7 +6891,7 @@ function codexPreDemoIntelligencePrompt(manifest, localPreDemo, sessionTitle) {
 
 You are the Codex backbone for the NetSuite Demo Helper Pre-Demo Intelligence page.
 
-Your job is to score only the current pre-demo information and discovery quality before a full SC guide is generated. Do not score the generated demo flow, browser dry-run, manifest pacing, or rehearsal quality. Focus on whether the SC has enough customer/deal context to create a strong demo.
+Your job is to score only the current pre-demo information, Additional Context, and discovery quality before a full SC guide is generated. Do not score the generated demo flow, browser dry-run, manifest pacing, or rehearsal quality. Focus on whether the SC has enough customer/deal context to create a strong demo.
 
 Use the supplied website_context as the website scan result. Do not re-scan or research the website when website_context already contains a summary, evidence, or interesting points. Only use web/search if website_context is unavailable or explicitly says a Pre-demo scan is still required. Do not invent facts. If website context is unavailable, state that in the evidence and rely on the supplied notes.
 
@@ -6735,6 +6909,7 @@ ${JSON.stringify({
     competition: manifest.context?.competition || request.competition,
     demoRequest: request,
     preDemoNotes: manifest.context?.preDemoNotes,
+    additionalContext: manifest.context?.additionalContext || request.additionalContext,
     additionalDemoSources: manifest.context?.additionalDemoSources || []
   }, null, 2)}
 
@@ -6804,7 +6979,7 @@ function codexIntelligencePrompt(manifest, scGuide, localIntelligence, sessionTi
   const company = manifest.context?.company || {};
   return `Task title: ${sessionTitle}
 
-You are the Codex backbone for the NetSuite Demo Helper Intelligence dashboard. Review all available prep inputs, the company/website context, pre-demo notes, demo scope, audience, target segment, strategy, generated SC guide, manifest, and local structured pre-scan signals.
+You are the Codex backbone for the NetSuite Demo Helper Intelligence dashboard. Review all available prep inputs, the company/website context, pre-demo notes, Additional Context, demo scope, audience, target segment, strategy, generated SC guide, manifest, and local structured pre-scan signals.
 
 Your job is to produce the structured JSON that the Intelligence dashboard renders directly. The local JSON signals are only a pre-scan and schema guardrail. Challenge them whenever the guide, notes, or customer context suggests something more specific. Do not copy generic local summaries if they are not specific enough.
 
@@ -6822,6 +6997,7 @@ ${JSON.stringify({
     demoScope: manifest.context?.demoScope,
     competition: manifest.context?.competition || manifest.context?.demoRequest?.competition,
     demoRequest: manifest.context?.demoRequest,
+    additionalContext: manifest.context?.additionalContext || manifest.context?.demoRequest?.additionalContext,
     codexPrepAnalysis: manifest.context?.codexPrepAnalysis
   }, null, 2)}
 
@@ -7369,6 +7545,7 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     : activeAdditionalDemoSources({
       topic: manifest.context?.demoRequest?.topic,
       preDemoNotes: manifest.context?.preDemoNotes,
+      additionalContext: manifest.context?.additionalContext || manifest.context?.demoRequest?.additionalContext,
       demoScope: manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope,
       audience,
       marketSegment,
@@ -7388,6 +7565,8 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     manifest.context?.demoPrep?.ordering,
     manifest.context?.demoPrep?.scopeInstruction,
     manifest.context?.preDemoNotes,
+    manifest.context?.additionalContext,
+    manifest.context?.demoRequest?.additionalContext,
     scGuideText,
     company.companyName,
     company.description,
@@ -7423,7 +7602,13 @@ function demoIntelligenceContext(manifest, scGuide = "") {
     setupPrompt,
     demoScope: String(manifest.context?.demoScope || manifest.context?.demoRequest?.demoScope || ""),
     competition: String(manifest.context?.competition || manifest.context?.demoRequest?.competition || ""),
-    notes: String(manifest.context?.preDemoNotes || ""),
+    notes: [
+      manifest.context?.preDemoNotes,
+      manifest.context?.additionalContext || manifest.context?.demoRequest?.additionalContext
+        ? `Additional Context:\n${manifest.context?.additionalContext || manifest.context?.demoRequest?.additionalContext}`
+        : ""
+    ].filter(Boolean).join("\n\n"),
+    additionalContext: String(manifest.context?.additionalContext || manifest.context?.demoRequest?.additionalContext || ""),
     topic: String(manifest.context?.demoRequest?.topic || ""),
     playbook: audiencePlaybookFor(manifest, audience, marketSegment),
     navigationActions: actions.filter((action) => ["globalSearchOpen", "goto", "clickText", "clickRole"].includes(action.type)),
@@ -10968,10 +11153,10 @@ function html(response) {
     .prep-grid {
       grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr);
       grid-template-areas:
+        "actions actions"
         "connection connection"
         "scope scope"
         "audience audience"
-        "actions actions"
         "instructions instructions"
         "voice voice"
         "narrator narrator"
@@ -11580,6 +11765,31 @@ function html(response) {
       max-height: 320px;
       overflow: auto;
     }
+    .discovery-prep-output {
+      display: grid;
+      gap: 14px;
+    }
+    .discovery-prep-section {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 16px;
+    }
+    :is(body, html).night .discovery-prep-section { background: #0b1218; }
+    .discovery-prep-section h3 {
+      margin: 0 0 8px;
+      font-family: var(--font-title);
+      font-size: 21px;
+      font-weight: 400;
+      color: var(--ocean);
+    }
+    .discovery-prep-section pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: var(--font-ui);
+      line-height: 1.5;
+      color: var(--ink);
+    }
     .dataset-hero {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 160px;
@@ -11859,6 +12069,7 @@ function html(response) {
     </header>
   <nav class="tabs" aria-label="Workspace screens">
     <button class="tab active" data-tab="prep" data-help="Enter customer context, discovery notes, scope, audience, and planning inputs before creating anything.">Discovery & Prep</button>
+    <button class="tab" data-tab="discovery-prep" data-help="Review Discovery Prep questions generated from the current customer context, notes, scope, and Additional Context.">Discovery Prep</button>
     <button class="tab" data-tab="guide" data-help="Review the Codex-created demo story, talk track, setup prompt, asset prompt, and Dry-run creation prompt. Export the playbook to Word from here.">Playbook</button>
     <button class="tab" data-tab="pre-demo-intelligence" data-help="Check whether the pre-demo notes are strong enough. This page scores discovery quality, shows missing context, generates follow-up questions, and exports them to Word.">Pre-Demo Intelligence</button>
     <button class="tab" data-tab="intelligence" data-help="Review the generated demo and playbook for risks, pacing, stakeholder coverage, winning moments, and suggested improvements.">Demo Intelligence</button>
@@ -11870,16 +12081,17 @@ function html(response) {
     </nav>
   <main>
     <section class="screen active" id="screen-prep">
-      ${appProfile === "whitelabel" ? "" : `<div class="mvp-heads-up">
-        <strong>Prepare the story before the screen share starts.</strong>
-        <p>Use the customer notes, website context, scope, and audience selections to create the playbook, score discovery quality, and surface the demo risks before moving into runbook or dry-run work.</p>
-        <div class="heads-up-meta" aria-label="Current preparation checkpoints">
-          <span>Codex-backed generation</span>
-          <span>Session logging enabled</span>
-          <span>Admin changes locked behind login</span>
-        </div>
-      </div>`}
       <div class="grid prep-grid">
+        <div class="panel prep-actions">
+          <div class="row">
+            <button id="discoveryPrep" data-help="Creates targeted discovery call questions from the current page context. It does not generate a playbook, PPT prompt, or dataset prompt.">Discovery Prep</button>
+            <button class="secondary" id="preDemoScoring" data-help="Scores only the current pre-demo inputs so the SC can see discovery gaps before creating the playbook or demo.">Score Pre-Demo Notes</button>
+            <button id="learn" data-help="Uses Codex to analyze the Discovery & Prep inputs, create the playbook, and populate both intelligence pages. It does not start a browser dry-run.">Learn / Create Demo</button>
+            <button class="secondary" id="reload" data-help="Reloads the latest saved manifest, playbook, setup prompt, and intelligence outputs without generating anything new.">Reload</button>
+            <button id="learnDryRun" data-live-demo-only data-help="Uses Codex to create the playbook, creates the Dry-run creation prompt, builds the runnable dry-run manifest from that prompt, and starts the browser dry-run.">Learn / Create Demo & Dry-Run</button>
+          </div>
+          <p class="hint">Discovery Prep creates discovery questions. Score Pre-Demo Notes checks discovery quality. Learn / Create Demo builds the playbook and intelligence views.</p>
+        </div>
         <div class="panel prep-connection prep-connection-card">
           <div class="compact-connection-row">
             <span class="connection-chip" id="prepCodexConnectionChip">Codex: Checking</span>
@@ -11975,6 +12187,12 @@ function html(response) {
               <label for="preDemoNotes">Pre-demo notes</label>
               <textarea id="preDemoNotes" style="min-height:170px" placeholder="Paste discovery notes, pain points, role notes, current systems, concerns, and success criteria.">${escapeHtml(defaultPrepData.preDemoNotes)}</textarea>
             </div>
+
+            <div class="field field-full">
+              <label for="additionalContext">Additional Context</label>
+              <textarea id="additionalContext" style="min-height:150px" placeholder="Paste CRM notes, bridge call transcript excerpts, sales notes, stakeholder comments, email summaries, project background, competitive context, or implementation concerns.">${escapeHtml(defaultPrepData.additionalContext)}</textarea>
+              <p class="hint">Use this for extra customer or opportunity information that should shape discovery, scoring, and generated demo prep.</p>
+            </div>
           </div>
         </div>
 
@@ -12025,16 +12243,6 @@ function html(response) {
           </div>
         </div>
 
-        <div class="panel prep-actions">
-          <div class="row">
-              <button class="secondary" id="preDemoScoring" data-help="Scores only the current pre-demo inputs so the SC can see discovery gaps before creating the playbook or demo.">Score Pre-Demo Notes</button>
-            <button id="learn" data-help="Uses Codex to analyze the Discovery & Prep inputs, create the playbook, and populate both intelligence pages. It does not start a browser dry-run.">Learn / Create Demo</button>
-            <button id="learnDryRun" data-live-demo-only data-help="Uses Codex to create the playbook, creates the Dry-run creation prompt, builds the runnable dry-run manifest from that prompt, and starts the browser dry-run.">Learn / Create Demo & Dry-Run</button>
-            <button class="secondary" id="reload" data-help="Reloads the latest saved manifest, playbook, setup prompt, and intelligence outputs without generating anything new.">Reload</button>
-          </div>
-          <p class="hint">Pre-demo scoring checks the notes first. Learn / Create Demo uses Codex to create the playbook and both intelligence views. <span data-live-demo-only>Learn / Create Demo & Dry-Run also builds the runnable manifest from the Dry-run creation prompt and opens the browser dry-run, so it is more time consuming.</span></p>
-        </div>
-
         <div class="panel full prep-how">
           <h2>How NetSuite Demo Helper Works</h2>
           <p class="hint">${escapeHtml(helperIntroText())}</p>
@@ -12043,6 +12251,37 @@ function html(response) {
             ${helperStepsHtml()}
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-discovery-prep">
+      <div class="page-load-bar"><span class="page-load-info" data-page-loaded="discovery-prep">Last loaded: not yet</span></div>
+      <div class="pre-demo-dashboard">
+        <section class="readiness-hero">
+          <div>
+            <p class="hero-eyebrow">Discovery Prep</p>
+            <h2 id="discoveryPrepTitle">Ready to prepare discovery questions</h2>
+            <p class="hero-subline" id="discoveryPrepSubtitle">Use the Discovery Prep button on the Prep page to generate targeted call questions from the current customer context.</p>
+            <div class="insight-badges" id="discoveryPrepBadges"></div>
+          </div>
+          <div class="readiness-score">
+            <div class="score-number">Q</div>
+            <div class="score-caption">Questions</div>
+          </div>
+        </section>
+
+        <section class="dashboard-section">
+          <div class="section-head">
+            <div>
+              <h2>Discovery Questions</h2>
+              <p>Practical question set for the next discovery call. This does not create a playbook, PPT prompt, or dataset setup prompt.</p>
+            </div>
+            <button class="secondary" id="refreshDiscoveryPrep" data-help="Regenerates Discovery Prep from the current Prep page inputs and Admin Discovery Prep Prompt.">Refresh Discovery Prep</button>
+          </div>
+          <div id="discoveryPrepOutput" class="discovery-prep-output">
+            <p class="hint">Ready to prepare discovery questions. Click Discovery Prep when you want Codex to create them.</p>
+          </div>
+        </section>
       </div>
     </section>
 
@@ -12403,7 +12642,7 @@ function html(response) {
       <div class="grid">
         <div class="panel full">
           <h2>Admin</h2>
-          <p class="hint">Protected admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, additional demo logic sources, and the Codex rules behind the demo story, asset prompt, account setup prompt, and dry-run creation prompt. Active sources are matched to the demo context and included when the helper creates the manifest and playbook. Passwords are stored as salted scrypt hashes locally; APEX usage analytics use a separate protected cloud session token.</p>
+          <p class="hint">Protected admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, additional demo logic sources, and the Codex rules behind Discovery Prep, the demo story, asset prompt, account setup prompt, and dry-run creation prompt. Active sources are matched to the demo context and included when the helper creates discovery questions, the manifest, and the playbook. Passwords are stored as salted scrypt hashes locally; APEX usage analytics use a separate protected cloud session token.</p>
           <div class="cms-auth-grid" id="cmsAuthArea">
             <div class="analysis-item" id="cmsSetupPanel" hidden>
               <strong>Create Admin Login</strong>
@@ -12900,6 +13139,7 @@ function html(response) {
     const competitionField = document.getElementById("competition");
     const topicField = document.getElementById("topic");
     const preDemoNotesField = document.getElementById("preDemoNotes");
+    const additionalContextField = document.getElementById("additionalContext");
     const intelligencePersonaCards = document.getElementById("intelligencePersonaCards");
     const buttonHelpTooltip = document.getElementById("buttonHelpTooltip");
     const cmsSetupPanel = document.getElementById("cmsSetupPanel");
@@ -12999,6 +13239,7 @@ function html(response) {
     let latestSetupPrompt = null;
     let latestIntelligence = null;
     let latestPreDemoIntelligence = null;
+    let latestDiscoveryPrep = null;
     let pendingAiAction = null;
     let selectedIntelligenceCard = "risks";
     let intelligenceCardsCompact = false;
@@ -13281,6 +13522,7 @@ function html(response) {
       return [
         "/api/learn",
         "/api/pre-demo-intelligence",
+        "/api/discovery-prep",
         "/api/intelligence",
         "/api/intelligence/follow-up-questions",
         "/api/intelligence/improve-guide",
@@ -13359,6 +13601,7 @@ function html(response) {
     function sessionActionLabelForClient(path, input = {}) {
       if (path === "/api/learn") return input.createRunnableManifest ? "Learn / Create Demo & Dry-Run" : "Learn / Create Demo";
       if (path === "/api/pre-demo-intelligence") return "Pre-demo scoring";
+      if (path === "/api/discovery-prep") return "Discovery Prep";
       if (path === "/api/intelligence/follow-up-questions") return "Generate Discovery Follow-Up Questions";
       if (path === "/api/intelligence/improve-guide") return "Apply All Recommendations To Playbook";
       if (path === "/api/intelligence/apply-action") return "Apply Edited Output To Playbook";
@@ -13377,6 +13620,7 @@ function html(response) {
         hasGuide: Boolean(output.guide || output.guideOutputs?.scRunbook),
         hasPptPrompt: Boolean(output.guideOutputs?.assetGenerationPrompt),
         hasSetupPrompt: Boolean(output.setupPrompt?.prompt),
+        hasDiscoveryPrep: Boolean(output.discoveryPrep?.markdown || output.discoveryPrep),
         hasDryRunManifest: Boolean(output.manifest?.segments?.length),
         hasIntelligence: Boolean(intelligence.demo_readiness_score || intelligence.demo_risk_analyzer),
         hasPreDemoIntelligence: Boolean(preDemo.overall_score || preDemo.missing_discovery_items),
@@ -13445,6 +13689,7 @@ function html(response) {
           competition: prep.competition || input.competition || context.competition,
           demoRequest: prep.topic || input.topic || context.demoRequest?.topic,
           preDemoNotes: prep.preDemoNotes || input.preDemoNotes || context.preDemoNotes,
+          additionalContext: prep.additionalContext || input.additionalContext || context.additionalContext || context.demoRequest?.additionalContext,
           audience: prep.audience || input.audience || context.audience,
           targetSegment: prep.marketSegment || input.marketSegment || context.targetAudience,
           industry: prep.industry || input.industry || context.industry,
@@ -13464,6 +13709,7 @@ function html(response) {
           dryRunManifest: payload.manifest,
           intelligence,
           preDemoIntelligence: preDemo,
+          discoveryPrep: payload.discoveryPrep,
           followUpQuestions: payload.questions || preDemo.recommended_follow_up_questions,
           datasetAnalysis: payload.datasetAnalysis || payload.analysis || {}
         },
@@ -15621,6 +15867,7 @@ function html(response) {
         topicField.value = inputModeSelect.value === "notes-only" ? "" : (payload.manifest.context?.demoRequest?.topic || defaultPrepData.topic);
         document.getElementById("companyUrl").value = payload.manifest.context?.company?.url || defaultPrepData.companyUrl;
         preDemoNotesField.value = payload.manifest.context?.preDemoNotes || defaultPrepData.preDemoNotes;
+        additionalContextField.value = payload.manifest.context?.additionalContext || payload.manifest.context?.demoRequest?.additionalContext || defaultPrepData.additionalContext || "";
         syncInputMode();
         renderStakeholderPersonas();
       }
@@ -15639,6 +15886,7 @@ function html(response) {
         renderWinStrategy(winStrategyFromCurrentInputs());
       }
       renderPreDemoIntelligence(payload.preDemoIntelligence || preDemoIntelligenceFromDemoIntelligence(payload.intelligence));
+      if (payload.discoveryPrep) renderDiscoveryPrep(payload.discoveryPrep);
       prepDirtyForIntelligence = false;
       prepDirtyForPreDemoIntelligence = false;
       markPagesLoaded(["prep"], source);
@@ -15873,6 +16121,7 @@ function html(response) {
       const source = [
         topicField.value,
         preDemoNotesField.value,
+        additionalContextField.value,
         demoScopeField.value,
         document.getElementById("companyUrl").value,
         selectedConfig(audienceTypeConfig, audienceSelect.value, defaultAudienceType).label,
@@ -16138,6 +16387,50 @@ function html(response) {
         firstClean(preDemo.recommendations || []) || "Add discovery detail in the weakest areas before creating the demo.";
       preDemoFollowUps.innerHTML =
         preDemoFollowUpHtml(preDemo);
+    }
+
+    function renderDiscoveryPrep(discoveryPrep) {
+      const output = document.getElementById("discoveryPrepOutput");
+      if (!output) return;
+      if (!discoveryPrep) {
+        latestDiscoveryPrep = null;
+        document.getElementById("discoveryPrepTitle").textContent = "Ready to prepare discovery questions";
+        document.getElementById("discoveryPrepSubtitle").textContent = "Use the Discovery Prep button on the Prep page to generate targeted call questions from the current customer context.";
+        document.getElementById("discoveryPrepBadges").innerHTML = "";
+        output.innerHTML = "<p class='hint'>Ready to prepare discovery questions. Click Discovery Prep when you want Codex to create them.</p>";
+        return;
+      }
+      latestDiscoveryPrep = discoveryPrep;
+      const markdown = String(discoveryPrep.markdown || discoveryPrep.discoveryPrep || discoveryPrep || "").trim();
+      const generatedAt = discoveryPrep.generatedAt || discoveryPrep.generated_at || "";
+      document.getElementById("discoveryPrepTitle").textContent = "Discovery Prep generated";
+      document.getElementById("discoveryPrepSubtitle").textContent = generatedAt ? "Generated " + formatCloudCheckTime(generatedAt) : "Generated from the current Discovery & Prep context.";
+      document.getElementById("discoveryPrepBadges").innerHTML = [
+        insightBadge("Source", discoveryPrep.source || "Codex"),
+        insightBadge("Purpose", "Discovery questions"),
+        insightBadge("Scope", selectedOptionText(industrySelect) || "Current context")
+      ].join("");
+      output.innerHTML = markdown ? discoveryPrepMarkdownHtml(markdown) : "<p class='hint'>Discovery Prep did not return any questions.</p>";
+    }
+
+    function discoveryPrepMarkdownHtml(markdown) {
+      const lines = String(markdown || "").replace(/^#\\s+Discovery Prep\\s*/i, "").split(/\\r?\\n/);
+      const sections = [];
+      let current = { title: "Discovery Prep", body: [] };
+      for (const line of lines) {
+        const heading = line.match(/^##\\s+(.+)$/);
+        if (heading) {
+          if (current.body.join("").trim()) sections.push(current);
+          current = { title: heading[1].trim(), body: [] };
+        } else {
+          current.body.push(line);
+        }
+      }
+      if (current.body.join("").trim()) sections.push(current);
+      return "<div class='discovery-prep-output'>" + sections.map((section) =>
+        "<article class='discovery-prep-section'><h3>" + escapeClientHtml(section.title) + "</h3><pre>" +
+        escapeClientHtml(section.body.join("\\n").trim()) + "</pre></article>"
+      ).join("") + "</div>";
     }
 
     function renderDatasetAnalysis(payload) {
@@ -16739,7 +17032,8 @@ function html(response) {
         topicField.value,
         demoScopeField.value,
         competition,
-        preDemoNotesField.value
+        preDemoNotesField.value,
+        additionalContextField.value
       ].join("\\n").toLowerCase();
       const strategies = [];
       const add = (title, why_we_can_win, competitor_likely_move, demo_move) => {
@@ -17176,6 +17470,7 @@ function html(response) {
       competitionField.addEventListener("input", markPrepDirtyForIntelligence);
       topicField.addEventListener("input", markPrepDirtyForIntelligence);
       preDemoNotesField.addEventListener("input", markPrepDirtyForIntelligence);
+      additionalContextField.addEventListener("input", markPrepDirtyForIntelligence);
       outputLanguageSelect.addEventListener("change", markPrepDirtyForIntelligence);
       audienceSelect.onchange = () => { updateAudienceHints(); markPrepDirtyForIntelligence(); };
       targetAudienceSelect.onchange = () => { updateAudienceHints(); markPrepDirtyForIntelligence(); };
@@ -17336,6 +17631,30 @@ function html(response) {
       }
     }
 
+    async function loadDiscoveryPrep(action = "Discovery Prep", options = {}) {
+      if (!shouldRunUserInitiatedGeneration(options, "Discovery Prep")) return null;
+      setStatus("Creating Discovery Prep questions from the current customer context...");
+      startCodexProgress("Creating Discovery Prep", "Codex is reviewing the current Discovery & Prep fields and Admin Discovery Prep Prompt to create targeted discovery questions.", [
+        "Package customer, scope, notes, and Additional Context",
+        "Run Codex Discovery Prep operator",
+        "Update the Discovery Prep tab"
+      ]);
+      try {
+        const payload = await api("/api/discovery-prep", {
+          method: "POST",
+          body: JSON.stringify(currentPrepPayload())
+        });
+        renderDiscoveryPrep(payload.discoveryPrep);
+        markPageLoaded("discovery-prep", action);
+        setStatus("Discovery Prep generated with Codex.");
+        finishCodexProgress("Discovery Prep generated.");
+        return payload;
+      } catch (error) {
+        failCodexProgress(error.message);
+        throw error;
+      }
+    }
+
     function currentPrepPayload(extra = {}) {
       return {
         topic: topicField.value,
@@ -17351,6 +17670,7 @@ function html(response) {
         competition: competitionField.value,
         companyUrl: document.getElementById("companyUrl").value,
         preDemoNotes: preDemoNotesField.value,
+        additionalContext: additionalContextField.value,
         valueIntensity: document.getElementById("intensity").value,
         voiceProvider: voiceProviderSelect.value,
         voice: voiceSelect.value,
@@ -17380,6 +17700,9 @@ function html(response) {
       }
       if (button.dataset.tab === "pre-demo-intelligence" && (prepDirtyForPreDemoIntelligence || !latestPreDemoIntelligence)) {
         setStatus("Ready to score pre-demo notes. Click Score Pre-Demo Notes when you want Codex to run.");
+      }
+      if (button.dataset.tab === "discovery-prep" && !latestDiscoveryPrep) {
+        setStatus("Ready to create Discovery Prep. Click Discovery Prep when you want Codex to generate discovery questions.");
       }
     }
 
@@ -17442,6 +17765,17 @@ function html(response) {
     });
 
     document.getElementById("reload").onclick = async () => { await load("Reload"); await loadGuide("Reload"); };
+    document.getElementById("discoveryPrep").onclick = async () => {
+      setBusy(true);
+      try {
+        await loadDiscoveryPrep("Discovery Prep", { userInitiated: true });
+        await activateTab("discovery-prep", { skipAutoLoad: true });
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
     document.getElementById("preDemoScoring").onclick = async () => {
       setBusy(true);
       try {
@@ -17476,6 +17810,16 @@ function html(response) {
       setBusy(true);
       try {
         await loadPreDemoIntelligence("Refresh Pre-Demo Scoring", { userInitiated: true });
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+    document.getElementById("refreshDiscoveryPrep").onclick = async () => {
+      setBusy(true);
+      try {
+        await loadDiscoveryPrep("Refresh Discovery Prep", { userInitiated: true });
       } catch (error) {
         setStatus(error.message);
       } finally {

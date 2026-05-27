@@ -98,6 +98,7 @@ function Get-InputContext($Body) {
     demoScope = $Body.demoScope
     demoRequest = $(if ($Body.topic) { $Body.topic } else { $Body.demoRequest })
     preDemoNotes = $Body.preDemoNotes
+    additionalContext = $Body.additionalContext
   }
 }
 
@@ -152,6 +153,21 @@ function Invoke-HelperTask($Body, $Task, $Title) {
   $result = Invoke-CodexText $prompt
   if (-not $result.ok) { return @{ ok = $true; source = "local-helper-codex"; title = $Title; prompt = ""; error = $result.error; code = $result.code } }
   return @{ ok = $true; source = "local-helper-codex"; title = $Title; prompt = $result.text; guide = $result.text }
+}
+
+function Invoke-DiscoveryPrep($Body) {
+  $result = Invoke-HelperTask $Body "Create targeted Discovery Prep questions only. Do not create a demo story, PowerPoint prompt, dataset setup prompt, or runbook. Include Executive Summary, Priority Discovery Questions, Questions By Topic, Stakeholder-Specific Questions, Gap Validation Questions, Demo-Relevance Questions, Risks / Watchouts, Suggested Opening Question, and Suggested Closing Question." "Discovery Prep"
+  return @{
+    ok = $true
+    source = "local-helper-codex"
+    discoveryPrep = @{
+      markdown = $result.prompt
+      generatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+      source = "local-helper-codex"
+    }
+    error = $result.error
+    code = $result.code
+  }
 }
 
 function Get-ManifestPayload {
@@ -230,6 +246,10 @@ while ($listener.IsListening) {
             }
           }
           Write-Json $ctx @{ ok = $true; source = "local-helper-codex"; preDemoIntelligence = $State.preDemoIntelligence; summary = $result.prompt; error = $result.error; code = $result.code }
+          continue
+        }
+        "^/api/discovery-prep" {
+          Write-Json $ctx (Invoke-DiscoveryPrep $body)
           continue
         }
         "^/api/(demo-runbook|learn)" {

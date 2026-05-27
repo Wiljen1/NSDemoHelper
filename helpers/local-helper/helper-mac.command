@@ -284,7 +284,8 @@ def input_context(body):
         "competition": body.get("competition") or "",
         "demoScope": body.get("demoScope") or "",
         "demoRequest": body.get("topic") or body.get("demoRequest") or "",
-        "preDemoNotes": body.get("preDemoNotes") or ""
+        "preDemoNotes": body.get("preDemoNotes") or "",
+        "additionalContext": body.get("additionalContext") or ""
     }
 
 
@@ -427,6 +428,30 @@ def simple_prompt(body, label):
     }
 
 
+def discovery_prep(body):
+    schema = {
+        "markdown": "# Discovery Prep\\n\\n## Executive Summary\\n...\\n\\n## Priority Discovery Questions\\n...",
+        "questions": ["targeted discovery questions"],
+        "risks": ["watchouts"]
+    }
+    result = codex_json_task("Create targeted Discovery Prep questions only. Do not create a demo story, PPT prompt, or dataset prompt. Include Executive Summary, Priority Discovery Questions, Questions By Topic, Stakeholder-Specific Questions, Gap Validation Questions, Demo-Relevance Questions, Risks / Watchouts, Suggested Opening Question, and Suggested Closing Question.", schema, body)
+    data = result.get("json") if result.get("ok") else {}
+    if not isinstance(data, dict):
+        data = {}
+    markdown = data.get("markdown") or result.get("text") or ""
+    return {
+        "ok": True,
+        "source": "local-helper-codex",
+        "discoveryPrep": {
+            "markdown": markdown,
+            "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "source": "local-helper-codex"
+        },
+        "error": result.get("error") if not result.get("ok") else None,
+        "code": result.get("code") if not result.get("ok") else None
+    }
+
+
 def manifest_payload():
     return {
         "ok": True,
@@ -513,6 +538,8 @@ class Handler(BaseHTTPRequestHandler):
         body = self.read_json()
         if self.path.startswith("/api/pre-demo-score") or self.path.startswith("/api/pre-demo-intelligence"):
             return self.json_response(pre_demo_score(body))
+        if self.path.startswith("/api/discovery-prep"):
+            return self.json_response(discovery_prep(body))
         if self.path.startswith("/api/demo-runbook") or self.path.startswith("/api/learn"):
             return self.json_response(demo_runbook(body))
         if self.path.startswith("/api/ppt-prompt"):

@@ -112,6 +112,7 @@ For MVP compatibility it also exposes:
 - `GET /api/sc-guide`
 - `GET /api/setup-prompt`
 - `POST /api/pre-demo-intelligence`
+- `POST /api/discovery-prep`
 - `POST /api/learn`
 - `POST /api/dataset-analysis`
 

@@ -87,6 +87,7 @@ export function draftPrepPayload(overrides = {}) {
     competition: "Status quo, current ERP, and spreadsheet-heavy reporting.",
     companyUrl: "https://example.com/",
     preDemoNotes: "Automated test notes: missing current ERP, success metrics, active countries, and stakeholder priorities.",
+    additionalContext: "Automated additional context: bridge call notes mention executive urgency and integration uncertainty.",
     valueIntensity: "balanced",
     voiceProvider: "say",
     voice: "Samantha",
