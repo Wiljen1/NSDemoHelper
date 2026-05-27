@@ -50,9 +50,9 @@ No admin password is required. The helper binds to localhost only.
 
 ## Windows
 
-Download `helper-windows.zip`, save it to Desktop, unzip it, then double-click `helper-windows.bat`.
+Download `helper-windows.zip`, save it to Desktop, unzip it, then double-click `start-helper-windows.bat`.
 
-The script installs a user Startup entry, launches a local PowerShell helper, and listens only on:
+The batch launcher installs a user Startup entry, launches a local PowerShell helper, and listens only on:
 
 ```text
 http://127.0.0.1:4173
@@ -66,6 +66,17 @@ The helper files are installed under:
 %LOCALAPPDATA%\NSDemoHelper
 ```
 
+The Windows download contains:
+
+```text
+start-helper-windows.bat
+helper-windows.bat
+nsdemohelper-local-helper.ps1
+README.md
+```
+
+`helper-windows.bat` is kept as a compatibility launcher, but `start-helper-windows.bat` is the preferred entry point.
+
 The startup entry is created at:
 
 ```text
@@ -75,9 +86,9 @@ The startup entry is created at:
 Useful commands:
 
 ```text
-%LOCALAPPDATA%\NSDemoHelper\helper-windows.bat --status
-%LOCALAPPDATA%\NSDemoHelper\helper-windows.bat --stop
-%LOCALAPPDATA%\NSDemoHelper\helper-windows.bat --uninstall
+%LOCALAPPDATA%\NSDemoHelper\start-helper-windows.bat --status
+%LOCALAPPDATA%\NSDemoHelper\start-helper-windows.bat --stop
+%LOCALAPPDATA%\NSDemoHelper\start-helper-windows.bat --uninstall
 ```
 
 No admin rights are required. The helper binds to localhost only.

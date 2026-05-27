@@ -7,7 +7,13 @@ const outputFile = process.argv[2] || "apex/apps/f56174/shared-components/static
 
 function runtimeConfigFromEnv() {
   const runtimeMode = process.env.NSDH_APEX_RUNTIME_MODE || process.env.NSDH_RUNTIME_MODE || "user-local";
-  const config = { runtimeMode };
+  const config = {
+    runtimeMode,
+    apexDatabaseLogging: {
+      enabled: process.env.NSDH_APEX_DB_LOGGING !== "false",
+      apiBaseUrl: process.env.NSDH_APEX_LOG_API_BASE_URL || "https://apex.oraclecorp.com/pls/apex/emeawj/nsdh"
+    }
+  };
   if (runtimeMode === "shared-local-pilot") {
     config.pilotApiBaseUrl = process.env.NSDH_PILOT_API_BASE_URL || "";
     if (!config.pilotApiBaseUrl) {

@@ -32,7 +32,7 @@
         color: var(--ink);
         background: var(--cream);
       }
-      body.night {
+      :is(body, html).night {
         color-scheme: dark;
         --ink: #edf3f6;
         --muted: #9fb0bc;
@@ -165,50 +165,50 @@
         margin: 0;
         accent-color: var(--accent);
       }
-      body.night header,
-      body.night .tabs {
+      :is(body, html).night header,
+      :is(body, html).night .tabs {
         background: #0d151d;
       }
-      body.night .theme-toggle,
-      body.night .codex-runtime-badge,
-      body.night .codex-info-button,
-      body.night textarea,
-      body.night select,
-      body.night input,
-      body.night .panel,
-      body.night .step,
-      body.night .tab,
-      body.night .segment-option {
+      :is(body, html).night .theme-toggle,
+      :is(body, html).night .codex-runtime-badge,
+      :is(body, html).night .codex-info-button,
+      :is(body, html).night textarea,
+      :is(body, html).night select,
+      :is(body, html).night input,
+      :is(body, html).night .panel,
+      :is(body, html).night .step,
+      :is(body, html).night .tab,
+      :is(body, html).night .segment-option {
         background: #121c25;
         color: var(--ink);
       }
-      body.night button.secondary,
-      body.night button.danger {
+      :is(body, html).night button.secondary,
+      :is(body, html).night button.danger {
         background: #121c25;
       }
-      body.night .segment-option:has(input:checked) {
+      :is(body, html).night .segment-option:has(input:checked) {
         background: #102b31;
         color: var(--accent-dark);
       }
-      body.night .status {
+      :is(body, html).night .status {
         background: #060a0f;
         color: #dce7ef;
       }
-      body.night .help-tooltip {
+      :is(body, html).night .help-tooltip {
         background: #edf3f6;
         color: #0b1117;
       }
-      body.night .codex-runtime-badge.ready {
+      :is(body, html).night .codex-runtime-badge.ready {
         background: #10231b;
         border-color: #246245;
         color: #93e2b3;
       }
-      body.night .codex-runtime-badge.missing {
+      :is(body, html).night .codex-runtime-badge.missing {
         background: #2a1411;
         border-color: #7b3026;
         color: #ffb4a6;
       }
-      body.night .codex-info-button {
+      :is(body, html).night .codex-info-button {
         background: #121c25;
         color: #8ae0de;
       }
@@ -317,8 +317,8 @@
       color: white;
       box-shadow: 0 6px 16px rgba(30, 139, 139, .18);
     }
-    body.night button.ai-action-active,
-    body.night button.secondary.ai-action-active {
+    :is(body, html).night button.ai-action-active,
+    :is(body, html).night button.secondary.ai-action-active {
       background: var(--accent);
       color: white;
     }
@@ -383,7 +383,7 @@
       padding: 14px;
       backdrop-filter: blur(12px);
     }
-    body.night .codex-progress {
+    :is(body, html).night .codex-progress {
       background: rgba(15, 24, 33, .96);
       border-color: #294a50;
       box-shadow: 0 18px 48px rgba(0, 0, 0, .38);
@@ -416,7 +416,7 @@
       font-weight: 850;
       white-space: nowrap;
     }
-    body.night .codex-progress-pill {
+    :is(body, html).night .codex-progress-pill {
       background: #123137;
       color: #8ae0de;
     }
@@ -427,7 +427,7 @@
       background: #e3edf0;
       overflow: hidden;
     }
-    body.night .codex-progress-track { background: #20313b; }
+    :is(body, html).night .codex-progress-track { background: #20313b; }
     .codex-progress-fill {
       position: absolute;
       inset: 0 auto 0 0;
@@ -497,7 +497,7 @@
       box-shadow: 0 24px 70px rgba(24, 33, 47, .26);
       padding: 18px;
     }
-    body.night .codex-modal {
+    :is(body, html).night .codex-modal {
       background: #0f1821;
       box-shadow: 0 24px 70px rgba(0, 0, 0, .45);
     }
@@ -535,7 +535,7 @@
       padding: 12px;
       background: #fbfcfd;
     }
-    body.night .codex-info-card { background: #0b1218; }
+    :is(body, html).night .codex-info-card { background: #0b1218; }
     .codex-info-card strong {
       display: block;
       font-size: 12px;
@@ -564,7 +564,7 @@
       display: grid;
       gap: 4px;
     }
-    body.night .codex-status-row { background: #111b24; }
+    :is(body, html).night .codex-status-row { background: #111b24; }
     .codex-status-row small {
       color: var(--muted);
       font-size: 11px;
@@ -616,8 +616,8 @@
       min-height: 0;
       padding: 8px 10px;
     }
-    body.night .score-card,
-    body.night .analysis-item {
+    :is(body, html).night .score-card,
+    :is(body, html).night .analysis-item {
       background: #0f1821;
     }
     .score-value {
@@ -650,7 +650,7 @@
     }
     .score-pill.watch { background: #fff1c6; color: #3b2b00; }
     .score-pill.risk { background: #ffd8d1; color: #4a1409; }
-    body.night .score-pill { color: #0b1218; }
+    :is(body, html).night .score-pill { color: #0b1218; }
     .score-label,
     .analysis-item strong {
       display: block;
@@ -678,7 +678,7 @@
       background: linear-gradient(135deg, #f5fbfb, #ffffff);
       margin: 12px 0;
     }
-    body.night .intel-summary {
+    :is(body, html).night .intel-summary {
       background: linear-gradient(135deg, #0f1d23, #0f1821);
       border-color: #24404a;
     }
@@ -706,7 +706,7 @@
       padding: 12px;
       background: #fff;
     }
-    body.night .priority-card { background: #0f1821; }
+    :is(body, html).night .priority-card { background: #0f1821; }
     .intelligence-overview-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -719,7 +719,7 @@
       padding: 12px;
       background: #fff;
     }
-    body.night .heatmap-panel { background: #0f1821; }
+    :is(body, html).night .heatmap-panel { background: #0f1821; }
     .heatmap-panel h3 {
       margin: 0 0 8px;
       font-size: 14px;
@@ -731,7 +731,7 @@
       gap: 10px;
     }
     .score-explainer .analysis-item { background: white; }
-    body.night .score-explainer .analysis-item { background: #0f1821; }
+    :is(body, html).night .score-explainer .analysis-item { background: #0f1821; }
     .heatmap-list {
       display: grid;
       gap: 9px;
@@ -743,7 +743,7 @@
       padding: 10px;
       background: #fbfcfd;
     }
-    body.night .heatmap-item { background: #0b1218; }
+    :is(body, html).night .heatmap-item { background: #0b1218; }
     .heatmap-item.strong { border-left-color: #16854f; }
     .heatmap-item.healthy { border-left-color: #2b7bbb; }
     .heatmap-item.watch { border-left-color: #c48200; }
@@ -820,7 +820,7 @@
       color: #fff;
       box-shadow: var(--shadow);
     }
-    body.night .readiness-hero {
+    :is(body, html).night .readiness-hero {
       background: linear-gradient(135deg, #0f1d23 0%, #101820 62%, #12272b 100%);
       border-color: #254650;
     }
@@ -856,7 +856,7 @@
       background: rgba(255,255,255,.12);
       min-height: 150px;
     }
-    body.night .readiness-score { background: rgba(11,18,24,.72); }
+    :is(body, html).night .readiness-score { background: rgba(11,18,24,.72); }
     .score-number {
       font-size: 54px;
       line-height: 1;
@@ -864,7 +864,7 @@
       color: #fff;
       font-variant-numeric: tabular-nums;
     }
-    body.night .score-number { color: #69d0d0; }
+    :is(body, html).night .score-number { color: #69d0d0; }
     .score-caption {
       margin-top: 6px;
       color: rgba(255, 255, 255, .72);
@@ -893,8 +893,8 @@
       font-size: 12px;
       line-height: 1.25;
     }
-    body.night .insight-badge,
-    body.night .metadata-chip { background: #0f1821; }
+    :is(body, html).night .insight-badge,
+    :is(body, html).night .metadata-chip { background: #0f1821; }
     .insight-badge strong,
     .metadata-chip strong {
       color: var(--accent-dark);
@@ -918,7 +918,7 @@
       padding: 16px;
       background: #fff;
     }
-    body.night .dashboard-section { background: #0f1821; }
+    :is(body, html).night .dashboard-section { background: #0f1821; }
     .section-head {
       display: flex;
       justify-content: space-between;
@@ -975,7 +975,7 @@
       padding: 10px;
       background: #fbfcfd;
     }
-    body.night details.custom-ai { background: #0b1218; }
+    :is(body, html).night details.custom-ai { background: #0b1218; }
     details.custom-ai summary {
       cursor: pointer;
       font-weight: 800;
@@ -993,7 +993,7 @@
       background: #fbfcfd;
       min-height: 96px;
     }
-    body.night .briefing-item { background: #0b1218; }
+    :is(body, html).night .briefing-item { background: #0b1218; }
     .briefing-item strong {
       display: block;
       font-size: 12px;
@@ -1014,7 +1014,7 @@
       background: #fbfcfd;
       padding: 12px;
     }
-    body.night .website-context-card { background: #0b1218; }
+    :is(body, html).night .website-context-card { background: #0b1218; }
     .website-context-card h3 {
       margin: 0 0 6px;
       font-size: 14px;
@@ -1043,7 +1043,7 @@
       border-color: #f2c36b;
       background: #fff8e8;
     }
-    body.night .website-context-alert {
+    :is(body, html).night .website-context-alert {
       background: #241b0b;
     }
     .intelligence-card-grid {
@@ -1072,7 +1072,7 @@
       box-shadow: var(--shadow);
       border-color: var(--accent);
     }
-    body.night .intelligence-card { background: #0f1821; }
+    :is(body, html).night .intelligence-card { background: #0f1821; }
     .intelligence-card-grid.compact {
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
       gap: 8px;
@@ -1087,7 +1087,7 @@
     .intelligence-card-grid.compact .intelligence-card.active {
       background: #f1fbfb;
     }
-    body.night .intelligence-card-grid.compact .intelligence-card.active {
+    :is(body, html).night .intelligence-card-grid.compact .intelligence-card.active {
       background: #10252c;
     }
     .intelligence-card-grid.compact .card-title-row {
@@ -1148,7 +1148,7 @@
       font-weight: 850;
       color: var(--accent-dark);
     }
-    body.night .card-metric { color: #69d0d0; }
+    :is(body, html).night .card-metric { color: #69d0d0; }
     .preview-list {
       margin: 0;
       padding-left: 18px;
@@ -1163,7 +1163,7 @@
       background: #fbfcfd;
       min-height: 170px;
     }
-    body.night .detail-panel { background: #0b1218; }
+    :is(body, html).night .detail-panel { background: #0b1218; }
     .detail-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -1181,7 +1181,7 @@
       overflow: auto;
       font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
-    body.night .operator-output { background: #0f1821; }
+    :is(body, html).night .operator-output { background: #0f1821; }
     .heatmap-tab-button {
       background: #fff;
       border-color: var(--line);
@@ -1204,7 +1204,7 @@
       padding: 11px;
       background: #fbfcfd;
     }
-    body.night .compact-heatmap-card { background: #0b1218; }
+    :is(body, html).night .compact-heatmap-card { background: #0b1218; }
     .compact-heatmap-card strong {
       display: block;
       font-size: 13px;
@@ -1230,7 +1230,7 @@
       color: var(--accent-dark);
       background: #eef8f8;
     }
-    body.night .pill {
+    :is(body, html).night .pill {
       background: #102b31;
       color: var(--accent-dark);
     }
@@ -1266,7 +1266,7 @@
       color: var(--ink);
       border-radius: 6px;
     }
-    body.night .advisory {
+    :is(body, html).night .advisory {
       background: #281713;
     }
     .cms-auth-grid {
@@ -1295,7 +1295,7 @@
       color: var(--ink);
       line-height: 1.45;
     }
-    body.night .cms-readable { background: #0b1218; }
+    :is(body, html).night .cms-readable { background: #0b1218; }
     .cms-readable h3 {
       margin: 0 0 8px;
       font-size: 15px;
@@ -1330,7 +1330,7 @@
       padding: 12px;
       background: #fbfcfd;
     }
-    body.night .platform-layer-summary > div { background: #0b1218; }
+    :is(body, html).night .platform-layer-summary > div { background: #0b1218; }
     .platform-layer-summary strong,
     .platform-layer-summary span {
       display: block;
@@ -1352,7 +1352,7 @@
       padding: 14px;
       background: #fbfcfd;
     }
-    body.night .platform-config-card { background: #0b1218; }
+    :is(body, html).night .platform-config-card { background: #0b1218; }
     .platform-config-card h3 {
       margin: 0;
       font-size: 18px;
@@ -1381,7 +1381,7 @@
       gap: 9px;
       transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
     }
-    body.night .provider-card { background: #0f1821; }
+    :is(body, html).night .provider-card { background: #0f1821; }
     .provider-card.active,
     .provider-card.selected {
       border-color: var(--accent);
@@ -1448,7 +1448,7 @@
       background: #fff;
       min-height: 92px;
     }
-    body.night .platform-status-card { background: #0f1821; }
+    :is(body, html).night .platform-status-card { background: #0f1821; }
     .platform-status-card strong,
     .platform-status-card span {
       display: block;
@@ -1492,7 +1492,7 @@
       background: #fbfcfd;
       margin-top: 10px;
     }
-    body.night .cms-history { background: #0b1218; }
+    :is(body, html).night .cms-history { background: #0b1218; }
     .cms-history-item {
       border-bottom: 1px solid var(--line);
       padding: 8px 0;
@@ -1518,7 +1518,7 @@
       padding: 10px;
       background: #fbfcfd;
     }
-    body.night .api-instruction-item { background: #0b1218; }
+    :is(body, html).night .api-instruction-item { background: #0b1218; }
     .api-instruction-item strong {
       display: block;
       font-size: 13px;
@@ -1546,7 +1546,7 @@
       background: #fbfcfd;
       padding: 10px;
     }
-    body.night .session-metric-card { background: #0b1218; }
+    :is(body, html).night .session-metric-card { background: #0b1218; }
     .session-metric-card strong,
     .session-metric-card span {
       display: block;
@@ -1570,7 +1570,7 @@
       background: #fff;
       max-height: 380px;
     }
-    body.night .session-table { background: #0f1821; }
+    :is(body, html).night .session-table { background: #0f1821; }
     .session-row {
       display: grid;
       grid-template-columns: minmax(190px, 1.4fr) minmax(120px, .65fr) minmax(120px, .65fr) minmax(130px, .7fr) minmax(150px, .9fr) repeat(2, 72px) minmax(120px, .75fr) minmax(86px, .55fr) minmax(120px, .7fr);
@@ -1592,7 +1592,7 @@
       text-transform: uppercase;
       letter-spacing: .03em;
     }
-    body.night .session-row.header { background: #101820; }
+    :is(body, html).night .session-row.header { background: #101820; }
     .session-row button {
       padding: 6px 9px;
       font-size: 12px;
@@ -1605,7 +1605,7 @@
       padding: 14px;
       background: #fbfcfd;
     }
-    body.night .session-detail { background: #0b1218; }
+    :is(body, html).night .session-detail { background: #0b1218; }
     .session-detail-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
@@ -1618,7 +1618,7 @@
       background: #fff;
       padding: 10px;
     }
-    body.night .session-detail-card { background: #0f1821; }
+    :is(body, html).night .session-detail-card { background: #0f1821; }
     .session-detail-card strong {
       display: block;
       margin-bottom: 6px;
@@ -1635,7 +1635,7 @@
       background: #fff;
       padding: 12px;
     }
-    body.night .session-json { background: #0f1821; }
+    :is(body, html).night .session-json { background: #0f1821; }
     .tabs {
       display: flex;
       gap: 8px;
@@ -1854,7 +1854,7 @@
       position: relative;
       overflow: hidden;
     }
-    body.night .persona-preview-card { background: #0b1218; }
+    :is(body, html).night .persona-preview-card { background: #0b1218; }
     .persona-preview-card::before {
       content: "";
       position: absolute;
@@ -1909,7 +1909,7 @@
       gap: 9px;
       min-height: 210px;
     }
-    body.night .win-strategy-card { background: #0b1218; }
+    :is(body, html).night .win-strategy-card { background: #0b1218; }
     .win-strategy-card h3 {
       margin: 0;
       font-size: 15px;
@@ -2206,7 +2206,7 @@
       padding: 14px;
       background: #fbfcfd;
     }
-    body.night .guide-prompt-details { background: #0b1218; }
+    :is(body, html).night .guide-prompt-details { background: #0b1218; }
     .guide-prompt-details summary {
       cursor: pointer;
       font-weight: 850;
@@ -2227,7 +2227,7 @@
       padding: 14px;
       background: #fbfcfd;
     }
-    body.night .pre-demo-score-card { background: #0b1218; }
+    :is(body, html).night .pre-demo-score-card { background: #0b1218; }
     .pre-demo-score-card strong {
       display: block;
       margin-bottom: 6px;
@@ -2264,7 +2264,7 @@
       display: grid;
       gap: 8px;
     }
-    body.night .follow-up-card { background: #0b1218; }
+    :is(body, html).night .follow-up-card { background: #0b1218; }
     .follow-up-card-head {
       display: flex;
       justify-content: space-between;
@@ -2283,7 +2283,7 @@
       font-weight: 850;
       font-size: 12px;
     }
-    body.night .follow-up-number { background: #12322f; }
+    :is(body, html).night .follow-up-number { background: #12322f; }
     .follow-up-question {
       font-weight: 800;
       color: var(--text);
@@ -2308,7 +2308,7 @@
       padding: 12px;
       background: #f7fafb;
     }
-    body.night .follow-up-markdown { background: #091017; }
+    :is(body, html).night .follow-up-markdown { background: #091017; }
     .follow-up-markdown pre {
       margin: 8px 0 0;
       white-space: pre-wrap;
@@ -2327,7 +2327,7 @@
       padding: 18px;
       background: linear-gradient(135deg, #f8fcfb 0%, #eef7f4 100%);
     }
-    body.night .dataset-hero { background: linear-gradient(135deg, #0b1218 0%, #10222a 100%); }
+    :is(body, html).night .dataset-hero { background: linear-gradient(135deg, #0b1218 0%, #10222a 100%); }
     .dataset-score {
       text-align: center;
       border: 1px solid var(--line);
@@ -2335,7 +2335,7 @@
       padding: 12px;
       background: rgba(255,255,255,.76);
     }
-    body.night .dataset-score { background: rgba(8, 14, 20, .68); }
+    :is(body, html).night .dataset-score { background: rgba(8, 14, 20, .68); }
     .dataset-score strong {
       display: block;
       font-size: 36px;
@@ -2360,7 +2360,7 @@
       background: #fbfcfd;
       min-height: 132px;
     }
-    body.night .dataset-card { background: #0b1218; }
+    :is(body, html).night .dataset-card { background: #0b1218; }
     .dataset-card strong {
       display: block;
       margin-bottom: 6px;
@@ -2397,13 +2397,13 @@
       font-weight: 750;
       white-space: nowrap;
     }
-    body.night .page-load-info { background: #0b1218; }
+    :is(body, html).night .page-load-info { background: #0b1218; }
     .page-load-info.stale {
       border-color: #f2a7a7;
       background: #fff5f5;
       color: #b42318;
     }
-    body.night .page-load-info.stale {
+    :is(body, html).night .page-load-info.stale {
       border-color: #6f1d1d;
       background: #2a1010;
       color: #ffb4a8;
@@ -2497,7 +2497,7 @@
       background: #fbfcfd;
       margin-top: 12px;
     }
-    body.night .feature-toggle-card { background: #0b1218; }
+    :is(body, html).night .feature-toggle-card { background: #0b1218; }
     .feature-toggle-card label {
       display: flex;
       align-items: center;
@@ -2552,7 +2552,7 @@
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
     }
   </style>
-<script>window.NSDH_RUNTIME_CONFIG = {"runtimeMode":"local-helper","localHelperHostLabel":"Current user's Local Helper","allowLocalDevelopmentFallback":false};</script>
+<script>window.NSDH_RUNTIME_CONFIG = {"runtimeMode":"local-helper","apexDatabaseLogging":{"enabled":true,"apiBaseUrl":"https://apex.oraclecorp.com/pls/apex/emeawj/nsdh"},"localHelperHostLabel":"Current user's Local Helper","allowLocalDevelopmentFallback":false};</script>
 </head>
   <body class="live-demo-disabled profile-mvp">
     <div class="ribbon-strip" aria-hidden="true"></div>
@@ -2604,7 +2604,7 @@ Profile: mvp">
         <p>Use the customer notes, website context, scope, and audience selections to create the playbook, score discovery quality, and surface the demo risks before moving into runbook or dry-run work.</p>
         <div class="heads-up-meta" aria-label="Current preparation checkpoints">
           <span>Codex-backed generation</span>
-          <span>Session saved locally</span>
+          <span>Session logging enabled</span>
           <span>Admin changes locked behind login</span>
         </div>
       </div>
@@ -3138,7 +3138,7 @@ If a page takes time to load, narrate the business reason for the next step inst
 
         <div class="panel prep-actions">
           <div class="row">
-              <button class="secondary" id="preDemoScoring" data-help="Scores only the current pre-demo inputs so the SC can see discovery gaps before creating the playbook or demo.">Pre-demo scoring</button>
+              <button class="secondary" id="preDemoScoring" data-help="Scores only the current pre-demo inputs so the SC can see discovery gaps before creating the playbook or demo.">Score Pre-Demo Notes</button>
             <button id="learn" data-help="Uses Codex to analyze the Discovery & Prep inputs, create the playbook, and populate both intelligence pages. It does not start a browser dry-run.">Learn / Create Demo</button>
             <button id="learnDryRun" data-live-demo-only data-help="Uses Codex to create the playbook, creates the Dry-run creation prompt, builds the runnable dry-run manifest from that prompt, and starts the browser dry-run.">Learn / Create Demo & Dry-Run</button>
             <button class="secondary" id="reload" data-help="Reloads the latest saved manifest, playbook, setup prompt, and intelligence outputs without generating anything new.">Reload</button>
@@ -3501,7 +3501,7 @@ If a page takes time to load, narrate the business reason for the next step inst
             <p class="hint">Download the helper for your operating system, run it once to install/start the local bridge, keep Codex open and signed in, then test the connection.</p>
             <div class="helper-download-grid">
               <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper zip. Save it to Desktop, unzip it, and run helper-mac.command once.">Download Helper for macOS</button>
-              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper zip. Save it to Desktop, unzip it, and run helper-windows.bat once.">Download Helper for Windows</button>
+              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper zip. Save it to Desktop, unzip it, and run start-helper-windows.bat once.">Download Helper for Windows</button>
               <button class="secondary" type="button" data-local-helper-download="readme" data-help="Downloads the helper setup notes and troubleshooting guide.">Download Instructions</button>
             </div>
             <ol class="helper-steps">
@@ -3527,7 +3527,7 @@ If a page takes time to load, narrate the business reason for the next step inst
       <div class="grid">
         <div class="panel full">
           <h2>Admin</h2>
-          <p class="hint">Protected local admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, additional demo logic sources, and the Codex rules behind the demo story, asset prompt, account setup prompt, and dry-run creation prompt. Active sources are matched to the demo context and included when the helper creates the manifest and playbook. Passwords are stored as salted scrypt hashes and every CMS save creates a rollback version.</p>
+          <p class="hint">Protected admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, additional demo logic sources, and the Codex rules behind the demo story, asset prompt, account setup prompt, and dry-run creation prompt. Active sources are matched to the demo context and included when the helper creates the manifest and playbook. Passwords are stored as salted scrypt hashes locally; APEX usage analytics use a separate protected cloud session token.</p>
           <div class="cms-auth-grid" id="cmsAuthArea">
             <div class="analysis-item" id="cmsSetupPanel" hidden>
               <strong>Create Admin Login</strong>
@@ -3577,7 +3577,7 @@ If a page takes time to load, narrate the business reason for the next step inst
               <h2>Demo Prep Database</h2>
               <p>Admin-only review of saved MVP sessions, selected options, scores, generated outputs, and run history.</p>
             </div>
-            <button class="secondary" id="reloadSessionDatabase" data-help="Reloads saved user sessions and generated outputs from the local application database.">Reload Sessions</button>
+            <button class="secondary" id="reloadSessionDatabase" data-help="Reloads saved user sessions and generated outputs from the APEX database when available, with local fallback for development.">Reload Sessions</button>
           </div>
           <div class="advisory" style="margin-bottom:12px">Session logs may contain customer discovery information and generated demo content. Handle appropriately and do not share exports without checking the content.</div>
           <div class="session-controls">
@@ -4160,12 +4160,15 @@ If a page takes time to load, narrate the business reason for the next step inst
     let prepDirtyForIntelligence = false;
     let prepDirtyForPreDemoIntelligence = false;
     let liveDemoFunctionalityEnabled = false;
-    const localHelperDownloads = {"mac":{"fileName":"helper-mac.zip","mimeType":"application/zip","encoding":"base64","content":"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"},"windows":{"fileName":"helper-windows.zip","mimeType":"application/zip","encoding":"base64","content":"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"},"readme":{"fileName":"README.md","mimeType":"text/markdown","encoding":"utf8","content":"# NS DemoHelper Local Helper\n\nThe Local Helper is a lightweight pilot bridge for the MVP Oracle APEX app.\n\nIt lets a user open the APEX MVP, run a small helper locally, and let the cloud-hosted page call Codex on that user's own machine.\n\n## User Flow\n\n1. Open the NS DemoHelper APEX link.\n2. Download the helper for your operating system.\n3. Save it to your Desktop.\n4. Run the helper once to install/start the local bridge.\n5. Keep Codex open and signed in.\n6. In the APEX app, click **Test Connection**.\n7. Use the MVP.\n\n## macOS\n\nDownload `helper-mac.zip`, save it to Desktop, unzip it, then double-click `helper-mac.command`.\n\nIf macOS blocks the first run, right-click the file and choose **Open**.\n\nThe helper uses the built-in `/usr/bin/python3` runtime, installs a user-level LaunchAgent, and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\nThe LaunchAgent is installed under:\n\n```text\n~/Library/LaunchAgents/com.nsdemohelper.localhelper.plist\n```\n\nThe helper files are installed under:\n\n```text\n~/Library/Application Support/NSDemoHelper\n```\n\nUseful commands:\n\n```text\n~/Library/Application Support/NSDemoHelper/helper-mac.command --status\n~/Library/Application Support/NSDemoHelper/helper-mac.command --stop\n~/Library/Application Support/NSDemoHelper/helper-mac.command --uninstall\n```\n\nNo admin password is required. The helper binds to localhost only.\n\n## Windows\n\nDownload `helper-windows.zip`, save it to Desktop, unzip it, then double-click `helper-windows.bat`.\n\nThe script installs a user Startup entry, launches a local PowerShell helper, and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\nIf Windows Defender Firewall asks for access, only allow local/private access if your security policy permits it. The helper is intended to bind to localhost only.\n\nThe helper files are installed under:\n\n```text\n%LOCALAPPDATA%\\NSDemoHelper\n```\n\nThe startup entry is created at:\n\n```text\n%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\NS DemoHelper Local Helper.cmd\n```\n\nUseful commands:\n\n```text\n%LOCALAPPDATA%\\NSDemoHelper\\helper-windows.bat --status\n%LOCALAPPDATA%\\NSDemoHelper\\helper-windows.bat --stop\n%LOCALAPPDATA%\\NSDemoHelper\\helper-windows.bat --uninstall\n```\n\nNo admin rights are required. The helper binds to localhost only.\n\n## API\n\nThe helper exposes:\n\n- `GET /api/helper/status`\n- `GET /api/codex/status`\n- `POST /api/generate`\n- `POST /api/pre-demo-score`\n- `POST /api/demo-runbook`\n- `POST /api/ppt-prompt`\n- `POST /api/dataset-enhancement`\n\nFor MVP compatibility it also exposes:\n\n- `GET /api/platform/status`\n- `GET /api/manifest`\n- `GET /api/sc-guide`\n- `GET /api/setup-prompt`\n- `POST /api/pre-demo-intelligence`\n- `POST /api/learn`\n- `POST /api/dataset-analysis`\n\n## Security Notes\n\n- The helper binds to `127.0.0.1` only.\n- It does not expose a public network port.\n- It restricts browser access to `https://apex.oraclecorp.com` and localhost development origins.\n- It does not log API keys, passwords, request bodies, or local files.\n- It is a pilot helper, not a production hosted backend.\n\n## Troubleshooting\n\n`HELPER_NOT_RUNNING`: start the helper and keep the helper window open.\n\n`HELPER_WRONG_PORT`: confirm the app is checking `http://127.0.0.1:4173`.\n\n`HELPER_CORS_BLOCKED`: confirm the APEX app is running from `https://apex.oraclecorp.com` and the helper was not modified.\n\n`CODEX_NOT_AVAILABLE`: open Codex, sign in, and make sure the `codex` command is available.\n\n`GENERATION_TIMEOUT`: Codex did not return in time. Try again with a smaller request.\n\n`HELPER_INVALID_RESPONSE`: the endpoint responded, but not as NS DemoHelper expects.\n\n`HELPER_AUTH_REQUIRED`: the helper responded with an authorization error. Restart the helper from the downloaded file and test again.\n"}};
+    const localHelperDownloads = {"mac":{"fileName":"helper-mac.zip","mimeType":"application/zip","encoding":"base64","content":"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"},"windows":{"fileName":"helper-windows.zip","mimeType":"application/zip","encoding":"base64","content":"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"},"readme":{"fileName":"README.md","mimeType":"text/markdown","encoding":"utf8","content":"# NS DemoHelper Local Helper\n\nThe Local Helper is a lightweight pilot bridge for the MVP Oracle APEX app.\n\nIt lets a user open the APEX MVP, run a small helper locally, and let the cloud-hosted page call Codex on that user's own machine.\n\n## User Flow\n\n1. Open the NS DemoHelper APEX link.\n2. Download the helper for your operating system.\n3. Save it to your Desktop.\n4. Run the helper once to install/start the local bridge.\n5. Keep Codex open and signed in.\n6. In the APEX app, click **Test Connection**.\n7. Use the MVP.\n\n## macOS\n\nDownload `helper-mac.zip`, save it to Desktop, unzip it, then double-click `helper-mac.command`.\n\nIf macOS blocks the first run, right-click the file and choose **Open**.\n\nThe helper uses the built-in `/usr/bin/python3` runtime, installs a user-level LaunchAgent, and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\nThe LaunchAgent is installed under:\n\n```text\n~/Library/LaunchAgents/com.nsdemohelper.localhelper.plist\n```\n\nThe helper files are installed under:\n\n```text\n~/Library/Application Support/NSDemoHelper\n```\n\nUseful commands:\n\n```text\n~/Library/Application Support/NSDemoHelper/helper-mac.command --status\n~/Library/Application Support/NSDemoHelper/helper-mac.command --stop\n~/Library/Application Support/NSDemoHelper/helper-mac.command --uninstall\n```\n\nNo admin password is required. The helper binds to localhost only.\n\n## Windows\n\nDownload `helper-windows.zip`, save it to Desktop, unzip it, then double-click `start-helper-windows.bat`.\n\nThe batch launcher installs a user Startup entry, launches a local PowerShell helper, and listens only on:\n\n```text\nhttp://127.0.0.1:4173\n```\n\nIf Windows Defender Firewall asks for access, only allow local/private access if your security policy permits it. The helper is intended to bind to localhost only.\n\nThe helper files are installed under:\n\n```text\n%LOCALAPPDATA%\\NSDemoHelper\n```\n\nThe Windows download contains:\n\n```text\nstart-helper-windows.bat\nhelper-windows.bat\nnsdemohelper-local-helper.ps1\nREADME.md\n```\n\n`helper-windows.bat` is kept as a compatibility launcher, but `start-helper-windows.bat` is the preferred entry point.\n\nThe startup entry is created at:\n\n```text\n%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\NS DemoHelper Local Helper.cmd\n```\n\nUseful commands:\n\n```text\n%LOCALAPPDATA%\\NSDemoHelper\\start-helper-windows.bat --status\n%LOCALAPPDATA%\\NSDemoHelper\\start-helper-windows.bat --stop\n%LOCALAPPDATA%\\NSDemoHelper\\start-helper-windows.bat --uninstall\n```\n\nNo admin rights are required. The helper binds to localhost only.\n\n## API\n\nThe helper exposes:\n\n- `GET /api/helper/status`\n- `GET /api/codex/status`\n- `POST /api/generate`\n- `POST /api/pre-demo-score`\n- `POST /api/demo-runbook`\n- `POST /api/ppt-prompt`\n- `POST /api/dataset-enhancement`\n\nFor MVP compatibility it also exposes:\n\n- `GET /api/platform/status`\n- `GET /api/manifest`\n- `GET /api/sc-guide`\n- `GET /api/setup-prompt`\n- `POST /api/pre-demo-intelligence`\n- `POST /api/learn`\n- `POST /api/dataset-analysis`\n\n## Security Notes\n\n- The helper binds to `127.0.0.1` only.\n- It does not expose a public network port.\n- It restricts browser access to `https://apex.oraclecorp.com` and localhost development origins.\n- It does not log API keys, passwords, request bodies, or local files.\n- It is a pilot helper, not a production hosted backend.\n\n## Troubleshooting\n\n`HELPER_NOT_RUNNING`: start the helper and keep the helper window open.\n\n`HELPER_WRONG_PORT`: confirm the app is checking `http://127.0.0.1:4173`.\n\n`HELPER_CORS_BLOCKED`: confirm the APEX app is running from `https://apex.oraclecorp.com` and the helper was not modified.\n\n`CODEX_NOT_AVAILABLE`: open Codex, sign in, and make sure the `codex` command is available.\n\n`GENERATION_TIMEOUT`: Codex did not return in time. Try again with a smaller request.\n\n`HELPER_INVALID_RESPONSE`: the endpoint responded, but not as NS DemoHelper expects.\n\n`HELPER_AUTH_REQUIRED`: the helper responded with an authorization error. Restart the helper from the downloaded file and test again.\n"}};
+    const appVersionLabel = "v0.1.0-alpha";
     const nsdhCloudRuntime = location.hostname === "apex.oraclecorp.com";
     const nsdhRuntimeConfig = Object.freeze(window.NSDH_RUNTIME_CONFIG || {});
     const nsdhRuntimeMode = nsdhCloudRuntime ? (nsdhRuntimeConfig.runtimeMode || "user-local") : "local-development";
     const nsdhSharedLocalPilot = nsdhCloudRuntime && nsdhRuntimeMode === "shared-local-pilot";
     const nsdhLocalHelperRuntime = nsdhCloudRuntime && nsdhRuntimeMode === "local-helper";
+    const nsdhApexDatabaseLoggingConfig = nsdhRuntimeConfig.apexDatabaseLogging || {};
+    const nsdhApexDatabaseLoggingEnabled = nsdhCloudRuntime && nsdhApexDatabaseLoggingConfig.enabled !== false;
     const nsdhPilotHostLabel = nsdhRuntimeConfig.pilotHostLabel || "Wiljan's Desktop 2 Codex bridge";
     const nsdhLocalHelperHostLabel = nsdhRuntimeConfig.localHelperHostLabel || "Current user's Local Helper";
     const nsdhDefaultLocalApiBase = "http://127.0.0.1:4173";
@@ -4209,6 +4212,7 @@ If a page takes time to load, narrate the business reason for the next step inst
     const demoHelperSessionId = browserSessionId("nsdhBrowserSessionId", "session");
     const demoHelperAnonymousUserId = browserSessionId("nsdhAnonymousUserId", "user");
     let demoHelperAdminSessionToken = sessionStorage.getItem("nsdhAdminSessionToken") || "";
+    let demoHelperApexAdminSessionToken = sessionStorage.getItem("nsdhApexAdminSessionToken") || "";
 
     function normalizeApiBase(value, options = {}) {
       const raw = String(value || "").trim().replace(new RegExp("/+$"), "");
@@ -4231,6 +4235,23 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     function normalizePilotApiBase(value) {
       return normalizeApiBase(value, { allowRemoteHttps: true });
+    }
+
+    function normalizeApexDatabaseApiBase(value) {
+      const raw = String(value || "").trim().replace(new RegExp("/+$"), "");
+      if (!raw) return "";
+      if (raw.startsWith("/")) return raw;
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") return "";
+        return parsed.origin + parsed.pathname.replace(new RegExp("/+$"), "");
+      } catch {
+        return "";
+      }
+    }
+
+    function apexDatabaseApiBase() {
+      return normalizeApexDatabaseApiBase(nsdhApexDatabaseLoggingConfig.apiBaseUrl || "/pls/apex/emeawj/nsdh");
     }
 
     function configuredCloudApiBase() {
@@ -4268,6 +4289,15 @@ If a page takes time to load, narrate the business reason for the next step inst
           normalizePilotApiBase(nsdhRuntimeConfig.pilotApiBaseUrl)
         ].filter(Boolean)));
       }
+      if (nsdhLocalHelperRuntime) {
+        return Array.from(new Set([
+          normalizeLocalApiBase(preferred),
+          configuredCloudApiBase(),
+          detectedCloudApiBase(),
+          nsdhDefaultLocalApiBase,
+          "http://localhost:4173"
+        ].filter(Boolean)));
+      }
       return Array.from(new Set([
         normalizeLocalApiBase(preferred),
         configuredCloudApiBase(),
@@ -4288,6 +4318,32 @@ If a page takes time to load, narrate the business reason for the next step inst
       return headers;
     }
 
+    function demoHelperApexDatabaseHeaders(extraHeaders = {}) {
+      const headers = {
+        "content-type": "application/json",
+        "x-demo-helper-session-id": demoHelperSessionId,
+        "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
+        ...extraHeaders
+      };
+      if (demoHelperApexAdminSessionToken) headers["x-nsdh-apex-admin-token"] = demoHelperApexAdminSessionToken;
+      return headers;
+    }
+
+    function apexDatabaseApiUrl(path, options = {}) {
+      const base = apexDatabaseApiBase();
+      if (!base || !path || !String(path).startsWith("/")) return path;
+      const rawUrl = base + path;
+      if (!options.includeAdminToken || !demoHelperApexAdminSessionToken) return rawUrl;
+      try {
+        const url = new URL(rawUrl, location.origin);
+        url.searchParams.set("admin_token", demoHelperApexAdminSessionToken);
+        return url.toString();
+      } catch {
+        const join = rawUrl.includes("?") ? "&" : "?";
+        return rawUrl + join + "admin_token=" + encodeURIComponent(demoHelperApexAdminSessionToken);
+      }
+    }
+
     function captureAdminSession(path, payload) {
       if (payload?.adminSessionToken) {
         demoHelperAdminSessionToken = payload.adminSessionToken;
@@ -4296,6 +4352,279 @@ If a page takes time to load, narrate the business reason for the next step inst
       if (path === "/api/cms/logout") {
         demoHelperAdminSessionToken = "";
         sessionStorage.removeItem("nsdhAdminSessionToken");
+      }
+    }
+
+    function captureApexAdminSession(payload) {
+      if (payload?.adminSessionToken) {
+        demoHelperApexAdminSessionToken = payload.adminSessionToken;
+        sessionStorage.setItem("nsdhApexAdminSessionToken", demoHelperApexAdminSessionToken);
+      }
+    }
+
+    function clearApexAdminSession() {
+      demoHelperApexAdminSessionToken = "";
+      sessionStorage.removeItem("nsdhApexAdminSessionToken");
+    }
+
+    async function apexDatabaseApi(path, options = {}) {
+      if (!nsdhApexDatabaseLoggingEnabled) throw new Error("APEX database logging is not enabled for this runtime.");
+      const method = String(options.method || "GET").toUpperCase();
+      const adminEndpoint = path.startsWith("/sessions") && method !== "POST" || path === "/admin/logout";
+      const response = await fetch(apexDatabaseApiUrl(path, { includeAdminToken: adminEndpoint }), {
+        ...options,
+        headers: demoHelperApexDatabaseHeaders(options.headers || {})
+      });
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = { ok: false, error: "The APEX database service returned a non-JSON response." };
+      }
+      if (!response.ok || payload.ok === false) throw new Error(payload.error || "APEX database request failed");
+      return payload;
+    }
+
+    async function apexAdminLogin(password) {
+      if (!nsdhApexDatabaseLoggingEnabled || !password) return null;
+      const payload = await apexDatabaseApi("/admin/login", {
+        method: "POST",
+        body: JSON.stringify({ password })
+      });
+      captureApexAdminSession(payload);
+      return payload;
+    }
+
+    async function apexAdminLogout() {
+      if (!nsdhApexDatabaseLoggingEnabled || !demoHelperApexAdminSessionToken) {
+        clearApexAdminSession();
+        return;
+      }
+      try {
+        await apexDatabaseApi("/admin/logout", { method: "POST", body: "{}" });
+      } catch {
+        // Local helper admin logout should still proceed even if the cloud DB token has expired.
+      } finally {
+        clearApexAdminSession();
+      }
+    }
+
+    function isApexSessionLoggablePath(path) {
+      const text = String(path || "");
+      return [
+        "/api/learn",
+        "/api/pre-demo-intelligence",
+        "/api/intelligence",
+        "/api/intelligence/follow-up-questions",
+        "/api/intelligence/improve-guide",
+        "/api/intelligence/apply-action",
+        "/api/manifest",
+        "/api/manifest/from-guide",
+        "/api/run",
+        "/api/dataset-analysis"
+      ].some((pathName) => text === pathName);
+    }
+
+    function safeJsonParseClient(value) {
+      if (!value) return {};
+      try {
+        return typeof value === "string" ? JSON.parse(value) : value;
+      } catch {
+        return {};
+      }
+    }
+
+    function sanitizeSessionLogClient(value) {
+      if (Array.isArray(value)) return value.map(sanitizeSessionLogClient);
+      if (value && typeof value === "object") {
+        return Object.fromEntries(Object.entries(value)
+          .filter(([key]) => !/(password|api.?key|secret|token|credential|authorization|cookie)/i.test(key))
+          .map(([key, item]) => [key, sanitizeSessionLogClient(item)]));
+      }
+      if (typeof value === "string" && value.length > 120000) return value.slice(0, 120000) + "\n\n[Truncated for session logging]";
+      return value;
+    }
+
+    function numericClientScore(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : null;
+    }
+
+    function selectedOptionText(select) {
+      return select?.selectedOptions?.[0]?.textContent?.trim() || "";
+    }
+
+    function currentPrepSnapshotForLog(input = {}) {
+      let prep = {};
+      try {
+        prep = typeof currentPrepPayload === "function" ? currentPrepPayload() : {};
+      } catch {
+        prep = {};
+      }
+      return {
+        ...prep,
+        ...input,
+        audienceLabel: selectedOptionText(audienceSelect),
+        targetSegmentLabel: selectedOptionText(targetAudienceSelect),
+        industryLabel: selectedOptionText(industrySelect),
+        demoStrategyLabel: selectedOptionText(demoStrategySelect),
+        outputLanguageLabel: selectedOptionText(outputLanguageSelect),
+        manifestDemoModeLabel: selectedOptionText(manifestDemoModeSelect)
+      };
+    }
+
+    function providerBackboneForLog() {
+      return sanitizeSessionLogClient({
+        activeProvider: {
+          name: nsdhCloudRuntime ? "Codex" : "Codex",
+          runtimeMode: nsdhRuntimeMode
+        },
+        runtime: {
+          connectionStatus: nsdhCloudConnection.status,
+          runtimeStatus: nsdhCloudConnection.status,
+          base: nsdhCloudConnection.base,
+          detail: nsdhCloudConnection.detail
+        },
+        activeKnowledgeSourceCount: 0
+      });
+    }
+
+    function sessionActionLabelForClient(path, input = {}) {
+      if (path === "/api/learn") return input.createRunnableManifest ? "Learn / Create Demo & Dry-Run" : "Learn / Create Demo";
+      if (path === "/api/pre-demo-intelligence") return "Pre-demo scoring";
+      if (path === "/api/intelligence/follow-up-questions") return "Generate Discovery Follow-Up Questions";
+      if (path === "/api/intelligence/improve-guide") return "Apply All Recommendations To Playbook";
+      if (path === "/api/intelligence/apply-action") return "Apply Edited Output To Playbook";
+      if (path === "/api/intelligence") return "Re-analyze Updated Playbook";
+      if (path === "/api/manifest/from-guide") return "Create Dry-Run From Prompt";
+      if (path === "/api/manifest") return "Save Dry-Run";
+      if (path === "/api/run") return "Run " + (input.mode || "demo");
+      if (path === "/api/dataset-analysis") return "Dataset Analysis";
+      return "Tool action";
+    }
+
+    function outputSummaryForLog(output = {}) {
+      const intelligence = output.intelligence || {};
+      const preDemo = output.preDemoIntelligence || {};
+      return sanitizeSessionLogClient({
+        hasGuide: Boolean(output.guide || output.guideOutputs?.scRunbook),
+        hasPptPrompt: Boolean(output.guideOutputs?.assetGenerationPrompt),
+        hasSetupPrompt: Boolean(output.setupPrompt?.prompt),
+        hasDryRunManifest: Boolean(output.manifest?.segments?.length),
+        hasIntelligence: Boolean(intelligence.demo_readiness_score || intelligence.demo_risk_analyzer),
+        hasPreDemoIntelligence: Boolean(preDemo.overall_score || preDemo.missing_discovery_items),
+        demoReadinessScore: intelligence.demo_readiness_score,
+        discoveryScore: preDemo.overall_score,
+        riskScore: intelligence.demo_risk_analyzer?.demo_risk_score
+      });
+    }
+
+    function apexSessionPayloadFromAction(path, options = {}, payload = {}, status = "success", error = "", durationMs = null) {
+      const input = safeJsonParseClient(options.body);
+      const prep = currentPrepSnapshotForLog(input);
+      const manifest = payload.manifest || input.manifest || {};
+      const context = manifest.context || {};
+      const company = payload.company || context.company || {};
+      const intelligence = payload.intelligence || input.intelligence || {};
+      const preDemo = payload.preDemoIntelligence || input.preDemoIntelligence || {};
+      const setupPrompt = payload.setupPrompt || {};
+      const guideOutputs = payload.guideOutputs || {};
+      const risk = intelligence.demo_risk_analyzer || {};
+      const discovery = intelligence.discovery_gap_analyzer || {};
+      const stakeholder = intelligence.stakeholder_coverage_analyzer || {};
+      const winning = intelligence.winning_moment_detection || {};
+      const avoid = intelligence.what_not_to_demo_engine || {};
+      const timing = intelligence.demo_timing_pacing_analyzer || {};
+      const now = new Date().toISOString();
+      return sanitizeSessionLogClient({
+        schemaVersion: 1,
+        session_id: demoHelperSessionId,
+        anonymous_user_id: demoHelperAnonymousUserId,
+        created_at: now,
+        updated_at: now,
+        environment: nsdhCloudRuntime ? "apex-cloud" : "local",
+        mode: activeAppProfile,
+        app_version: appVersionLabel,
+        browser_user_agent: navigator.userAgent,
+        source_page: document.querySelector(".screen.active")?.id || "mvp",
+        action: sessionActionLabelForClient(path, input),
+        action_path: path,
+        company_name: company.companyName || company.title || context.company?.companyName || input.companyName || websiteNameSlug(prep.companyUrl || input.companyUrl) || "",
+        website: company.url || context.company?.url || prep.companyUrl || input.companyUrl || "",
+        audience_type: context.audience?.label || prep.audienceLabel || input.audience || preDemo.metadata?.audience_type || "",
+        target_segment: context.targetAudience?.label || context.marketSegment?.label || prep.targetSegmentLabel || input.marketSegment || preDemo.metadata?.target_segment || "",
+        industry: context.industry?.label || prep.industryLabel || input.industry || preDemo.metadata?.industry || "",
+        demo_strategy: context.demoStrategy?.label || prep.demoStrategyLabel || input.demoStrategy || preDemo.metadata?.demo_strategy || "",
+        output_language: context.outputLanguage?.label || prep.outputLanguageLabel || input.outputLanguage || "",
+        narration_voice: manifest.defaults?.audio?.voice || input.voice || prep.voice || "",
+        demo_mode: context.manifestDemoMode?.label || prep.manifestDemoModeLabel || input.manifestDemoMode || "",
+        discovery_score: numericClientScore(preDemo.overall_score ?? intelligence.pre_demo_notes_analyzer?.overall_score),
+        demo_readiness_score: numericClientScore(intelligence.demo_readiness_score),
+        risk_score: numericClientScore(risk.demo_risk_score),
+        stakeholder_coverage: stakeholder.stakeholder_coverage || [],
+        identified_gaps: discovery.missing_discovery_items || preDemo.missing_discovery_items || [],
+        warnings: risk.warnings || [],
+        recommendations: [...(risk.recommendations || []), ...(preDemo.recommendations || [])].slice(0, 12),
+        winning_moments: winning.winning_moments || [],
+        what_not_to_demo: avoid.avoid_showing || [],
+        timing_pacing_insights: timing,
+        generation_status: status,
+        error_message: error,
+        duration_ms: durationMs,
+        provider_backbone: providerBackboneForLog(),
+        input_context: {
+          companyUrl: prep.companyUrl || input.companyUrl,
+          demoScope: prep.demoScope || input.demoScope || context.demoScope,
+          competition: prep.competition || input.competition || context.competition,
+          demoRequest: prep.topic || input.topic || context.demoRequest?.topic,
+          preDemoNotes: prep.preDemoNotes || input.preDemoNotes || context.preDemoNotes,
+          audience: prep.audience || input.audience || context.audience,
+          targetSegment: prep.marketSegment || input.marketSegment || context.targetAudience,
+          industry: prep.industry || input.industry || context.industry,
+          demoStrategy: prep.demoStrategy || input.demoStrategy || context.demoStrategy,
+          outputLanguage: prep.outputLanguage || input.outputLanguage || context.outputLanguage,
+          inputMode: prep.inputMode || input.inputMode || context.demoRequest?.inputMode
+        },
+        generated_outputs: {
+          guide: payload.guide,
+          scRunbook: guideOutputs.scRunbook,
+          talkTrack: guideOutputs.scRunbook,
+          assetGenerationPrompt: guideOutputs.assetGenerationPrompt,
+          setupPrompt: setupPrompt.prompt,
+          setupPlan: setupPrompt.setupPlan,
+          dryRunCreationPrompt: guideOutputs.dryRunCreationPrompt,
+          manifest: payload.manifest,
+          dryRunManifest: payload.manifest,
+          intelligence,
+          preDemoIntelligence: preDemo,
+          followUpQuestions: payload.questions || preDemo.recommended_follow_up_questions,
+          datasetAnalysis: payload.datasetAnalysis || payload.analysis || {}
+        },
+        event: {
+          action: sessionActionLabelForClient(path, input),
+          status,
+          duration_ms: durationMs,
+          input,
+          output_summary: outputSummaryForLog(payload),
+          error_message: error,
+          scores: {
+            discovery_score: numericClientScore(preDemo.overall_score ?? intelligence.pre_demo_notes_analyzer?.overall_score),
+            demo_readiness_score: numericClientScore(intelligence.demo_readiness_score),
+            risk_score: numericClientScore(risk.demo_risk_score)
+          }
+        }
+      });
+    }
+
+    async function writeApexSessionLog(path, options = {}, payload = {}, status = "success", error = "", durationMs = null) {
+      if (!nsdhApexDatabaseLoggingEnabled || !isApexSessionLoggablePath(path)) return;
+      try {
+        await apexDatabaseApi("/sessions", {
+          method: "POST",
+          body: JSON.stringify(apexSessionPayloadFromAction(path, options, payload, status, error, durationMs))
+        });
+      } catch (logError) {
+        console.warn("APEX session logging failed", logError);
       }
     }
 
@@ -4488,6 +4817,9 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     async function ensureCloudApiEndpoint(path) {
       if (!nsdhCloudRuntime || !String(path || "").startsWith("/api/")) return;
+      if (nsdhCloudDetectionPromise && nsdhCloudConnection.status === "Checking") {
+        throw new Error("Codex connection is still being checked. You can continue preparing inputs, but generation may not work until connected.");
+      }
       const detection = await detectLocalCodexEndpoint();
       if (detection.status !== "Connected" && detection.status !== "Codex not detected" && detection.status !== "Codex unavailable" && detection.status !== "Pilot Codex unavailable") {
         throw new Error(detection.status + ": " + detection.detail);
@@ -4496,26 +4828,42 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     async function api(path, options = {}) {
       await ensureCloudApiEndpoint(path);
-      const response = await fetch(cloudApiUrl(path), {
-        ...options,
-        headers: demoHelperHeaders(options.headers || {})
-      });
-      const payload = await response.json();
-      captureAdminSession(path, payload);
-      if (!response.ok || payload.ok === false) throw new Error(payload.error || "Request failed");
-      return payload;
+      const startedAt = performance.now();
+      let payload = null;
+      try {
+        const response = await fetch(cloudApiUrl(path), {
+          ...options,
+          headers: demoHelperHeaders(options.headers || {})
+        });
+        payload = await response.json();
+        captureAdminSession(path, payload);
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Request failed");
+        await writeApexSessionLog(path, options, payload, "success", "", Math.round(performance.now() - startedAt));
+        return payload;
+      } catch (error) {
+        await writeApexSessionLog(path, options, payload || {}, "failed", error.message || String(error), Math.round(performance.now() - startedAt));
+        throw error;
+      }
     }
 
     async function apiWithLog(path, options = {}) {
       await ensureCloudApiEndpoint(path);
-      const response = await fetch(cloudApiUrl(path), {
-        ...options,
-        headers: demoHelperHeaders(options.headers || {})
-      });
-      const payload = await response.json();
-      captureAdminSession(path, payload);
-      if (!response.ok) throw new Error(payload.error || "Request failed");
-      return payload;
+      const startedAt = performance.now();
+      let payload = null;
+      try {
+        const response = await fetch(cloudApiUrl(path), {
+          ...options,
+          headers: demoHelperHeaders(options.headers || {})
+        });
+        payload = await response.json();
+        captureAdminSession(path, payload);
+        if (!response.ok) throw new Error(payload.error || "Request failed");
+        await writeApexSessionLog(path, options, payload, "success", "", Math.round(performance.now() - startedAt));
+        return payload;
+      } catch (error) {
+        await writeApexSessionLog(path, options, payload || {}, "failed", error.message || String(error), Math.round(performance.now() - startedAt));
+        throw error;
+      }
     }
 
     async function loadCmsStatus() {
@@ -4578,7 +4926,10 @@ If a page takes time to load, narrate the business reason for the next step inst
       if (sessionStatusFilter.value) params.set("status", sessionStatusFilter.value);
       if (sessionAudienceFilter.value.trim()) params.set("audience", sessionAudienceFilter.value.trim());
       if (sessionSort.value) params.set("sort", sessionSort.value);
-      const payload = await api("/api/session-logs" + (params.toString() ? "?" + params.toString() : ""));
+      const path = "/sessions" + (params.toString() ? "?" + params.toString() : "");
+      const payload = nsdhApexDatabaseLoggingEnabled && demoHelperApexAdminSessionToken
+        ? await apexDatabaseApi(path)
+        : await api("/api/session-logs" + (params.toString() ? "?" + params.toString() : ""));
       renderSessionDatabase(payload);
       return payload;
     }
@@ -4638,16 +4989,21 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     async function openSessionDetail(sessionId) {
       selectedSessionLogId = sessionId;
-      const payload = await api("/api/session-logs/" + encodeURIComponent(sessionId));
+      const payload = nsdhApexDatabaseLoggingEnabled && demoHelperApexAdminSessionToken
+        ? await apexDatabaseApi("/sessions/" + encodeURIComponent(sessionId))
+        : await api("/api/session-logs/" + encodeURIComponent(sessionId));
       renderSessionDetail(payload.session);
     }
 
     function renderSessionDetail(session = {}) {
       const outputs = session.generated_outputs || {};
+      const exportControl = nsdhApexDatabaseLoggingEnabled
+        ? "<button class='secondary' id='exportSessionJson' type='button'>Export JSON</button>"
+        : "<a class='secondary button-link' href='" + escapeClientHtml(cloudApiUrl("/api/session-logs/download/" + encodeURIComponent(session.session_id))) + "' download>Export JSON</a>";
       sessionDatabaseDetail.innerHTML =
         "<div class='section-head'><div><h3 style='margin:0'>" + escapeClientHtml(session.company_name || "Unknown company") + "</h3>" +
         "<p class='hint'>" + escapeClientHtml(session.website || "No website saved") + " | Last updated: " + escapeClientHtml(formatDisplayDateTime(session.updated_at)) + "</p></div>" +
-        "<div class='row'><a class='secondary button-link' href='" + escapeClientHtml(cloudApiUrl("/api/session-logs/download/" + encodeURIComponent(session.session_id))) + "' download>Export JSON</a>" +
+        "<div class='row'>" + exportControl +
         "<button class='danger' id='deleteSessionLog'>Delete Session</button></div></div>" +
         "<div class='session-detail-grid'>" +
           sessionDetailCard("Selected options", [
@@ -4677,10 +5033,25 @@ If a page takes time to load, narrate the business reason for the next step inst
       const deleteButton = document.getElementById("deleteSessionLog");
       if (deleteButton) {
         deleteButton.onclick = async () => {
-          if (!window.confirm("Delete this saved session from the local demo prep database?")) return;
-          await api("/api/session-logs/" + encodeURIComponent(session.session_id), { method: "DELETE", body: "{}" });
+          if (!window.confirm("Delete this saved session from the demo prep database?")) return;
+          if (nsdhApexDatabaseLoggingEnabled && demoHelperApexAdminSessionToken) {
+            await apexDatabaseApi("/sessions/" + encodeURIComponent(session.session_id), { method: "DELETE", body: "{}" });
+          } else {
+            await api("/api/session-logs/" + encodeURIComponent(session.session_id), { method: "DELETE", body: "{}" });
+          }
           selectedSessionLogId = "";
           await loadSessionDatabase();
+        };
+      }
+      const exportButton = document.getElementById("exportSessionJson");
+      if (exportButton) {
+        exportButton.onclick = () => {
+          const blob = new Blob([JSON.stringify(session, null, 2)], { type: "application/json" });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = (session.session_id || "nsdh-session") + ".json";
+          link.click();
+          URL.revokeObjectURL(link.href);
         };
       }
     }
@@ -4932,6 +5303,23 @@ If a page takes time to load, narrate the business reason for the next step inst
 
     async function refreshPlatformStatus() {
       try {
+        if (nsdhCloudRuntime) {
+          renderPlatformStatus({
+            activeProvider: {
+              name: "Codex",
+              defaultModel: "Local Codex"
+            },
+            runtime: {
+              available: nsdhCloudConnection.status === "Connected",
+              runtimeStatus: cloudConnectionDisplayStatus(),
+              connectionStatus: cloudConnectionDisplayStatus(),
+              message: nsdhCloudConnection.detail
+            },
+            activeKnowledgeSourceCount: cloudConnectionSourcesLabel() === "None active" ? 0 : 1,
+            activeKnowledgeSources: cloudConnectionSourcesLabel() === "None active" ? [] : [{ name: cloudConnectionSourcesLabel() }]
+          });
+          return;
+        }
         await ensureCloudApiEndpoint("/api/platform/status");
       const payload = await api("/api/platform/status");
       renderPlatformStatus(payload);
@@ -5727,6 +6115,33 @@ If a page takes time to load, narrate the business reason for the next step inst
       renderCodexInfoBody();
     }
 
+    function runBackgroundCloudConnectionCheck() {
+      if (!nsdhCloudRuntime) return;
+      detectLocalCodexEndpoint({ force: true })
+        .then((connection) => {
+          renderCodexStatus({
+            available: connection.status === "Connected",
+            message: connection.detail,
+            cloudConnection: connection
+          });
+          refreshPlatformStatus();
+        })
+        .catch((error) => {
+          nsdhCloudConnection = {
+            status: nsdhLocalHelperRuntime ? "Helper not running" : nsdhSharedLocalPilot ? "Pilot tunnel unavailable" : "Not detected",
+            base: cloudApiBase(),
+            detail: error.message || String(error),
+            testedAt: new Date().toISOString()
+          };
+          renderCodexStatus({
+            available: false,
+            message: nsdhCloudConnection.detail,
+            cloudConnection: nsdhCloudConnection
+          });
+          refreshPlatformStatus();
+        });
+    }
+
     function cloudConnectionStatusText() {
       if (!nsdhCloudRuntime) return "Local MVP mode: same-origin API";
       return [
@@ -6035,7 +6450,7 @@ If a page takes time to load, narrate the business reason for the next step inst
       return "<div class='codex-info-card'><strong>One-time helper setup</strong>" +
         "<div class='codex-info-grid'>" +
           codexInfoCard("macOS", "helper-mac.command", "Runs without admin rights, copies itself into ~/Library/Application Support/NSDemoHelper, and registers a user LaunchAgent. If macOS cannot verify it, right-click the file and choose Open. The helper remains localhost-only.") +
-          codexInfoCard("Windows", "helper-windows.bat", "Runs without admin rights, copies itself into %LOCALAPPDATA%\\NSDemoHelper, and creates a Startup shortcut. If SmartScreen appears, only continue when the file was downloaded from this APEX app and your policy allows it.") +
+          codexInfoCard("Windows", "start-helper-windows.bat", "Runs without admin rights, copies itself into %LOCALAPPDATA%\\NSDemoHelper, and creates a Startup shortcut. If SmartScreen appears, only continue when the file was downloaded from this APEX app and your policy allows it.") +
           codexInfoCard("Stop / uninstall", "Included in instructions", "macOS supports --stop and --uninstall from the installed command file. Windows supports --stop and --uninstall from the installed batch file.") +
           codexInfoCard("Security", "Local device only", "The helper binds to 127.0.0.1, restricts CORS to Oracle APEX and localhost, and does not expose files, API keys, or a public network port.") +
         "</div>" +
@@ -6224,13 +6639,19 @@ If a page takes time to load, narrate the business reason for the next step inst
       }
 
       function applyNightMode(save = true) {
-        document.body.classList.toggle("night", nightModeToggle.checked);
-        if (save) localStorage.setItem("nsDemoHelperNightMode", nightModeToggle.checked ? "1" : "0");
+        const enabled = Boolean(nightModeToggle?.checked);
+        document.documentElement.classList.toggle("night", enabled);
+        document.body.classList.toggle("night", enabled);
+        document.documentElement.dataset.theme = enabled ? "night" : "light";
+        document.body.dataset.theme = enabled ? "night" : "light";
+        if (save) localStorage.setItem("nsDemoHelperNightMode", enabled ? "1" : "0");
       }
 
-      nightModeToggle.checked = localStorage.getItem("nsDemoHelperNightMode") === "1";
-      applyNightMode(false);
-      nightModeToggle.onchange = () => applyNightMode();
+      if (nightModeToggle) {
+        nightModeToggle.checked = localStorage.getItem("nsDemoHelperNightMode") === "1";
+        applyNightMode(false);
+        nightModeToggle.onchange = () => applyNightMode();
+      }
 
     function hideButtonHelp() {
       clearTimeout(helpTimer);
@@ -7983,7 +8404,18 @@ If a page takes time to load, narrate the business reason for the next step inst
       }
     }
 
-    async function loadIntelligence(action = "Demo Intelligence refresh") {
+    function userActionRequiredMessage(taskName) {
+      return taskName + " is ready. Click the action button when you want Codex to run.";
+    }
+
+    function shouldRunUserInitiatedGeneration(options = {}, taskName = "Generation") {
+      if (options.userInitiated) return true;
+      setStatus(userActionRequiredMessage(taskName));
+      return false;
+    }
+
+    async function loadIntelligence(action = "Demo Intelligence refresh", options = {}) {
+      if (!shouldRunUserInitiatedGeneration(options, "Demo Intelligence")) return null;
       startCodexProgress("Refreshing Intelligence", "Codex is reviewing the current Discovery & Prep fields, playbook, dry-run manifest, and saved Pre-Demo website context.", [
         "Send current Discovery & Prep fields to Codex",
         "Review risk, gaps, pacing, and stakeholders",
@@ -8010,7 +8442,8 @@ If a page takes time to load, narrate the business reason for the next step inst
       }
     }
 
-    async function loadPreDemoIntelligence(action = "Pre-demo scoring") {
+    async function loadPreDemoIntelligence(action = "Pre-demo scoring", options = {}) {
+      if (!shouldRunUserInitiatedGeneration(options, "Pre-demo scoring")) return null;
       setStatus("Running Codex pre-demo scoring against the current notes and discovery context...");
       startCodexProgress("Scoring Pre-Demo Notes", "Codex is reviewing the company context, Discovery & Prep inputs, notes, and Admin scoring guidance. The website scan is reused when the URL already matches.", [
         "Package pre-demo context and website signal",
@@ -8075,8 +8508,12 @@ If a page takes time to load, narrate the business reason for the next step inst
         attachLocalHelperControls();
       }
       if (button.dataset.tab === "admin") await loadCmsStatus();
-      if (button.dataset.tab === "intelligence" && prepDirtyForIntelligence) await loadIntelligence();
-      if (button.dataset.tab === "pre-demo-intelligence" && (prepDirtyForPreDemoIntelligence || !latestPreDemoIntelligence)) await loadPreDemoIntelligence();
+      if (button.dataset.tab === "intelligence" && prepDirtyForIntelligence) {
+        setStatus("Demo Intelligence is ready to refresh. Click Re-analyze Updated Playbook when you want Codex to run.");
+      }
+      if (button.dataset.tab === "pre-demo-intelligence" && (prepDirtyForPreDemoIntelligence || !latestPreDemoIntelligence)) {
+        setStatus("Ready to score pre-demo notes. Click Score Pre-Demo Notes when you want Codex to run.");
+      }
     }
 
     document.querySelectorAll(".tab").forEach((button) => {
@@ -8141,7 +8578,7 @@ If a page takes time to load, narrate the business reason for the next step inst
     document.getElementById("preDemoScoring").onclick = async () => {
       setBusy(true);
       try {
-        await loadPreDemoIntelligence("Pre-demo scoring");
+        await loadPreDemoIntelligence("Pre-demo scoring", { userInitiated: true });
         await activateTab("pre-demo-intelligence", { skipAutoLoad: true });
       } catch (error) {
         setStatus(error.message);
@@ -8159,7 +8596,7 @@ If a page takes time to load, narrate the business reason for the next step inst
       setActiveAiActionButton("refreshIntelligence");
       setBusy(true);
       try {
-        await loadIntelligence("Re-analyze Updated Playbook");
+        await loadIntelligence("Re-analyze Updated Playbook", { userInitiated: true });
         clearPendingAiAction("Insights rebuilt from the current saved playbook and manifest. Use this after applying a shortened, executive, or technical demo version.");
         setStatus("Re-analyzed updated playbook and manifest.");
       } catch (error) {
@@ -8171,7 +8608,7 @@ If a page takes time to load, narrate the business reason for the next step inst
     document.getElementById("refreshPreDemoScoring").onclick = async () => {
       setBusy(true);
       try {
-        await loadPreDemoIntelligence("Refresh Pre-Demo Scoring");
+        await loadPreDemoIntelligence("Refresh Pre-Demo Scoring", { userInitiated: true });
       } catch (error) {
         setStatus(error.message);
       } finally {
@@ -8197,19 +8634,27 @@ If a page takes time to load, narrate the business reason for the next step inst
       }
     };
     document.getElementById("cmsLoginButton").onclick = async () => {
+      const password = document.getElementById("cmsLoginPassword").value;
       try {
         await api("/api/cms/login", {
           method: "POST",
-          body: JSON.stringify({ password: document.getElementById("cmsLoginPassword").value })
+          body: JSON.stringify({ password })
         });
+        try {
+          await apexAdminLogin(password);
+        } catch (apexError) {
+          console.warn("APEX admin analytics unlock failed", apexError);
+        }
         document.getElementById("cmsLoginPassword").value = "";
         await loadCmsStatus();
       } catch (error) {
+        document.getElementById("cmsLoginPassword").value = "";
         cmsStatus.textContent = error.message;
       }
     };
     document.getElementById("cmsLogoutButton").onclick = async () => {
       try {
+        await apexAdminLogout();
         await api("/api/cms/logout", { method: "POST", body: "{}" });
         cmsBlocks = [];
         renderCmsAuth({ setupRequired: false, authenticated: false, security: {} });
@@ -8954,17 +9399,31 @@ If a page takes time to load, narrate the business reason for the next step inst
         syncVoiceProviderSettings();
         renderCodexConnectionScreen();
         attachLocalHelperControls();
-        await loadVoices();
+        await loadVoices().catch((error) => {
+          voiceProviderHint.textContent = "Narrator voices could not be checked yet. " + error.message;
+        });
         renderStakeholderPersonas();
-        await load("App load");
-      await loadGuide("App load");
-      const activeTab = sessionStorage.getItem("nsdhActiveTab");
-      if (activeTab && document.querySelector('.tab[data-tab="' + activeTab + '"]')) {
-        await activateTab(activeTab);
-      }
-      await pollNarrator();
-      setInterval(pollNarrator, 1500);
-      setInterval(updatePageLoadedAges, 60000);
+        if (nsdhCloudRuntime) {
+          markPagesLoaded(["prep"], "APEX static runtime");
+          renderCloudConnectionStatus();
+          refreshPlatformStatus();
+          runBackgroundCloudConnectionCheck();
+          setStatus("Ready to score pre-demo notes. Click Score Pre-Demo Notes when you want Codex to run.");
+          const activeTab = sessionStorage.getItem("nsdhActiveTab");
+          if (activeTab && document.querySelector('.tab[data-tab="' + activeTab + '"]')) {
+            await activateTab(activeTab, { skipAutoLoad: true });
+          }
+        } else {
+          await load("App load");
+          await loadGuide("App load");
+          const activeTab = sessionStorage.getItem("nsdhActiveTab");
+          if (activeTab && document.querySelector('.tab[data-tab="' + activeTab + '"]')) {
+            await activateTab(activeTab);
+          }
+          await pollNarrator();
+          setInterval(pollNarrator, 1500);
+        }
+        setInterval(updatePageLoadedAges, 60000);
     })().catch((error) => setStatus(error.message));
   </script>
 </body>

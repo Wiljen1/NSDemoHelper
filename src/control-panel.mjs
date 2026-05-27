@@ -9295,7 +9295,7 @@ function html(response) {
         color: var(--ink);
         background: var(--cream);
       }
-      body.night {
+      :is(body, html).night {
         color-scheme: dark;
         --ink: #edf3f6;
         --muted: #9fb0bc;
@@ -9428,50 +9428,50 @@ function html(response) {
         margin: 0;
         accent-color: var(--accent);
       }
-      body.night header,
-      body.night .tabs {
+      :is(body, html).night header,
+      :is(body, html).night .tabs {
         background: #0d151d;
       }
-      body.night .theme-toggle,
-      body.night .codex-runtime-badge,
-      body.night .codex-info-button,
-      body.night textarea,
-      body.night select,
-      body.night input,
-      body.night .panel,
-      body.night .step,
-      body.night .tab,
-      body.night .segment-option {
+      :is(body, html).night .theme-toggle,
+      :is(body, html).night .codex-runtime-badge,
+      :is(body, html).night .codex-info-button,
+      :is(body, html).night textarea,
+      :is(body, html).night select,
+      :is(body, html).night input,
+      :is(body, html).night .panel,
+      :is(body, html).night .step,
+      :is(body, html).night .tab,
+      :is(body, html).night .segment-option {
         background: #121c25;
         color: var(--ink);
       }
-      body.night button.secondary,
-      body.night button.danger {
+      :is(body, html).night button.secondary,
+      :is(body, html).night button.danger {
         background: #121c25;
       }
-      body.night .segment-option:has(input:checked) {
+      :is(body, html).night .segment-option:has(input:checked) {
         background: #102b31;
         color: var(--accent-dark);
       }
-      body.night .status {
+      :is(body, html).night .status {
         background: #060a0f;
         color: #dce7ef;
       }
-      body.night .help-tooltip {
+      :is(body, html).night .help-tooltip {
         background: #edf3f6;
         color: #0b1117;
       }
-      body.night .codex-runtime-badge.ready {
+      :is(body, html).night .codex-runtime-badge.ready {
         background: #10231b;
         border-color: #246245;
         color: #93e2b3;
       }
-      body.night .codex-runtime-badge.missing {
+      :is(body, html).night .codex-runtime-badge.missing {
         background: #2a1411;
         border-color: #7b3026;
         color: #ffb4a6;
       }
-      body.night .codex-info-button {
+      :is(body, html).night .codex-info-button {
         background: #121c25;
         color: #8ae0de;
       }
@@ -9580,8 +9580,8 @@ function html(response) {
       color: white;
       box-shadow: 0 6px 16px rgba(30, 139, 139, .18);
     }
-    body.night button.ai-action-active,
-    body.night button.secondary.ai-action-active {
+    :is(body, html).night button.ai-action-active,
+    :is(body, html).night button.secondary.ai-action-active {
       background: var(--accent);
       color: white;
     }
@@ -9646,7 +9646,7 @@ function html(response) {
       padding: 14px;
       backdrop-filter: blur(12px);
     }
-    body.night .codex-progress {
+    :is(body, html).night .codex-progress {
       background: rgba(15, 24, 33, .96);
       border-color: #294a50;
       box-shadow: 0 18px 48px rgba(0, 0, 0, .38);
@@ -9679,7 +9679,7 @@ function html(response) {
       font-weight: 850;
       white-space: nowrap;
     }
-    body.night .codex-progress-pill {
+    :is(body, html).night .codex-progress-pill {
       background: #123137;
       color: #8ae0de;
     }
@@ -9690,7 +9690,7 @@ function html(response) {
       background: #e3edf0;
       overflow: hidden;
     }
-    body.night .codex-progress-track { background: #20313b; }
+    :is(body, html).night .codex-progress-track { background: #20313b; }
     .codex-progress-fill {
       position: absolute;
       inset: 0 auto 0 0;
@@ -9760,7 +9760,7 @@ function html(response) {
       box-shadow: 0 24px 70px rgba(24, 33, 47, .26);
       padding: 18px;
     }
-    body.night .codex-modal {
+    :is(body, html).night .codex-modal {
       background: #0f1821;
       box-shadow: 0 24px 70px rgba(0, 0, 0, .45);
     }
@@ -9798,7 +9798,7 @@ function html(response) {
       padding: 12px;
       background: #fbfcfd;
     }
-    body.night .codex-info-card { background: #0b1218; }
+    :is(body, html).night .codex-info-card { background: #0b1218; }
     .codex-info-card strong {
       display: block;
       font-size: 12px;
@@ -9827,7 +9827,7 @@ function html(response) {
       display: grid;
       gap: 4px;
     }
-    body.night .codex-status-row { background: #111b24; }
+    :is(body, html).night .codex-status-row { background: #111b24; }
     .codex-status-row small {
       color: var(--muted);
       font-size: 11px;
@@ -9879,8 +9879,8 @@ function html(response) {
       min-height: 0;
       padding: 8px 10px;
     }
-    body.night .score-card,
-    body.night .analysis-item {
+    :is(body, html).night .score-card,
+    :is(body, html).night .analysis-item {
       background: #0f1821;
     }
     .score-value {
@@ -9913,7 +9913,7 @@ function html(response) {
     }
     .score-pill.watch { background: #fff1c6; color: #3b2b00; }
     .score-pill.risk { background: #ffd8d1; color: #4a1409; }
-    body.night .score-pill { color: #0b1218; }
+    :is(body, html).night .score-pill { color: #0b1218; }
     .score-label,
     .analysis-item strong {
       display: block;
@@ -9941,7 +9941,7 @@ function html(response) {
       background: linear-gradient(135deg, #f5fbfb, #ffffff);
       margin: 12px 0;
     }
-    body.night .intel-summary {
+    :is(body, html).night .intel-summary {
       background: linear-gradient(135deg, #0f1d23, #0f1821);
       border-color: #24404a;
     }
@@ -9969,7 +9969,7 @@ function html(response) {
       padding: 12px;
       background: #fff;
     }
-    body.night .priority-card { background: #0f1821; }
+    :is(body, html).night .priority-card { background: #0f1821; }
     .intelligence-overview-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -9982,7 +9982,7 @@ function html(response) {
       padding: 12px;
       background: #fff;
     }
-    body.night .heatmap-panel { background: #0f1821; }
+    :is(body, html).night .heatmap-panel { background: #0f1821; }
     .heatmap-panel h3 {
       margin: 0 0 8px;
       font-size: 14px;
@@ -9994,7 +9994,7 @@ function html(response) {
       gap: 10px;
     }
     .score-explainer .analysis-item { background: white; }
-    body.night .score-explainer .analysis-item { background: #0f1821; }
+    :is(body, html).night .score-explainer .analysis-item { background: #0f1821; }
     .heatmap-list {
       display: grid;
       gap: 9px;
@@ -10006,7 +10006,7 @@ function html(response) {
       padding: 10px;
       background: #fbfcfd;
     }
-    body.night .heatmap-item { background: #0b1218; }
+    :is(body, html).night .heatmap-item { background: #0b1218; }
     .heatmap-item.strong { border-left-color: #16854f; }
     .heatmap-item.healthy { border-left-color: #2b7bbb; }
     .heatmap-item.watch { border-left-color: #c48200; }
@@ -10083,7 +10083,7 @@ function html(response) {
       color: #fff;
       box-shadow: var(--shadow);
     }
-    body.night .readiness-hero {
+    :is(body, html).night .readiness-hero {
       background: linear-gradient(135deg, #0f1d23 0%, #101820 62%, #12272b 100%);
       border-color: #254650;
     }
@@ -10119,7 +10119,7 @@ function html(response) {
       background: rgba(255,255,255,.12);
       min-height: 150px;
     }
-    body.night .readiness-score { background: rgba(11,18,24,.72); }
+    :is(body, html).night .readiness-score { background: rgba(11,18,24,.72); }
     .score-number {
       font-size: 54px;
       line-height: 1;
@@ -10127,7 +10127,7 @@ function html(response) {
       color: #fff;
       font-variant-numeric: tabular-nums;
     }
-    body.night .score-number { color: #69d0d0; }
+    :is(body, html).night .score-number { color: #69d0d0; }
     .score-caption {
       margin-top: 6px;
       color: rgba(255, 255, 255, .72);
@@ -10156,8 +10156,8 @@ function html(response) {
       font-size: 12px;
       line-height: 1.25;
     }
-    body.night .insight-badge,
-    body.night .metadata-chip { background: #0f1821; }
+    :is(body, html).night .insight-badge,
+    :is(body, html).night .metadata-chip { background: #0f1821; }
     .insight-badge strong,
     .metadata-chip strong {
       color: var(--accent-dark);
@@ -10181,7 +10181,7 @@ function html(response) {
       padding: 16px;
       background: #fff;
     }
-    body.night .dashboard-section { background: #0f1821; }
+    :is(body, html).night .dashboard-section { background: #0f1821; }
     .section-head {
       display: flex;
       justify-content: space-between;
@@ -10238,7 +10238,7 @@ function html(response) {
       padding: 10px;
       background: #fbfcfd;
     }
-    body.night details.custom-ai { background: #0b1218; }
+    :is(body, html).night details.custom-ai { background: #0b1218; }
     details.custom-ai summary {
       cursor: pointer;
       font-weight: 800;
@@ -10256,7 +10256,7 @@ function html(response) {
       background: #fbfcfd;
       min-height: 96px;
     }
-    body.night .briefing-item { background: #0b1218; }
+    :is(body, html).night .briefing-item { background: #0b1218; }
     .briefing-item strong {
       display: block;
       font-size: 12px;
@@ -10277,7 +10277,7 @@ function html(response) {
       background: #fbfcfd;
       padding: 12px;
     }
-    body.night .website-context-card { background: #0b1218; }
+    :is(body, html).night .website-context-card { background: #0b1218; }
     .website-context-card h3 {
       margin: 0 0 6px;
       font-size: 14px;
@@ -10306,7 +10306,7 @@ function html(response) {
       border-color: #f2c36b;
       background: #fff8e8;
     }
-    body.night .website-context-alert {
+    :is(body, html).night .website-context-alert {
       background: #241b0b;
     }
     .intelligence-card-grid {
@@ -10335,7 +10335,7 @@ function html(response) {
       box-shadow: var(--shadow);
       border-color: var(--accent);
     }
-    body.night .intelligence-card { background: #0f1821; }
+    :is(body, html).night .intelligence-card { background: #0f1821; }
     .intelligence-card-grid.compact {
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
       gap: 8px;
@@ -10350,7 +10350,7 @@ function html(response) {
     .intelligence-card-grid.compact .intelligence-card.active {
       background: #f1fbfb;
     }
-    body.night .intelligence-card-grid.compact .intelligence-card.active {
+    :is(body, html).night .intelligence-card-grid.compact .intelligence-card.active {
       background: #10252c;
     }
     .intelligence-card-grid.compact .card-title-row {
@@ -10411,7 +10411,7 @@ function html(response) {
       font-weight: 850;
       color: var(--accent-dark);
     }
-    body.night .card-metric { color: #69d0d0; }
+    :is(body, html).night .card-metric { color: #69d0d0; }
     .preview-list {
       margin: 0;
       padding-left: 18px;
@@ -10426,7 +10426,7 @@ function html(response) {
       background: #fbfcfd;
       min-height: 170px;
     }
-    body.night .detail-panel { background: #0b1218; }
+    :is(body, html).night .detail-panel { background: #0b1218; }
     .detail-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -10444,7 +10444,7 @@ function html(response) {
       overflow: auto;
       font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
-    body.night .operator-output { background: #0f1821; }
+    :is(body, html).night .operator-output { background: #0f1821; }
     .heatmap-tab-button {
       background: #fff;
       border-color: var(--line);
@@ -10467,7 +10467,7 @@ function html(response) {
       padding: 11px;
       background: #fbfcfd;
     }
-    body.night .compact-heatmap-card { background: #0b1218; }
+    :is(body, html).night .compact-heatmap-card { background: #0b1218; }
     .compact-heatmap-card strong {
       display: block;
       font-size: 13px;
@@ -10493,7 +10493,7 @@ function html(response) {
       color: var(--accent-dark);
       background: #eef8f8;
     }
-    body.night .pill {
+    :is(body, html).night .pill {
       background: #102b31;
       color: var(--accent-dark);
     }
@@ -10529,7 +10529,7 @@ function html(response) {
       color: var(--ink);
       border-radius: 6px;
     }
-    body.night .advisory {
+    :is(body, html).night .advisory {
       background: #281713;
     }
     .cms-auth-grid {
@@ -10558,7 +10558,7 @@ function html(response) {
       color: var(--ink);
       line-height: 1.45;
     }
-    body.night .cms-readable { background: #0b1218; }
+    :is(body, html).night .cms-readable { background: #0b1218; }
     .cms-readable h3 {
       margin: 0 0 8px;
       font-size: 15px;
@@ -10593,7 +10593,7 @@ function html(response) {
       padding: 12px;
       background: #fbfcfd;
     }
-    body.night .platform-layer-summary > div { background: #0b1218; }
+    :is(body, html).night .platform-layer-summary > div { background: #0b1218; }
     .platform-layer-summary strong,
     .platform-layer-summary span {
       display: block;
@@ -10615,7 +10615,7 @@ function html(response) {
       padding: 14px;
       background: #fbfcfd;
     }
-    body.night .platform-config-card { background: #0b1218; }
+    :is(body, html).night .platform-config-card { background: #0b1218; }
     .platform-config-card h3 {
       margin: 0;
       font-size: 18px;
@@ -10644,7 +10644,7 @@ function html(response) {
       gap: 9px;
       transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
     }
-    body.night .provider-card { background: #0f1821; }
+    :is(body, html).night .provider-card { background: #0f1821; }
     .provider-card.active,
     .provider-card.selected {
       border-color: var(--accent);
@@ -10711,7 +10711,7 @@ function html(response) {
       background: #fff;
       min-height: 92px;
     }
-    body.night .platform-status-card { background: #0f1821; }
+    :is(body, html).night .platform-status-card { background: #0f1821; }
     .platform-status-card strong,
     .platform-status-card span {
       display: block;
@@ -10755,7 +10755,7 @@ function html(response) {
       background: #fbfcfd;
       margin-top: 10px;
     }
-    body.night .cms-history { background: #0b1218; }
+    :is(body, html).night .cms-history { background: #0b1218; }
     .cms-history-item {
       border-bottom: 1px solid var(--line);
       padding: 8px 0;
@@ -10781,7 +10781,7 @@ function html(response) {
       padding: 10px;
       background: #fbfcfd;
     }
-    body.night .api-instruction-item { background: #0b1218; }
+    :is(body, html).night .api-instruction-item { background: #0b1218; }
     .api-instruction-item strong {
       display: block;
       font-size: 13px;
@@ -10809,7 +10809,7 @@ function html(response) {
       background: #fbfcfd;
       padding: 10px;
     }
-    body.night .session-metric-card { background: #0b1218; }
+    :is(body, html).night .session-metric-card { background: #0b1218; }
     .session-metric-card strong,
     .session-metric-card span {
       display: block;
@@ -10833,7 +10833,7 @@ function html(response) {
       background: #fff;
       max-height: 380px;
     }
-    body.night .session-table { background: #0f1821; }
+    :is(body, html).night .session-table { background: #0f1821; }
     .session-row {
       display: grid;
       grid-template-columns: minmax(190px, 1.4fr) minmax(120px, .65fr) minmax(120px, .65fr) minmax(130px, .7fr) minmax(150px, .9fr) repeat(2, 72px) minmax(120px, .75fr) minmax(86px, .55fr) minmax(120px, .7fr);
@@ -10855,7 +10855,7 @@ function html(response) {
       text-transform: uppercase;
       letter-spacing: .03em;
     }
-    body.night .session-row.header { background: #101820; }
+    :is(body, html).night .session-row.header { background: #101820; }
     .session-row button {
       padding: 6px 9px;
       font-size: 12px;
@@ -10868,7 +10868,7 @@ function html(response) {
       padding: 14px;
       background: #fbfcfd;
     }
-    body.night .session-detail { background: #0b1218; }
+    :is(body, html).night .session-detail { background: #0b1218; }
     .session-detail-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
@@ -10881,7 +10881,7 @@ function html(response) {
       background: #fff;
       padding: 10px;
     }
-    body.night .session-detail-card { background: #0f1821; }
+    :is(body, html).night .session-detail-card { background: #0f1821; }
     .session-detail-card strong {
       display: block;
       margin-bottom: 6px;
@@ -10898,7 +10898,7 @@ function html(response) {
       background: #fff;
       padding: 12px;
     }
-    body.night .session-json { background: #0f1821; }
+    :is(body, html).night .session-json { background: #0f1821; }
     .tabs {
       display: flex;
       gap: 8px;
@@ -11117,7 +11117,7 @@ function html(response) {
       position: relative;
       overflow: hidden;
     }
-    body.night .persona-preview-card { background: #0b1218; }
+    :is(body, html).night .persona-preview-card { background: #0b1218; }
     .persona-preview-card::before {
       content: "";
       position: absolute;
@@ -11172,7 +11172,7 @@ function html(response) {
       gap: 9px;
       min-height: 210px;
     }
-    body.night .win-strategy-card { background: #0b1218; }
+    :is(body, html).night .win-strategy-card { background: #0b1218; }
     .win-strategy-card h3 {
       margin: 0;
       font-size: 15px;
@@ -11469,7 +11469,7 @@ function html(response) {
       padding: 14px;
       background: #fbfcfd;
     }
-    body.night .guide-prompt-details { background: #0b1218; }
+    :is(body, html).night .guide-prompt-details { background: #0b1218; }
     .guide-prompt-details summary {
       cursor: pointer;
       font-weight: 850;
@@ -11490,7 +11490,7 @@ function html(response) {
       padding: 14px;
       background: #fbfcfd;
     }
-    body.night .pre-demo-score-card { background: #0b1218; }
+    :is(body, html).night .pre-demo-score-card { background: #0b1218; }
     .pre-demo-score-card strong {
       display: block;
       margin-bottom: 6px;
@@ -11527,7 +11527,7 @@ function html(response) {
       display: grid;
       gap: 8px;
     }
-    body.night .follow-up-card { background: #0b1218; }
+    :is(body, html).night .follow-up-card { background: #0b1218; }
     .follow-up-card-head {
       display: flex;
       justify-content: space-between;
@@ -11546,7 +11546,7 @@ function html(response) {
       font-weight: 850;
       font-size: 12px;
     }
-    body.night .follow-up-number { background: #12322f; }
+    :is(body, html).night .follow-up-number { background: #12322f; }
     .follow-up-question {
       font-weight: 800;
       color: var(--text);
@@ -11571,7 +11571,7 @@ function html(response) {
       padding: 12px;
       background: #f7fafb;
     }
-    body.night .follow-up-markdown { background: #091017; }
+    :is(body, html).night .follow-up-markdown { background: #091017; }
     .follow-up-markdown pre {
       margin: 8px 0 0;
       white-space: pre-wrap;
@@ -11590,7 +11590,7 @@ function html(response) {
       padding: 18px;
       background: linear-gradient(135deg, #f8fcfb 0%, #eef7f4 100%);
     }
-    body.night .dataset-hero { background: linear-gradient(135deg, #0b1218 0%, #10222a 100%); }
+    :is(body, html).night .dataset-hero { background: linear-gradient(135deg, #0b1218 0%, #10222a 100%); }
     .dataset-score {
       text-align: center;
       border: 1px solid var(--line);
@@ -11598,7 +11598,7 @@ function html(response) {
       padding: 12px;
       background: rgba(255,255,255,.76);
     }
-    body.night .dataset-score { background: rgba(8, 14, 20, .68); }
+    :is(body, html).night .dataset-score { background: rgba(8, 14, 20, .68); }
     .dataset-score strong {
       display: block;
       font-size: 36px;
@@ -11623,7 +11623,7 @@ function html(response) {
       background: #fbfcfd;
       min-height: 132px;
     }
-    body.night .dataset-card { background: #0b1218; }
+    :is(body, html).night .dataset-card { background: #0b1218; }
     .dataset-card strong {
       display: block;
       margin-bottom: 6px;
@@ -11660,13 +11660,13 @@ function html(response) {
       font-weight: 750;
       white-space: nowrap;
     }
-    body.night .page-load-info { background: #0b1218; }
+    :is(body, html).night .page-load-info { background: #0b1218; }
     .page-load-info.stale {
       border-color: #f2a7a7;
       background: #fff5f5;
       color: #b42318;
     }
-    body.night .page-load-info.stale {
+    :is(body, html).night .page-load-info.stale {
       border-color: #6f1d1d;
       background: #2a1010;
       color: #ffb4a8;
@@ -11760,7 +11760,7 @@ function html(response) {
       background: #fbfcfd;
       margin-top: 12px;
     }
-    body.night .feature-toggle-card { background: #0b1218; }
+    :is(body, html).night .feature-toggle-card { background: #0b1218; }
     .feature-toggle-card label {
       display: flex;
       align-items: center;
@@ -11875,7 +11875,7 @@ function html(response) {
         <p>Use the customer notes, website context, scope, and audience selections to create the playbook, score discovery quality, and surface the demo risks before moving into runbook or dry-run work.</p>
         <div class="heads-up-meta" aria-label="Current preparation checkpoints">
           <span>Codex-backed generation</span>
-          <span>Session saved locally</span>
+          <span>Session logging enabled</span>
           <span>Admin changes locked behind login</span>
         </div>
       </div>`}
@@ -12027,7 +12027,7 @@ function html(response) {
 
         <div class="panel prep-actions">
           <div class="row">
-              <button class="secondary" id="preDemoScoring" data-help="Scores only the current pre-demo inputs so the SC can see discovery gaps before creating the playbook or demo.">Pre-demo scoring</button>
+              <button class="secondary" id="preDemoScoring" data-help="Scores only the current pre-demo inputs so the SC can see discovery gaps before creating the playbook or demo.">Score Pre-Demo Notes</button>
             <button id="learn" data-help="Uses Codex to analyze the Discovery & Prep inputs, create the playbook, and populate both intelligence pages. It does not start a browser dry-run.">Learn / Create Demo</button>
             <button id="learnDryRun" data-live-demo-only data-help="Uses Codex to create the playbook, creates the Dry-run creation prompt, builds the runnable dry-run manifest from that prompt, and starts the browser dry-run.">Learn / Create Demo & Dry-Run</button>
             <button class="secondary" id="reload" data-help="Reloads the latest saved manifest, playbook, setup prompt, and intelligence outputs without generating anything new.">Reload</button>
@@ -12377,7 +12377,7 @@ function html(response) {
             <p class="hint">Download the helper for your operating system, run it once to install/start the local bridge, keep Codex open and signed in, then test the connection.</p>
             <div class="helper-download-grid">
               <button class="secondary" type="button" data-local-helper-download="mac" data-help="Downloads the macOS helper zip. Save it to Desktop, unzip it, and run helper-mac.command once.">Download Helper for macOS</button>
-              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper zip. Save it to Desktop, unzip it, and run helper-windows.bat once.">Download Helper for Windows</button>
+              <button class="secondary" type="button" data-local-helper-download="windows" data-help="Downloads the Windows helper zip. Save it to Desktop, unzip it, and run start-helper-windows.bat once.">Download Helper for Windows</button>
               <button class="secondary" type="button" data-local-helper-download="readme" data-help="Downloads the helper setup notes and troubleshooting guide.">Download Instructions</button>
             </div>
             <ol class="helper-steps">
@@ -12403,7 +12403,7 @@ function html(response) {
       <div class="grid">
         <div class="panel full">
           <h2>Admin</h2>
-          <p class="hint">Protected local admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, additional demo logic sources, and the Codex rules behind the demo story, asset prompt, account setup prompt, and dry-run creation prompt. Active sources are matched to the demo context and included when the helper creates the manifest and playbook. Passwords are stored as salted scrypt hashes and every CMS save creates a rollback version.</p>
+          <p class="hint">Protected admin area for changing the helper's built-in guidance, playbooks, labels, explanatory text, additional demo logic sources, and the Codex rules behind the demo story, asset prompt, account setup prompt, and dry-run creation prompt. Active sources are matched to the demo context and included when the helper creates the manifest and playbook. Passwords are stored as salted scrypt hashes locally; APEX usage analytics use a separate protected cloud session token.</p>
           <div class="cms-auth-grid" id="cmsAuthArea">
             <div class="analysis-item" id="cmsSetupPanel" hidden>
               <strong>Create Admin Login</strong>
@@ -12453,7 +12453,7 @@ function html(response) {
               <h2>Demo Prep Database</h2>
               <p>Admin-only review of saved MVP sessions, selected options, scores, generated outputs, and run history.</p>
             </div>
-            <button class="secondary" id="reloadSessionDatabase" data-help="Reloads saved user sessions and generated outputs from the local application database.">Reload Sessions</button>
+            <button class="secondary" id="reloadSessionDatabase" data-help="Reloads saved user sessions and generated outputs from the APEX database when available, with local fallback for development.">Reload Sessions</button>
           </div>
           <div class="advisory" style="margin-bottom:12px">Session logs may contain customer discovery information and generated demo content. Handle appropriately and do not share exports without checking the content.</div>
           <div class="session-controls">
@@ -13028,11 +13028,14 @@ function html(response) {
     let prepDirtyForPreDemoIntelligence = false;
     let liveDemoFunctionalityEnabled = ${JSON.stringify(liveDemoFunctionalityEnabled)};
     const localHelperDownloads = ${JSON.stringify(localHelperDownloads).replace(/</g, "\\u003c")};
+    const appVersionLabel = ${JSON.stringify(buildMetadata.version)};
     const nsdhCloudRuntime = false;
     const nsdhRuntimeConfig = Object.freeze(window.NSDH_RUNTIME_CONFIG || {});
     const nsdhRuntimeMode = nsdhCloudRuntime ? (nsdhRuntimeConfig.runtimeMode || "user-local") : "local-development";
     const nsdhSharedLocalPilot = nsdhCloudRuntime && nsdhRuntimeMode === "shared-local-pilot";
     const nsdhLocalHelperRuntime = nsdhCloudRuntime && nsdhRuntimeMode === "local-helper";
+    const nsdhApexDatabaseLoggingConfig = nsdhRuntimeConfig.apexDatabaseLogging || {};
+    const nsdhApexDatabaseLoggingEnabled = nsdhCloudRuntime && nsdhApexDatabaseLoggingConfig.enabled !== false;
     const nsdhPilotHostLabel = nsdhRuntimeConfig.pilotHostLabel || "Wiljan's Desktop 2 Codex bridge";
     const nsdhLocalHelperHostLabel = nsdhRuntimeConfig.localHelperHostLabel || "Current user's Local Helper";
     const nsdhDefaultLocalApiBase = "http://127.0.0.1:4173";
@@ -13076,6 +13079,7 @@ function html(response) {
     const demoHelperSessionId = browserSessionId("nsdhBrowserSessionId", "session");
     const demoHelperAnonymousUserId = browserSessionId("nsdhAnonymousUserId", "user");
     let demoHelperAdminSessionToken = sessionStorage.getItem("nsdhAdminSessionToken") || "";
+    let demoHelperApexAdminSessionToken = sessionStorage.getItem("nsdhApexAdminSessionToken") || "";
 
     function normalizeApiBase(value, options = {}) {
       const raw = String(value || "").trim().replace(new RegExp("/+$"), "");
@@ -13098,6 +13102,23 @@ function html(response) {
 
     function normalizePilotApiBase(value) {
       return normalizeApiBase(value, { allowRemoteHttps: true });
+    }
+
+    function normalizeApexDatabaseApiBase(value) {
+      const raw = String(value || "").trim().replace(new RegExp("/+$"), "");
+      if (!raw) return "";
+      if (raw.startsWith("/")) return raw;
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") return "";
+        return parsed.origin + parsed.pathname.replace(new RegExp("/+$"), "");
+      } catch {
+        return "";
+      }
+    }
+
+    function apexDatabaseApiBase() {
+      return normalizeApexDatabaseApiBase(nsdhApexDatabaseLoggingConfig.apiBaseUrl || "/pls/apex/emeawj/nsdh");
     }
 
     function configuredCloudApiBase() {
@@ -13135,6 +13156,15 @@ function html(response) {
           normalizePilotApiBase(nsdhRuntimeConfig.pilotApiBaseUrl)
         ].filter(Boolean)));
       }
+      if (nsdhLocalHelperRuntime) {
+        return Array.from(new Set([
+          normalizeLocalApiBase(preferred),
+          configuredCloudApiBase(),
+          detectedCloudApiBase(),
+          nsdhDefaultLocalApiBase,
+          "http://localhost:4173"
+        ].filter(Boolean)));
+      }
       return Array.from(new Set([
         normalizeLocalApiBase(preferred),
         configuredCloudApiBase(),
@@ -13155,6 +13185,32 @@ function html(response) {
       return headers;
     }
 
+    function demoHelperApexDatabaseHeaders(extraHeaders = {}) {
+      const headers = {
+        "content-type": "application/json",
+        "x-demo-helper-session-id": demoHelperSessionId,
+        "x-demo-helper-anonymous-user-id": demoHelperAnonymousUserId,
+        ...extraHeaders
+      };
+      if (demoHelperApexAdminSessionToken) headers["x-nsdh-apex-admin-token"] = demoHelperApexAdminSessionToken;
+      return headers;
+    }
+
+    function apexDatabaseApiUrl(path, options = {}) {
+      const base = apexDatabaseApiBase();
+      if (!base || !path || !String(path).startsWith("/")) return path;
+      const rawUrl = base + path;
+      if (!options.includeAdminToken || !demoHelperApexAdminSessionToken) return rawUrl;
+      try {
+        const url = new URL(rawUrl, location.origin);
+        url.searchParams.set("admin_token", demoHelperApexAdminSessionToken);
+        return url.toString();
+      } catch {
+        const join = rawUrl.includes("?") ? "&" : "?";
+        return rawUrl + join + "admin_token=" + encodeURIComponent(demoHelperApexAdminSessionToken);
+      }
+    }
+
     function captureAdminSession(path, payload) {
       if (payload?.adminSessionToken) {
         demoHelperAdminSessionToken = payload.adminSessionToken;
@@ -13163,6 +13219,279 @@ function html(response) {
       if (path === "/api/cms/logout") {
         demoHelperAdminSessionToken = "";
         sessionStorage.removeItem("nsdhAdminSessionToken");
+      }
+    }
+
+    function captureApexAdminSession(payload) {
+      if (payload?.adminSessionToken) {
+        demoHelperApexAdminSessionToken = payload.adminSessionToken;
+        sessionStorage.setItem("nsdhApexAdminSessionToken", demoHelperApexAdminSessionToken);
+      }
+    }
+
+    function clearApexAdminSession() {
+      demoHelperApexAdminSessionToken = "";
+      sessionStorage.removeItem("nsdhApexAdminSessionToken");
+    }
+
+    async function apexDatabaseApi(path, options = {}) {
+      if (!nsdhApexDatabaseLoggingEnabled) throw new Error("APEX database logging is not enabled for this runtime.");
+      const method = String(options.method || "GET").toUpperCase();
+      const adminEndpoint = path.startsWith("/sessions") && method !== "POST" || path === "/admin/logout";
+      const response = await fetch(apexDatabaseApiUrl(path, { includeAdminToken: adminEndpoint }), {
+        ...options,
+        headers: demoHelperApexDatabaseHeaders(options.headers || {})
+      });
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = { ok: false, error: "The APEX database service returned a non-JSON response." };
+      }
+      if (!response.ok || payload.ok === false) throw new Error(payload.error || "APEX database request failed");
+      return payload;
+    }
+
+    async function apexAdminLogin(password) {
+      if (!nsdhApexDatabaseLoggingEnabled || !password) return null;
+      const payload = await apexDatabaseApi("/admin/login", {
+        method: "POST",
+        body: JSON.stringify({ password })
+      });
+      captureApexAdminSession(payload);
+      return payload;
+    }
+
+    async function apexAdminLogout() {
+      if (!nsdhApexDatabaseLoggingEnabled || !demoHelperApexAdminSessionToken) {
+        clearApexAdminSession();
+        return;
+      }
+      try {
+        await apexDatabaseApi("/admin/logout", { method: "POST", body: "{}" });
+      } catch {
+        // Local helper admin logout should still proceed even if the cloud DB token has expired.
+      } finally {
+        clearApexAdminSession();
+      }
+    }
+
+    function isApexSessionLoggablePath(path) {
+      const text = String(path || "");
+      return [
+        "/api/learn",
+        "/api/pre-demo-intelligence",
+        "/api/intelligence",
+        "/api/intelligence/follow-up-questions",
+        "/api/intelligence/improve-guide",
+        "/api/intelligence/apply-action",
+        "/api/manifest",
+        "/api/manifest/from-guide",
+        "/api/run",
+        "/api/dataset-analysis"
+      ].some((pathName) => text === pathName);
+    }
+
+    function safeJsonParseClient(value) {
+      if (!value) return {};
+      try {
+        return typeof value === "string" ? JSON.parse(value) : value;
+      } catch {
+        return {};
+      }
+    }
+
+    function sanitizeSessionLogClient(value) {
+      if (Array.isArray(value)) return value.map(sanitizeSessionLogClient);
+      if (value && typeof value === "object") {
+        return Object.fromEntries(Object.entries(value)
+          .filter(([key]) => !/(password|api.?key|secret|token|credential|authorization|cookie)/i.test(key))
+          .map(([key, item]) => [key, sanitizeSessionLogClient(item)]));
+      }
+      if (typeof value === "string" && value.length > 120000) return value.slice(0, 120000) + "\\n\\n[Truncated for session logging]";
+      return value;
+    }
+
+    function numericClientScore(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : null;
+    }
+
+    function selectedOptionText(select) {
+      return select?.selectedOptions?.[0]?.textContent?.trim() || "";
+    }
+
+    function currentPrepSnapshotForLog(input = {}) {
+      let prep = {};
+      try {
+        prep = typeof currentPrepPayload === "function" ? currentPrepPayload() : {};
+      } catch {
+        prep = {};
+      }
+      return {
+        ...prep,
+        ...input,
+        audienceLabel: selectedOptionText(audienceSelect),
+        targetSegmentLabel: selectedOptionText(targetAudienceSelect),
+        industryLabel: selectedOptionText(industrySelect),
+        demoStrategyLabel: selectedOptionText(demoStrategySelect),
+        outputLanguageLabel: selectedOptionText(outputLanguageSelect),
+        manifestDemoModeLabel: selectedOptionText(manifestDemoModeSelect)
+      };
+    }
+
+    function providerBackboneForLog() {
+      return sanitizeSessionLogClient({
+        activeProvider: {
+          name: nsdhCloudRuntime ? "Codex" : "Codex",
+          runtimeMode: nsdhRuntimeMode
+        },
+        runtime: {
+          connectionStatus: nsdhCloudConnection.status,
+          runtimeStatus: nsdhCloudConnection.status,
+          base: nsdhCloudConnection.base,
+          detail: nsdhCloudConnection.detail
+        },
+        activeKnowledgeSourceCount: 0
+      });
+    }
+
+    function sessionActionLabelForClient(path, input = {}) {
+      if (path === "/api/learn") return input.createRunnableManifest ? "Learn / Create Demo & Dry-Run" : "Learn / Create Demo";
+      if (path === "/api/pre-demo-intelligence") return "Pre-demo scoring";
+      if (path === "/api/intelligence/follow-up-questions") return "Generate Discovery Follow-Up Questions";
+      if (path === "/api/intelligence/improve-guide") return "Apply All Recommendations To Playbook";
+      if (path === "/api/intelligence/apply-action") return "Apply Edited Output To Playbook";
+      if (path === "/api/intelligence") return "Re-analyze Updated Playbook";
+      if (path === "/api/manifest/from-guide") return "Create Dry-Run From Prompt";
+      if (path === "/api/manifest") return "Save Dry-Run";
+      if (path === "/api/run") return "Run " + (input.mode || "demo");
+      if (path === "/api/dataset-analysis") return "Dataset Analysis";
+      return "Tool action";
+    }
+
+    function outputSummaryForLog(output = {}) {
+      const intelligence = output.intelligence || {};
+      const preDemo = output.preDemoIntelligence || {};
+      return sanitizeSessionLogClient({
+        hasGuide: Boolean(output.guide || output.guideOutputs?.scRunbook),
+        hasPptPrompt: Boolean(output.guideOutputs?.assetGenerationPrompt),
+        hasSetupPrompt: Boolean(output.setupPrompt?.prompt),
+        hasDryRunManifest: Boolean(output.manifest?.segments?.length),
+        hasIntelligence: Boolean(intelligence.demo_readiness_score || intelligence.demo_risk_analyzer),
+        hasPreDemoIntelligence: Boolean(preDemo.overall_score || preDemo.missing_discovery_items),
+        demoReadinessScore: intelligence.demo_readiness_score,
+        discoveryScore: preDemo.overall_score,
+        riskScore: intelligence.demo_risk_analyzer?.demo_risk_score
+      });
+    }
+
+    function apexSessionPayloadFromAction(path, options = {}, payload = {}, status = "success", error = "", durationMs = null) {
+      const input = safeJsonParseClient(options.body);
+      const prep = currentPrepSnapshotForLog(input);
+      const manifest = payload.manifest || input.manifest || {};
+      const context = manifest.context || {};
+      const company = payload.company || context.company || {};
+      const intelligence = payload.intelligence || input.intelligence || {};
+      const preDemo = payload.preDemoIntelligence || input.preDemoIntelligence || {};
+      const setupPrompt = payload.setupPrompt || {};
+      const guideOutputs = payload.guideOutputs || {};
+      const risk = intelligence.demo_risk_analyzer || {};
+      const discovery = intelligence.discovery_gap_analyzer || {};
+      const stakeholder = intelligence.stakeholder_coverage_analyzer || {};
+      const winning = intelligence.winning_moment_detection || {};
+      const avoid = intelligence.what_not_to_demo_engine || {};
+      const timing = intelligence.demo_timing_pacing_analyzer || {};
+      const now = new Date().toISOString();
+      return sanitizeSessionLogClient({
+        schemaVersion: 1,
+        session_id: demoHelperSessionId,
+        anonymous_user_id: demoHelperAnonymousUserId,
+        created_at: now,
+        updated_at: now,
+        environment: nsdhCloudRuntime ? "apex-cloud" : "local",
+        mode: activeAppProfile,
+        app_version: appVersionLabel,
+        browser_user_agent: navigator.userAgent,
+        source_page: document.querySelector(".screen.active")?.id || "mvp",
+        action: sessionActionLabelForClient(path, input),
+        action_path: path,
+        company_name: company.companyName || company.title || context.company?.companyName || input.companyName || websiteNameSlug(prep.companyUrl || input.companyUrl) || "",
+        website: company.url || context.company?.url || prep.companyUrl || input.companyUrl || "",
+        audience_type: context.audience?.label || prep.audienceLabel || input.audience || preDemo.metadata?.audience_type || "",
+        target_segment: context.targetAudience?.label || context.marketSegment?.label || prep.targetSegmentLabel || input.marketSegment || preDemo.metadata?.target_segment || "",
+        industry: context.industry?.label || prep.industryLabel || input.industry || preDemo.metadata?.industry || "",
+        demo_strategy: context.demoStrategy?.label || prep.demoStrategyLabel || input.demoStrategy || preDemo.metadata?.demo_strategy || "",
+        output_language: context.outputLanguage?.label || prep.outputLanguageLabel || input.outputLanguage || "",
+        narration_voice: manifest.defaults?.audio?.voice || input.voice || prep.voice || "",
+        demo_mode: context.manifestDemoMode?.label || prep.manifestDemoModeLabel || input.manifestDemoMode || "",
+        discovery_score: numericClientScore(preDemo.overall_score ?? intelligence.pre_demo_notes_analyzer?.overall_score),
+        demo_readiness_score: numericClientScore(intelligence.demo_readiness_score),
+        risk_score: numericClientScore(risk.demo_risk_score),
+        stakeholder_coverage: stakeholder.stakeholder_coverage || [],
+        identified_gaps: discovery.missing_discovery_items || preDemo.missing_discovery_items || [],
+        warnings: risk.warnings || [],
+        recommendations: [...(risk.recommendations || []), ...(preDemo.recommendations || [])].slice(0, 12),
+        winning_moments: winning.winning_moments || [],
+        what_not_to_demo: avoid.avoid_showing || [],
+        timing_pacing_insights: timing,
+        generation_status: status,
+        error_message: error,
+        duration_ms: durationMs,
+        provider_backbone: providerBackboneForLog(),
+        input_context: {
+          companyUrl: prep.companyUrl || input.companyUrl,
+          demoScope: prep.demoScope || input.demoScope || context.demoScope,
+          competition: prep.competition || input.competition || context.competition,
+          demoRequest: prep.topic || input.topic || context.demoRequest?.topic,
+          preDemoNotes: prep.preDemoNotes || input.preDemoNotes || context.preDemoNotes,
+          audience: prep.audience || input.audience || context.audience,
+          targetSegment: prep.marketSegment || input.marketSegment || context.targetAudience,
+          industry: prep.industry || input.industry || context.industry,
+          demoStrategy: prep.demoStrategy || input.demoStrategy || context.demoStrategy,
+          outputLanguage: prep.outputLanguage || input.outputLanguage || context.outputLanguage,
+          inputMode: prep.inputMode || input.inputMode || context.demoRequest?.inputMode
+        },
+        generated_outputs: {
+          guide: payload.guide,
+          scRunbook: guideOutputs.scRunbook,
+          talkTrack: guideOutputs.scRunbook,
+          assetGenerationPrompt: guideOutputs.assetGenerationPrompt,
+          setupPrompt: setupPrompt.prompt,
+          setupPlan: setupPrompt.setupPlan,
+          dryRunCreationPrompt: guideOutputs.dryRunCreationPrompt,
+          manifest: payload.manifest,
+          dryRunManifest: payload.manifest,
+          intelligence,
+          preDemoIntelligence: preDemo,
+          followUpQuestions: payload.questions || preDemo.recommended_follow_up_questions,
+          datasetAnalysis: payload.datasetAnalysis || payload.analysis || {}
+        },
+        event: {
+          action: sessionActionLabelForClient(path, input),
+          status,
+          duration_ms: durationMs,
+          input,
+          output_summary: outputSummaryForLog(payload),
+          error_message: error,
+          scores: {
+            discovery_score: numericClientScore(preDemo.overall_score ?? intelligence.pre_demo_notes_analyzer?.overall_score),
+            demo_readiness_score: numericClientScore(intelligence.demo_readiness_score),
+            risk_score: numericClientScore(risk.demo_risk_score)
+          }
+        }
+      });
+    }
+
+    async function writeApexSessionLog(path, options = {}, payload = {}, status = "success", error = "", durationMs = null) {
+      if (!nsdhApexDatabaseLoggingEnabled || !isApexSessionLoggablePath(path)) return;
+      try {
+        await apexDatabaseApi("/sessions", {
+          method: "POST",
+          body: JSON.stringify(apexSessionPayloadFromAction(path, options, payload, status, error, durationMs))
+        });
+      } catch (logError) {
+        console.warn("APEX session logging failed", logError);
       }
     }
 
@@ -13355,6 +13684,9 @@ function html(response) {
 
     async function ensureCloudApiEndpoint(path) {
       if (!nsdhCloudRuntime || !String(path || "").startsWith("/api/")) return;
+      if (nsdhCloudDetectionPromise && nsdhCloudConnection.status === "Checking") {
+        throw new Error("Codex connection is still being checked. You can continue preparing inputs, but generation may not work until connected.");
+      }
       const detection = await detectLocalCodexEndpoint();
       if (detection.status !== "Connected" && detection.status !== "Codex not detected" && detection.status !== "Codex unavailable" && detection.status !== "Pilot Codex unavailable") {
         throw new Error(detection.status + ": " + detection.detail);
@@ -13363,26 +13695,42 @@ function html(response) {
 
     async function api(path, options = {}) {
       await ensureCloudApiEndpoint(path);
-      const response = await fetch(cloudApiUrl(path), {
-        ...options,
-        headers: demoHelperHeaders(options.headers || {})
-      });
-      const payload = await response.json();
-      captureAdminSession(path, payload);
-      if (!response.ok || payload.ok === false) throw new Error(payload.error || "Request failed");
-      return payload;
+      const startedAt = performance.now();
+      let payload = null;
+      try {
+        const response = await fetch(cloudApiUrl(path), {
+          ...options,
+          headers: demoHelperHeaders(options.headers || {})
+        });
+        payload = await response.json();
+        captureAdminSession(path, payload);
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Request failed");
+        await writeApexSessionLog(path, options, payload, "success", "", Math.round(performance.now() - startedAt));
+        return payload;
+      } catch (error) {
+        await writeApexSessionLog(path, options, payload || {}, "failed", error.message || String(error), Math.round(performance.now() - startedAt));
+        throw error;
+      }
     }
 
     async function apiWithLog(path, options = {}) {
       await ensureCloudApiEndpoint(path);
-      const response = await fetch(cloudApiUrl(path), {
-        ...options,
-        headers: demoHelperHeaders(options.headers || {})
-      });
-      const payload = await response.json();
-      captureAdminSession(path, payload);
-      if (!response.ok) throw new Error(payload.error || "Request failed");
-      return payload;
+      const startedAt = performance.now();
+      let payload = null;
+      try {
+        const response = await fetch(cloudApiUrl(path), {
+          ...options,
+          headers: demoHelperHeaders(options.headers || {})
+        });
+        payload = await response.json();
+        captureAdminSession(path, payload);
+        if (!response.ok) throw new Error(payload.error || "Request failed");
+        await writeApexSessionLog(path, options, payload, "success", "", Math.round(performance.now() - startedAt));
+        return payload;
+      } catch (error) {
+        await writeApexSessionLog(path, options, payload || {}, "failed", error.message || String(error), Math.round(performance.now() - startedAt));
+        throw error;
+      }
     }
 
     async function loadCmsStatus() {
@@ -13445,7 +13793,10 @@ function html(response) {
       if (sessionStatusFilter.value) params.set("status", sessionStatusFilter.value);
       if (sessionAudienceFilter.value.trim()) params.set("audience", sessionAudienceFilter.value.trim());
       if (sessionSort.value) params.set("sort", sessionSort.value);
-      const payload = await api("/api/session-logs" + (params.toString() ? "?" + params.toString() : ""));
+      const path = "/sessions" + (params.toString() ? "?" + params.toString() : "");
+      const payload = nsdhApexDatabaseLoggingEnabled && demoHelperApexAdminSessionToken
+        ? await apexDatabaseApi(path)
+        : await api("/api/session-logs" + (params.toString() ? "?" + params.toString() : ""));
       renderSessionDatabase(payload);
       return payload;
     }
@@ -13505,16 +13856,21 @@ function html(response) {
 
     async function openSessionDetail(sessionId) {
       selectedSessionLogId = sessionId;
-      const payload = await api("/api/session-logs/" + encodeURIComponent(sessionId));
+      const payload = nsdhApexDatabaseLoggingEnabled && demoHelperApexAdminSessionToken
+        ? await apexDatabaseApi("/sessions/" + encodeURIComponent(sessionId))
+        : await api("/api/session-logs/" + encodeURIComponent(sessionId));
       renderSessionDetail(payload.session);
     }
 
     function renderSessionDetail(session = {}) {
       const outputs = session.generated_outputs || {};
+      const exportControl = nsdhApexDatabaseLoggingEnabled
+        ? "<button class='secondary' id='exportSessionJson' type='button'>Export JSON</button>"
+        : "<a class='secondary button-link' href='" + escapeClientHtml(cloudApiUrl("/api/session-logs/download/" + encodeURIComponent(session.session_id))) + "' download>Export JSON</a>";
       sessionDatabaseDetail.innerHTML =
         "<div class='section-head'><div><h3 style='margin:0'>" + escapeClientHtml(session.company_name || "Unknown company") + "</h3>" +
         "<p class='hint'>" + escapeClientHtml(session.website || "No website saved") + " | Last updated: " + escapeClientHtml(formatDisplayDateTime(session.updated_at)) + "</p></div>" +
-        "<div class='row'><a class='secondary button-link' href='" + escapeClientHtml(cloudApiUrl("/api/session-logs/download/" + encodeURIComponent(session.session_id))) + "' download>Export JSON</a>" +
+        "<div class='row'>" + exportControl +
         "<button class='danger' id='deleteSessionLog'>Delete Session</button></div></div>" +
         "<div class='session-detail-grid'>" +
           sessionDetailCard("Selected options", [
@@ -13544,10 +13900,25 @@ function html(response) {
       const deleteButton = document.getElementById("deleteSessionLog");
       if (deleteButton) {
         deleteButton.onclick = async () => {
-          if (!window.confirm("Delete this saved session from the local demo prep database?")) return;
-          await api("/api/session-logs/" + encodeURIComponent(session.session_id), { method: "DELETE", body: "{}" });
+          if (!window.confirm("Delete this saved session from the demo prep database?")) return;
+          if (nsdhApexDatabaseLoggingEnabled && demoHelperApexAdminSessionToken) {
+            await apexDatabaseApi("/sessions/" + encodeURIComponent(session.session_id), { method: "DELETE", body: "{}" });
+          } else {
+            await api("/api/session-logs/" + encodeURIComponent(session.session_id), { method: "DELETE", body: "{}" });
+          }
           selectedSessionLogId = "";
           await loadSessionDatabase();
+        };
+      }
+      const exportButton = document.getElementById("exportSessionJson");
+      if (exportButton) {
+        exportButton.onclick = () => {
+          const blob = new Blob([JSON.stringify(session, null, 2)], { type: "application/json" });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = (session.session_id || "nsdh-session") + ".json";
+          link.click();
+          URL.revokeObjectURL(link.href);
         };
       }
     }
@@ -13799,6 +14170,23 @@ function html(response) {
 
     async function refreshPlatformStatus() {
       try {
+        if (nsdhCloudRuntime) {
+          renderPlatformStatus({
+            activeProvider: {
+              name: "Codex",
+              defaultModel: "Local Codex"
+            },
+            runtime: {
+              available: nsdhCloudConnection.status === "Connected",
+              runtimeStatus: cloudConnectionDisplayStatus(),
+              connectionStatus: cloudConnectionDisplayStatus(),
+              message: nsdhCloudConnection.detail
+            },
+            activeKnowledgeSourceCount: cloudConnectionSourcesLabel() === "None active" ? 0 : 1,
+            activeKnowledgeSources: cloudConnectionSourcesLabel() === "None active" ? [] : [{ name: cloudConnectionSourcesLabel() }]
+          });
+          return;
+        }
         await ensureCloudApiEndpoint("/api/platform/status");
       const payload = await api("/api/platform/status");
       renderPlatformStatus(payload);
@@ -14594,6 +14982,33 @@ function html(response) {
       renderCodexInfoBody();
     }
 
+    function runBackgroundCloudConnectionCheck() {
+      if (!nsdhCloudRuntime) return;
+      detectLocalCodexEndpoint({ force: true })
+        .then((connection) => {
+          renderCodexStatus({
+            available: connection.status === "Connected",
+            message: connection.detail,
+            cloudConnection: connection
+          });
+          refreshPlatformStatus();
+        })
+        .catch((error) => {
+          nsdhCloudConnection = {
+            status: nsdhLocalHelperRuntime ? "Helper not running" : nsdhSharedLocalPilot ? "Pilot tunnel unavailable" : "Not detected",
+            base: cloudApiBase(),
+            detail: error.message || String(error),
+            testedAt: new Date().toISOString()
+          };
+          renderCodexStatus({
+            available: false,
+            message: nsdhCloudConnection.detail,
+            cloudConnection: nsdhCloudConnection
+          });
+          refreshPlatformStatus();
+        });
+    }
+
     function cloudConnectionStatusText() {
       if (!nsdhCloudRuntime) return "Local MVP mode: same-origin API";
       return [
@@ -14902,7 +15317,7 @@ function html(response) {
       return "<div class='codex-info-card'><strong>One-time helper setup</strong>" +
         "<div class='codex-info-grid'>" +
           codexInfoCard("macOS", "helper-mac.command", "Runs without admin rights, copies itself into ~/Library/Application Support/NSDemoHelper, and registers a user LaunchAgent. If macOS cannot verify it, right-click the file and choose Open. The helper remains localhost-only.") +
-          codexInfoCard("Windows", "helper-windows.bat", "Runs without admin rights, copies itself into %LOCALAPPDATA%\\\\NSDemoHelper, and creates a Startup shortcut. If SmartScreen appears, only continue when the file was downloaded from this APEX app and your policy allows it.") +
+          codexInfoCard("Windows", "start-helper-windows.bat", "Runs without admin rights, copies itself into %LOCALAPPDATA%\\\\NSDemoHelper, and creates a Startup shortcut. If SmartScreen appears, only continue when the file was downloaded from this APEX app and your policy allows it.") +
           codexInfoCard("Stop / uninstall", "Included in instructions", "macOS supports --stop and --uninstall from the installed command file. Windows supports --stop and --uninstall from the installed batch file.") +
           codexInfoCard("Security", "Local device only", "The helper binds to 127.0.0.1, restricts CORS to Oracle APEX and localhost, and does not expose files, API keys, or a public network port.") +
         "</div>" +
@@ -15091,13 +15506,19 @@ function html(response) {
       }
 
       function applyNightMode(save = true) {
-        document.body.classList.toggle("night", nightModeToggle.checked);
-        if (save) localStorage.setItem("nsDemoHelperNightMode", nightModeToggle.checked ? "1" : "0");
+        const enabled = Boolean(nightModeToggle?.checked);
+        document.documentElement.classList.toggle("night", enabled);
+        document.body.classList.toggle("night", enabled);
+        document.documentElement.dataset.theme = enabled ? "night" : "light";
+        document.body.dataset.theme = enabled ? "night" : "light";
+        if (save) localStorage.setItem("nsDemoHelperNightMode", enabled ? "1" : "0");
       }
 
-      nightModeToggle.checked = localStorage.getItem("nsDemoHelperNightMode") === "1";
-      applyNightMode(false);
-      nightModeToggle.onchange = () => applyNightMode();
+      if (nightModeToggle) {
+        nightModeToggle.checked = localStorage.getItem("nsDemoHelperNightMode") === "1";
+        applyNightMode(false);
+        nightModeToggle.onchange = () => applyNightMode();
+      }
 
     function hideButtonHelp() {
       clearTimeout(helpTimer);
@@ -16850,7 +17271,18 @@ function html(response) {
       }
     }
 
-    async function loadIntelligence(action = "Demo Intelligence refresh") {
+    function userActionRequiredMessage(taskName) {
+      return taskName + " is ready. Click the action button when you want Codex to run.";
+    }
+
+    function shouldRunUserInitiatedGeneration(options = {}, taskName = "Generation") {
+      if (options.userInitiated) return true;
+      setStatus(userActionRequiredMessage(taskName));
+      return false;
+    }
+
+    async function loadIntelligence(action = "Demo Intelligence refresh", options = {}) {
+      if (!shouldRunUserInitiatedGeneration(options, "Demo Intelligence")) return null;
       startCodexProgress("Refreshing Intelligence", "Codex is reviewing the current Discovery & Prep fields, playbook, dry-run manifest, and saved Pre-Demo website context.", [
         "Send current Discovery & Prep fields to Codex",
         "Review risk, gaps, pacing, and stakeholders",
@@ -16877,7 +17309,8 @@ function html(response) {
       }
     }
 
-    async function loadPreDemoIntelligence(action = "Pre-demo scoring") {
+    async function loadPreDemoIntelligence(action = "Pre-demo scoring", options = {}) {
+      if (!shouldRunUserInitiatedGeneration(options, "Pre-demo scoring")) return null;
       setStatus("Running Codex pre-demo scoring against the current notes and discovery context...");
       startCodexProgress("Scoring Pre-Demo Notes", "Codex is reviewing the company context, Discovery & Prep inputs, notes, and Admin scoring guidance. The website scan is reused when the URL already matches.", [
         "Package pre-demo context and website signal",
@@ -16942,8 +17375,12 @@ function html(response) {
         attachLocalHelperControls();
       }
       if (button.dataset.tab === "admin") await loadCmsStatus();
-      if (button.dataset.tab === "intelligence" && prepDirtyForIntelligence) await loadIntelligence();
-      if (button.dataset.tab === "pre-demo-intelligence" && (prepDirtyForPreDemoIntelligence || !latestPreDemoIntelligence)) await loadPreDemoIntelligence();
+      if (button.dataset.tab === "intelligence" && prepDirtyForIntelligence) {
+        setStatus("Demo Intelligence is ready to refresh. Click Re-analyze Updated Playbook when you want Codex to run.");
+      }
+      if (button.dataset.tab === "pre-demo-intelligence" && (prepDirtyForPreDemoIntelligence || !latestPreDemoIntelligence)) {
+        setStatus("Ready to score pre-demo notes. Click Score Pre-Demo Notes when you want Codex to run.");
+      }
     }
 
     document.querySelectorAll(".tab").forEach((button) => {
@@ -17008,7 +17445,7 @@ function html(response) {
     document.getElementById("preDemoScoring").onclick = async () => {
       setBusy(true);
       try {
-        await loadPreDemoIntelligence("Pre-demo scoring");
+        await loadPreDemoIntelligence("Pre-demo scoring", { userInitiated: true });
         await activateTab("pre-demo-intelligence", { skipAutoLoad: true });
       } catch (error) {
         setStatus(error.message);
@@ -17026,7 +17463,7 @@ function html(response) {
       setActiveAiActionButton("refreshIntelligence");
       setBusy(true);
       try {
-        await loadIntelligence("Re-analyze Updated Playbook");
+        await loadIntelligence("Re-analyze Updated Playbook", { userInitiated: true });
         clearPendingAiAction("Insights rebuilt from the current saved playbook and manifest. Use this after applying a shortened, executive, or technical demo version.");
         setStatus("Re-analyzed updated playbook and manifest.");
       } catch (error) {
@@ -17038,7 +17475,7 @@ function html(response) {
     document.getElementById("refreshPreDemoScoring").onclick = async () => {
       setBusy(true);
       try {
-        await loadPreDemoIntelligence("Refresh Pre-Demo Scoring");
+        await loadPreDemoIntelligence("Refresh Pre-Demo Scoring", { userInitiated: true });
       } catch (error) {
         setStatus(error.message);
       } finally {
@@ -17064,19 +17501,27 @@ function html(response) {
       }
     };
     document.getElementById("cmsLoginButton").onclick = async () => {
+      const password = document.getElementById("cmsLoginPassword").value;
       try {
         await api("/api/cms/login", {
           method: "POST",
-          body: JSON.stringify({ password: document.getElementById("cmsLoginPassword").value })
+          body: JSON.stringify({ password })
         });
+        try {
+          await apexAdminLogin(password);
+        } catch (apexError) {
+          console.warn("APEX admin analytics unlock failed", apexError);
+        }
         document.getElementById("cmsLoginPassword").value = "";
         await loadCmsStatus();
       } catch (error) {
+        document.getElementById("cmsLoginPassword").value = "";
         cmsStatus.textContent = error.message;
       }
     };
     document.getElementById("cmsLogoutButton").onclick = async () => {
       try {
+        await apexAdminLogout();
         await api("/api/cms/logout", { method: "POST", body: "{}" });
         cmsBlocks = [];
         renderCmsAuth({ setupRequired: false, authenticated: false, security: {} });
@@ -17821,17 +18266,31 @@ function html(response) {
         syncVoiceProviderSettings();
         renderCodexConnectionScreen();
         attachLocalHelperControls();
-        await loadVoices();
+        await loadVoices().catch((error) => {
+          voiceProviderHint.textContent = "Narrator voices could not be checked yet. " + error.message;
+        });
         renderStakeholderPersonas();
-        await load("App load");
-      await loadGuide("App load");
-      const activeTab = sessionStorage.getItem("nsdhActiveTab");
-      if (activeTab && document.querySelector('.tab[data-tab="' + activeTab + '"]')) {
-        await activateTab(activeTab);
-      }
-      await pollNarrator();
-      setInterval(pollNarrator, 1500);
-      setInterval(updatePageLoadedAges, 60000);
+        if (nsdhCloudRuntime) {
+          markPagesLoaded(["prep"], "APEX static runtime");
+          renderCloudConnectionStatus();
+          refreshPlatformStatus();
+          runBackgroundCloudConnectionCheck();
+          setStatus("Ready to score pre-demo notes. Click Score Pre-Demo Notes when you want Codex to run.");
+          const activeTab = sessionStorage.getItem("nsdhActiveTab");
+          if (activeTab && document.querySelector('.tab[data-tab="' + activeTab + '"]')) {
+            await activateTab(activeTab, { skipAutoLoad: true });
+          }
+        } else {
+          await load("App load");
+          await loadGuide("App load");
+          const activeTab = sessionStorage.getItem("nsdhActiveTab");
+          if (activeTab && document.querySelector('.tab[data-tab="' + activeTab + '"]')) {
+            await activateTab(activeTab);
+          }
+          await pollNarrator();
+          setInterval(pollNarrator, 1500);
+        }
+        setInterval(updatePageLoadedAges, 60000);
     })().catch((error) => setStatus(error.message));
   </script>
 </body>

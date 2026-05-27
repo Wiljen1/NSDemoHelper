@@ -52,6 +52,44 @@ Default injected runtime config:
 - Optional Local Helper mode.
 - Optional Shared Local Pilot mode with guardrails.
 - Admin/session analytics work preserved in the MVP source.
+- APEX database session logging for MVP usage and generated outputs.
+
+## APEX Database Logging
+
+The MVP now has a cloud database logging layer for usage review in Admin.
+
+Schema/install script:
+
+```text
+apex/schema/nsdh_apex_logging.sql
+```
+
+ORDS base URL:
+
+```text
+https://apex.oraclecorp.com/pls/apex/emeawj/nsdh
+```
+
+Tables:
+
+- `NSDH_SESSIONS`
+- `NSDH_SESSION_INPUTS`
+- `NSDH_SCORE_RESULTS`
+- `NSDH_GENERATED_OUTPUTS`
+- `NSDH_EVENT_LOG`
+- `NSDH_ADMIN_SETTINGS`
+- `NSDH_ADMIN_TOKENS`
+
+Logged actions include Pre-demo scoring, Learn / Create Demo, Demo Intelligence analysis, follow-up question generation, playbook improvement actions, dry-run/manifest actions, Run actions, and dataset analysis. Payloads are sanitized in the browser and again in the database package so keys that look like passwords, API keys, secrets, tokens, credentials, authorization headers, or cookies are rejected.
+
+Admin review endpoints require an Admin unlock token. Public write access is limited to sanitized session logging payloads.
+
+Validation performed:
+
+- `POST /sessions` creates a session record in APEX DB.
+- `GET /sessions` without admin unlock returns `401 ADMIN_AUTH_REQUIRED`.
+- Admin-authenticated list/detail endpoints were validated for saved session review.
+- Public static runtime config includes `apexDatabaseLogging.enabled = true`.
 
 ## What Was Not Done In This Cleanup
 
